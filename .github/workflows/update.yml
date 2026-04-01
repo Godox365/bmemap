@@ -1,0 +1,33 @@
+name: Térképek Frissítése
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Minden éjjel 3:00-kor lefut
+  workflow_dispatch: # Emiatt lesz egy manuális "Run" gombod a weben!
+
+permissions:
+  contents: write # Engedélyezzük, hogy a robot fájlokat módosítson a repóban
+
+jobs:
+  update-maps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kód letöltése
+        uses: actions/checkout@v4
+
+      - name: Node.js beállítása
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: OSM to GeoJSON telepítése
+        run: npm install osmtogeojson
+
+      - name: Térképek letöltése és konvertálása
+        run: node update-maps.js
+
+      - name: Új térképek mentése a GitHubra
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 [Auto] Térképek napi frissítése"
+          file_pattern: "data/*.json"
