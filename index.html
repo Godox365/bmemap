@@ -2880,17 +2880,23 @@
     }
 
     // Ez a függvény felel az OSM JSON -> Térkép konverzióért
+    // Ez a függvény felel az adat -> Térkép konverzióért
     function processOsmData(osmData, isUpdate = false) {
         // 1. ÁLLAPOT MENTÉSE (B-010 Fix)
-        // Elmentjük, hol járt a user, mielőtt kicseréljük alatta az adatokat
         const savedLevel = currentLevel;
 
-        // OKOS KONVERZIÓ: Ha már eleve FeatureCollection (a mi statikus fájlunk), akkor simán átvesszük.
-        // Ha nyers OSM adat (a fallback Overpass API-ból), akkor átkonvertáljuk.
-        if (data && data.type === 'FeatureCollection') {
-            geoJsonData = data;
-        } else {
-            geoJsonData = osmtogeojson(data);
+        console.log("🛠️ processOsmData indítása... Adat típusa:", osmData ? (osmData.type || "Nyers OSM API adat") : "UNDEFINED!");
+
+        // OKOS KONVERZIÓ:
+        // Ha az adat már GeoJSON (mert a GitHub Action legyártotta nekünk)
+        if (osmData && osmData.type === 'FeatureCollection') {
+            console.log("✅ Kész GeoJSON-t kaptunk (Statikus fájl), kihagyjuk a konvertálást.");
+            geoJsonData = osmData;
+        } 
+        // Ha nyers OSM adat (mert a fallback API-ról jött)
+        else {
+            console.log("⚙️ Nyers OSM adatot kaptunk (Fallback), osmtogeojson konvertálás indul...");
+            geoJsonData = osmtogeojson(osmData);
         }
         
         // Z-Index rendezés (Padló alulra, szoba felülre)
@@ -2900,20 +2906,16 @@
             });
         }
 
-        processLevels(); // Ez újragenerálja az availableLevels tömböt
+        processLevels(); 
         collectDoors(); 
         buildRoutingGraph(); 
         
         // 2. ÁLLAPOT VISSZATÖLTÉSE (B-010 Fix)
-        // Megnézzük, hogy a mentett szint létezik-e az új adatokban.
-        // Ha igen, akkor AZT használjuk, nem hagyjuk, hogy a default (0) felülírja.
         if (availableLevels.includes(savedLevel)) {
             currentLevel = savedLevel;
         } else {
-            // Ha a szint megszűnt (ritka), vagy ez az első futás (null), 
-            // akkor maradunk a defaultnál (pl. '0' vagy az első)
             if (!availableLevels.includes(currentLevel)) {
-                currentLevel = availableLevels.includes('0') ? '0' : availableLevels[0];
+                currentLevel = availableLevels.includes('0') ? '0' : (availableLevels[0] || "0");
             }
         }
 
