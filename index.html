@@ -2067,10 +2067,10 @@
 
     const PRECISION = 6; 
     const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter",           // A hivatalos, legstabilabb (néha rate-limitel)
-    "https://overpass.kumi.systems/api/interpreter",     // Stabil svájci/német szerver
-    "https://overpass.private.coffee/api/interpreter",   // Nem túl jó szerver de elvileg kéne működnie
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter" // A haldokló szerver a legvégére fallbacknek. Ez lenne a leggyorsabb ha nem lenne lehalva.
+        "https://overpass-api.de/api/interpreter",           // A hivatalos, legstabilabb (néha rate-limitel)
+        "https://overpass.kumi.systems/api/interpreter",     // Stabil svájci/német szerver
+        "https://overpass.private.coffee/api/interpreter",   // Nem túl jó szerver de elvileg kéne működnie
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter" // A haldokló szerver a legvégére fallbacknek
     ];
 
     // Zoom control nélkül, testreszabott attribution-nel és SMOOTH ZOOM beállításokkal
@@ -2885,7 +2885,13 @@
         // Elmentjük, hol járt a user, mielőtt kicseréljük alatta az adatokat
         const savedLevel = currentLevel;
 
-        geoJsonData = osmtogeojson(osmData);
+        // OKOS KONVERZIÓ: Ha már eleve FeatureCollection (a mi statikus fájlunk), akkor simán átvesszük.
+        // Ha nyers OSM adat (a fallback Overpass API-ból), akkor átkonvertáljuk.
+        if (data && data.type === 'FeatureCollection') {
+            geoJsonData = data;
+        } else {
+            geoJsonData = osmtogeojson(data);
+        }
         
         // Z-Index rendezés (Padló alulra, szoba felülre)
         if (geoJsonData && geoJsonData.features) {
@@ -2924,7 +2930,7 @@
 
     async function loadOsmData() {
         const loader = document.getElementById('loader');
-        const buildingKey = currentBuildingKey; // mentsük el, hátha közben vált a user
+        const buildingKey = currentBuildingKey;
         
         // 1. CACHE KEZELÉS (Azonnali megjelenítés)
         const cachedData = loadFromCache(buildingKey);
@@ -2933,16 +2939,13 @@
         if (cachedData) {
             try {
                 console.log("Rendering from cache...");
-                processOsmData(cachedData, false); // false = ez nem update, hanem init
-                loader.style.display = 'none'; // Azonnal elrejtjük a loadert
+                processOsmData(cachedData, false);
+                loader.style.display = 'none';
                 loadedFromCache = true;
                 
-                // Deep Link feldolgozása (Ha cache-ből töltöttünk, már most megtehetjük!)
                 if (pendingSearchTerm) {
-                    // Ha van függő keresés, futtassuk le
-                    // (De várjunk picit, hogy a UI felépüljön)
                     setTimeout(() => {
-                         if(pendingSearchTerm) { // Újra ellenőrzés
+                         if(pendingSearchTerm) {
                              document.getElementById('search-input').value = pendingSearchTerm;
                              handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
                              pendingSearchTerm = null;
@@ -2950,19 +2953,52 @@
                     }, 100);
                 }
                 processUrlParams();
-
             } catch (e) {
                 console.error("Cache render failed:", e);
-                // Ha a cache hibás, töröljük és folytatjuk a hálózattal
                 localStorage.removeItem(CACHE_PREFIX + buildingKey);
             }
         } else {
-            // Ha nincs cache, muszáj megjeleníteni a loadert
             loader.style.display = 'block';
-            document.getElementById('loader-status').innerText = "Connecting...";
+            document.getElementById('loader-status').innerText = "Betöltés...";
         }
 
-        // 2. HÁLÓZATI LEKÉRDEZÉS (Mindig lefut a háttérben!)
+        // 2. ELSŐDLEGES ADATFORRÁS: A GitHub Action által generált statikus fájl
+        try {
+            if (!loadedFromCache) document.getElementById('loader-status').innerText = "Térkép lekérése a szerverről...";
+            
+            // Fájl lekérése a data mappából
+            const res = await fetch(`./data/${buildingKey.toLowerCase()}_epulet.json`);
+            if (!res.ok) throw new Error("Statikus fájl nem található (HTTP " + res.status + ")");
+            
+            const newData = await res.json();
+            const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(newData);
+
+            if (isDataNew) {
+                console.log("Új statikus adat érkezett, frissítés...");
+                processOsmData(newData, loadedFromCache);
+                saveToCache(buildingKey, newData);
+            } else {
+                console.log("A statikus adat up-to-date.");
+            }
+
+            if (!loadedFromCache) {
+                loader.style.display = 'none';
+                if (pendingSearchTerm) {
+                    document.getElementById('search-input').value = pendingSearchTerm;
+                    handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
+                    pendingSearchTerm = null;
+                }
+                processUrlParams();
+            }
+            
+            return; // Ha idáig eljutottunk, minden szuper, kilépünk a függvényből!
+
+        } catch (localError) {
+            console.warn("⚠️ Hiba a statikus fájl betöltésekor, indul a FALLBACK az Overpass API-ra!", localError);
+            if (!loadedFromCache) document.getElementById('loader-status').innerText = "Fallback API csatlakozás...";
+        }
+
+        // 3. FALLBACK: Ha a statikus fájl nincs meg, kérdezzük le élőben az Overpass-tól
         const radius = 250;
         const center = currentBuilding.center;
         const query = `
@@ -2989,40 +3025,17 @@
         `;
 
         try {
-            // Ha már betöltöttünk cache-ből, a státuszt ne írjuk át, ne zavarjuk a usert
-            if (!loadedFromCache) document.getElementById('loader-status').innerText = "Downloading...";
-            
             const osmData = await fetchOverpass(query);
-
-            // 3. FRISSÍTÉS LOGIKA
-            // Megnézzük, változott-e az adat a cache-hez képest
             const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(osmData);
 
             if (isDataNew) {
-                console.log("New data received, updating...");
-                
-                // Ha már volt cache, és most jött új adat, akkor ez egy UPDATE.
-                // Ha nem volt cache, akkor ez az első render.
-                const isUpdate = loadedFromCache;
-                
-                processOsmData(osmData, isUpdate);
+                console.log("Új élő adat érkezett (Fallback), frissítés...");
+                processOsmData(osmData, loadedFromCache);
                 saveToCache(buildingKey, osmData);
-                /*
-                if (isUpdate) {
-                    showToast("Térkép adatok frissítve a háttérben. 🔄");
-                }
-                */
-               //Kiszedtem a toastot mert zavaró volt.
-
-            } else {
-                console.log("Data is up to date.");
             }
-            
-            // Ha nem volt cache, most tüntetjük el a loadert
+
             if (!loadedFromCache) {
                 loader.style.display = 'none';
-                
-                // Deep linkek kezelése (csak ha nem volt cache, különben már lefutott)
                 if (pendingSearchTerm) {
                     document.getElementById('search-input').value = pendingSearchTerm;
                     handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
@@ -3032,14 +3045,12 @@
             }
 
         } catch (e) {
-            console.error("Network error:", e);
+            console.error("Végzetes hiba, a fallback szerverek is elszálltak:", e);
             if (!loadedFromCache) {
                 document.getElementById('loader-status').innerText = "FAILED.";
-                alert("Hiba a letöltéskor: " + e.message + "\n(Ellenőrizd az internetkapcsolatot!)");
+                alert("Hiba a letöltéskor: Minden szerver elérhetetlen.\n(Ellenőrizd az internetkapcsolatot!)");
             } else {
-                // Ha volt cache, de a frissítés elhasalt, nem nagy baj,
-                // csak szólunk a konzolon (vagy toast), hogy offline módban vagyunk.
-                showToast("Offline mód: Nem sikerült frissíteni.");
+                showToast("Offline mód: Nem sikerült frissíteni a szerverről.");
             }
         }
     }
