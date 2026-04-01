@@ -18,7 +18,7 @@ jobs:
       - name: Node.js beállítása
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: OSM to GeoJSON telepítése
         run: npm install osmtogeojson

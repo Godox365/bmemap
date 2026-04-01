@@ -27,16 +27,16 @@ async function fetchWithFallback(query) {
         console.log(`\n📡 Próbálkozás a(z) ${server} szerverrel...`);
 
         try {
-            // Node 18+ már tudja a natív fetch-et
             const response = await fetch(server, {
                 method: "POST",
-                body: query,
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                signal: AbortSignal.timeout(25000) // 25 mp után feladjuk, ha nem válaszol
+                body: query, // Nincs header, csak nyersen beküldjük a query-t, ahogy a HTML-ben is volt
+                signal: AbortSignal.timeout(25000)
             });
 
             if (!response.ok) {
-                console.log(`❌ Hiba a szerveren (HTTP ${response.status}). Ugrás a következőre...`);
+                // Ha nem 200 OK a válasz, kiíratjuk a pontos okot!
+                const errorText = await response.text();
+                console.log(`❌ Hiba a szerveren (HTTP ${response.status}): ${errorText.substring(0, 100)}... Ugrás a következőre...`);
                 continue;
             }
 
