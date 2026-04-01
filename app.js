@@ -1,44 +1,85 @@
- // Biztonsági háló: Ha a fájl nincs ott, legyen egy üres objektum
+/**
+     * Biztonsági ellenőrzés a külső adatbázis betöltésére.
+     * Amennyiben a 'room_data.js' fájl nem töltődött be, vagy a ROOM_DATABASE
+     * változó nem definiált, létrehoz egy üres objektumot a futásidejű hibák elkerülése végett.
+     */
     if (typeof ROOM_DATABASE === 'undefined') {
         console.warn("room_data.js nem található vagy nem töltődött be!");
         window.ROOM_DATABASE = {};
     }
 
-    // === SEGÉDFÜGGVÉNY: EMELET BETŰJELEK (Dynamic & Hardcoded) ===
+    /**
+     * Meghatározza egy adott épület és szint alapján a lehetséges szintazonosító karaktereket.
+     * Kombinálja a nyers szintszámot, a dinamikusan betöltött aliasokat (pl. OSM-ből származó adatok),
+     * valamint az épület-specifikus, fixen kódolt (hardcoded) kivételszabályokat.
+     * * @param {string} buildingKey - Az épület azonosítója (pl. 'K', 'Q', 'I').
+     * @param {number|string} rawLevel - A szint nyers, eredeti értéke (pl. 0, -1, 1).
+     * @returns {string[]} A szinthez tartozó lehetséges azonosítók tömbje (pl. ['-1', 'f', '0']).
+     */
     function getLevelChars(buildingKey, rawLevel) {
+        // Változók normalizálása a konzisztens összehasonlítás érdekében
         const b = buildingKey.toUpperCase();
         const l = rawLevel.toString();
+        
+        // Set adatszerkezet használata az azonosítók egyediségének biztosítására
         let chars = new Set();
 
-        // 1. Nyers szám (pl "1")
+        // 1. Alapértelmezett bejegyzés: a nyers szintszám (pl. "1")
         chars.add(l);
 
-        // 2. Dinamikus Alias (level:ref az OSM-ből)
-        // Ha ehhez a szinthez találtunk aliast (pl "MF"), adjuk hozzá
+        // 2. Dinamikus aliasok feldolgozása (OSM 'level:ref' tag alapján)
+        // Ha a globális 'levelAliases' objektumban létezik bejegyzés az adott szinthez, azt is hozzáadjuk
         if (levelAliases[l]) {
-            chars.add(normalizeRoomId(levelAliases[l])); // pl "mf"
+            chars.add(normalizeRoomId(levelAliases[l])); // normalizált érték (pl. "mf")
         }
 
-        // 3. Hardcoded szabályok (Fallback / Legacy support)
+        // 3. Fixen kódolt szabályok és visszamenőleges (legacy) kompatibilitás
         if (b === 'K') {
-            if (l === '-1') { chars.add('f'); chars.add('0'); }
-            if (l === '0') { chars.add('1'); }
+            // A 'K' épület egyedi szintkiosztása
+            if (l === '-1') { 
+                chars.add('f'); 
+                chars.add('0'); 
+            }
+            if (l === '0') { 
+                chars.add('1'); 
+            }
         } else if (b === 'Q') {
-            if (l === '-1') chars.add('p');
-            // A többit most már az OSM level:ref intézi, de meghagyhatjuk a biztonság kedvéért
-            if (l === '0') chars.add('f'); 
+            // A 'Q' épület egyedi szintkiosztása
+            if (l === '-1') {
+                chars.add('p');
+            }
+            // Biztonsági fallback, bár elsődlegesen az OSM level:ref kezeli
+            if (l === '0') {
+                chars.add('f'); 
+            }
         } else {
-            if (l === '0') chars.add('f');
+            // Általános, alapértelmezett szabály a többi épület esetében
+            if (l === '0') {
+                chars.add('f');
+            }
         }
 
+        // A Set adatszerkezet konvertálása szabványos tömbbé
         return Array.from(chars);
     }
 
-    // === KERESŐ LOGIKA (SMART FILTER v3) ===
+    /**
+     * Kereső logika (Smart Filter v3).
+     * A megadott keresési kifejezés alapján szűri a betöltött térképadatokat (GeoJSON features).
+     * Intelligens egyezésvizsgálatot végez, amely magában foglalja a direkt egyezést, 
+     * a dinamikusan generált aliasokat (pl. épületkód + szint + szobaszám), 
+     * valamint a részleges összetételeket (fuzzy search).
+     * * @param {string} term - A felhasználó által bevitt keresési kifejezés.
+     * @returns {Object[]} A keresési feltételeknek megfelelő térképelemek (features) tömbje.
+     */
     function smartFilter(term) {
+        // A keresett kifejezés normalizálása (kisbetűsítés, speciális karakterek eltávolítása)
         const cleanTerm = normalizeRoomId(term); 
+        
+        // Ha a keresési kifejezés 2 karakternél rövidebb, nem végzünk keresést a teljesítmény érdekében
         if (cleanTerm.length < 2) return [];
 
+        // Az aktuális épület azonosítójának kisbetűsített formája (pl. 'k', 'q')
         const bKey = currentBuildingKey.toLowerCase();
 
         return geoJsonData.features.filter(f => {
@@ -47,46 +88,63 @@
             const ref = normalizeRoomId(p.ref);
             const rawLvl = getLevelsFromFeature(f)[0] || "0";
             
-            // 1. Direkt egyezés
+            // 1. Direkt egyezés vizsgálata
+            // Ha a normalizált név vagy a referenciaszám közvetlenül tartalmazza a keresett kifejezést
             if (name.includes(cleanTerm) || (ref && ref.includes(cleanTerm))) return true;
 
+            // A célpont alapvető azonosítója (referencia vagy név prioritás szerint)
             const targetCore = ref || name;
             if (!targetCore) return false;
 
+            // A szinthez tartozó azonosító karakterek lekérése
             const lvlChars = getLevelChars(currentBuildingKey, rawLvl);
             
-            // 2. Alias generálás
+            // 2. Aliasok (kombinációk) generálása és vizsgálata
             const aliases = new Set();
             lvlChars.forEach(lvl => {
-                aliases.add(lvl + targetCore);          // p107
-                aliases.add(bKey + lvl + targetCore);   // qp107
-                // Sima épület + mag (ez hiányozhatott az I-nél)
-                aliases.add(bKey + targetCore);         // ib028
+                // Szint + alap azonosító (pl. 'p107')
+                aliases.add(lvl + targetCore);          
+                // Épület azonosító + Szint + alap azonosító (pl. 'qp107')
+                aliases.add(bKey + lvl + targetCore);   
+                // Épület azonosító + alap azonosító (pl. 'ib028' - I épület specifikus esetekre)
+                aliases.add(bKey + targetCore);         
             });
 
             for (const alias of aliases) {
+                // Pontos egyezés a generált aliassal
                 if (alias === cleanTerm) return true;
-                // Reverse Fuzzy: Ha a keresésben benne van az alias (pl. keresés: "keresem a ib028-at")
+                
+                // Fordított részleges egyezés (Reverse Fuzzy): 
+                // Ha a felhasználó által beírt szöveg tartalmazza a generált aliast (pl. "keresem a ib028-at")
                 if (cleanTerm.includes(alias)) return true;
             }
 
-            // 3. Brute Force összetétel (A VÉGSŐ MENEKÜLÉS)
-            // Ha a keresés kezdődik az épület betűjével, és utána jön a terem neve
+            // 3. Brute Force összetétel vizsgálata (Végső fallback)
+            // Ha a keresett kifejezés az épület betűjével kezdődik, és tartalmazza a célpont magját
             if (cleanTerm.startsWith(bKey) && cleanTerm.includes(targetCore)) {
                 return true; 
             }
 
-            // Szint alapú keresés (marad a régi)
+            // 4. Szint alapú, nem numerikus karaktereket tartalmazó keresés (Régi logika megtartása)
+            // Ellenőrzi, hogy a keresési kifejezés tartalmazza-e a szint betűjelét és a szoba azonosítóját
             for (const lvlChar of lvlChars) {
                 if (isNaN(parseInt(lvlChar))) { 
                     if (cleanTerm.includes(lvlChar) && cleanTerm.includes(targetCore)) return true; 
                 }
             }
 
+            // Ha semmilyen egyezés nem található, az elem kiszűrésre kerül
             return false;
         });
     }
 
+    /**
+     * Segédfüggvény a szobaazonosítók és keresési kifejezések normalizálására.
+     * Eltávolítja a szóközöket, a pontokat és a kötőjeleket, majd a szöveget kisbetűssé alakítja.
+     * Ez biztosítja a robusztus és formázástól független keresést.
+     * * @param {string} str - A formázandó, eredeti szöveg.
+     * @returns {string} A normalizált, megtisztított szöveg.
+     */
     function normalizeRoomId(str) {
         if(!str) return "";
         return str.replace(/[\s.\-]/g, '').toLowerCase();
@@ -444,39 +502,76 @@
     const CACHE_PREFIX = "bmemap_data_";
     const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 1 hétig érvényes
 
+    /**
+     * Be- vagy kikapcsolja az alkalmazás gyorsítótárazási (cache) funkcióját.
+     * Frissíti a futásidejű beállításokat és elmenti a preferenciát a helyi tárolóba (localStorage),
+     * majd vizuális visszajelzést ad a felhasználónak a művelet eredményéről.
+     * * @param {boolean} isEnabled - A gyorsítótárazás kívánt állapota (true = bekapcsolva, false = kikapcsolva).
+     */
     function toggleCacheMode(isEnabled) {
+        // Állapot frissítése a memóriában és a perzisztens tárolóban
         APP_SETTINGS.cacheEnabled = isEnabled;
         localStorage.setItem('pref_cache_enabled', isEnabled);
         
         if (!isEnabled) {
-            // Ha kikapcsolja, opcionálisan törölhetnénk is, de inkább csak nem mentünk újat.
-            // De a user elvárása lehet, hogy "ne foglalj helyet".
-            // Maradjunk annyiban: csak a mentést tiltjuk, a törlésre ott a gomb.
+            // Kikapcsolt állapot: A meglévő adatokat nem töröljük automatikusan a felhasználó 
+            // esetleges adatvesztésének elkerülése végett, csupán a jövőbeni mentéseket tiltjuk le.
+            // A manuális törlésre külön gomb szolgál a felületen.
             showToast("Cache kikapcsolva. Nem mentünk új adatot.");
         } else {
+            // Bekapcsolt állapot: Visszajelzés a sikeres aktiválásról
             showToast("Cache bekapcsolva. 💾");
         }
     }
 
+    /**
+     * Kiszámítja és visszaadja a helyi tárolóban (localStorage) felhalmozott,
+     * az alkalmazáshoz tartozó gyorsítótár (cache) becsült méretét.
+     * * @returns {number} A cachelemek összesített mérete bájtokban.
+     */
     function getCacheSize() {
         let totalBytes = 0;
+        
+        // Végigiterálunk a localStorage összes kulcsán
         for (let key in localStorage) {
+            // Csak azokat a kulcsokat vizsgáljuk, amelyek a mi cache előtagunkkal kezdődnek
             if (key.startsWith(CACHE_PREFIX)) {
                 const item = localStorage.getItem(key);
-                if (item) totalBytes += item.length * 2; // UTF-16 char ~ 2 bytes
+                if (item) {
+                    // A JavaScript UTF-16 kódolást használ, így karakterenként hozzávetőlegesen 2 bájttal számolunk
+                    totalBytes += item.length * 2; 
+                }
             }
         }
         return totalBytes;
     }
 
+    /**
+     * Egy nyers, bájtokban megadott számértéket alakít át ember számára
+     * könnyen olvasható, megfelelő mértékegységgel ellátott formátumra (B, KB, MB).
+     * * @param {number} bytes - A formázandó adatmennyiség bájtokban.
+     * @returns {string} A kerekített és mértékegységgel ellátott méret (pl. "1.25 MB").
+     */
     function formatBytes(bytes) {
+        // Alapeset kezelése: ha a méret 0, azonnal visszatérünk
         if (bytes === 0) return '0 B';
+        
+        // A váltószám (1024) és az elérhető mértékegységek definiálása
         const k = 1024;
         const sizes = ['B', 'KB', 'MB'];
+        
+        // A megfelelő mértékegység indexének kiszámítása logaritmus segítségével
         const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
+        // Az érték elosztása a megfelelő hatvánnyal, majd formázás legfeljebb 2 tizedesjegyre
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    /**
+     * Frissíti a gyorsítótár (cache) méretét megjelenítő felhasználói felületi (UI) elemet.
+     * Lekéri a jelenlegi méretet, formázza azt ember számára olvasható formátumba,
+     * majd beállítja a megfelelő HTML elem belső szövegét.
+     */
     function updateCacheSizeDisplay() {
         const el = document.getElementById('cache-size-display');
         if (el) {
@@ -485,6 +580,11 @@
         }
     }
 
+    /**
+     * Törli az összes alkalmazáshoz tartozó gyorsítótár (cache) bejegyzést a helyi tárolóból (localStorage).
+     * A művelet végrehajtása előtt megerősítést kér a felhasználótól.
+     * Sikeres törlés esetén frissíti a méretet megjelenítő UI elemet és értesítést (toast) jelenít meg.
+     */
     function clearAllCache() {
         if(!confirm("Biztosan törlöd a mentett térképeket?")) return;
         
@@ -500,6 +600,15 @@
         showToast("Sikeres nagytakarítás! 🧹");
     }
 
+    /**
+     * Elmenti az adott épülethez tartozó térképadatokat a helyi gyorsítótárba (localStorage),
+     * ellátva azt egy időbélyeggel (timestamp) az érvényességi idő későbbi ellenőrzéséhez.
+     * Ha a globális beállításokban a gyorsítótárazás le van tiltva, a függvény nem végez mentést.
+     * Tárhelyhiány (QuotaExceededError) vagy egyéb mentési hiba esetén megkísérli 
+     * a régi bejegyzések törlését, majd újra megpróbálja a mentést.
+     * * @param {string} buildingKey - Az épület azonosítója (pl. 'K', 'Q'), amely a gyorsítótár kulcsának részét képezi.
+     * @param {Object} data - A menteni kívánt adat (jellemzően az épület GeoJSON objektuma).
+     */
     function saveToCache(buildingKey, data) {
         // HA KI VAN KAPCSOLVA, AKKOR NE MENTSÜNK SEMMIT!
         if (!APP_SETTINGS.cacheEnabled) return;
@@ -523,84 +632,139 @@
         }
     }
 
+    /**
+     * Betölti az adott épülethez tartozó térképadatokat a helyi gyorsítótárból (localStorage).
+     * Ellenőrzi, hogy a gyorsítótárazás globálisan engedélyezve van-e, illetve
+     * megvizsgálja a tárolt adatok érvényességi idejét (lejáratát).
+     * * @param {string} buildingKey - Az épület azonosítója (pl. 'K', 'Q'), amelyhez az adatokat keressük.
+     * @returns {Object|null} A gyorsítótárazott adat objektum (jellemzően GeoJSON), vagy null, 
+     * ha az adat nem található, lejárt, vagy a funkció ki van kapcsolva.
+     */
     function loadFromCache(buildingKey) {
-        // Ha ki van kapcsolva, akkor úgy teszünk, mintha nem lenne adat -> Network load
+        // Gyorsítótár állapotának ellenőrzése: ha a felhasználó kikapcsolta, 
+        // a rendszer úgy viselkedik, mintha nem lennének mentett adatok (hálózati letöltést kényszerít).
         if (!APP_SETTINGS.cacheEnabled) {
             console.log("Cache disabled by user settings.");
             return null;
         }
 
+        // Nyers adat lekérése a helyi tárolóból a megadott kulcs alapján
         const raw = localStorage.getItem(CACHE_PREFIX + buildingKey);
         if (!raw) return null;
 
         try {
+            // Az adat deszerializálása (JSON parse)
             const item = JSON.parse(raw);
+            
+            // Érvényességi idő ellenőrzése (lejárt-e a beállított CACHE_EXPIRY_MS időtartam)
             if (Date.now() - item.timestamp > CACHE_EXPIRY_MS) {
                 console.log("Cache expired for", buildingKey);
+                // Lejárt adat automatikus törlése a tárolóból és a felület frissítése
                 localStorage.removeItem(CACHE_PREFIX + buildingKey);
                 updateCacheSizeDisplay();
                 return null;
             }
+            
             console.log(`Loaded ${buildingKey} from cache!`);
             return item.data;
         } catch (e) {
+            // Hibakezelés sérült JSON struktúra esetén
             return null;
         }
     }
 
+    /**
+     * Felszabadítja a helyi tároló (localStorage) kapacitását a legrégebbi 
+     * gyorsítótár-bejegyzések automatikus törlésével. Jellemzően tárhelyhiány 
+     * (QuotaExceededError) esetén hívódik meg. A meglévő elemek felét távolítja el, 
+     * az időbélyeg (timestamp) alapján a legrégebbiekkel kezdve.
+     */
     function cleanupCache() {
-        // Töröljük a legrégebbi elemeket, hogy helyet csináljunk
+        // Ideiglenes tömb a gyorsítótárazott elemek metaadatainak tárolására
         const items = [];
+        
+        // Iterálás a localStorage összes kulcsán
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
+            
+            // Csak azokat a kulcsokat dolgozzuk fel, amelyek az alkalmazáshoz tartoznak
             if (key.startsWith(CACHE_PREFIX)) {
                 try {
+                    // Az időbélyeg kinyerése a kulcshoz tartozó adatból
                     const item = JSON.parse(localStorage.getItem(key));
                     items.push({ key: key, ts: item.timestamp });
-                } catch(e) {}
+                } catch(e) {
+                    // Csendes hibakezelés sérült elemek esetén
+                }
             }
         }
-        // Időrendben sorba rendezzük (legrégebbi elöl)
+        
+        // Az elemek időrendi sorba rendezése növekvő sorrendben (legrégebbi elem az első)
         items.sort((a, b) => a.ts - b.ts);
         
-        // Töröljük a felét
+        // A legrégebbi bejegyzések törlése (az összes elem pontosan felét távolítja el)
         items.slice(0, Math.ceil(items.length / 2)).forEach(item => {
             localStorage.removeItem(item.key);
         });
     }
 
-    // === FAVORITES SYSTEM ===
+    /**
+     * A felhasználó kedvenc helyeinek listája.
+     * Betölti a mentett adatokat a helyi tárolóból (localStorage), vagy inicializál 
+     * egy üres tömböt, amennyiben nincsenek korábban mentett kedvencek.
+     * @type {Array<Object>}
+     */
     let userFavorites = JSON.parse(localStorage.getItem('bme_favorites')) || [];
 
+    /**
+     * Szinkronizálja az aktuális kedvencek listáját (userFavorites) a böngésző
+     * helyi tárolójával (localStorage) JSON formátumban.
+     */
     function saveFavorites() {
         localStorage.setItem('bme_favorites', JSON.stringify(userFavorites));
     }
 
+    /**
+     * Megvizsgálja, hogy a paraméterként átadott térképelem szerepel-e a felhasználó
+     * elmentett kedvencei között az egyedi azonosítója (id) alapján.
+     * * @param {Object} feature - A vizsgálandó GeoJSON térképelem.
+     * @returns {boolean} Igaz (true) értékkel tér vissza, ha a megadott elem a kedvencek között van, ellenkező esetben hamis (false).
+     */
     function isFavorite(feature) {
         if (!feature || !feature.id) return false;
         return userFavorites.some(fav => fav.id === feature.id);
     }
 
-    // KEDVENCEK
+    /**
+     * Hozzáadja a jelenleg kiválasztott térképelemet (selectedFeature) a 
+     * kedvencek listájához, vagy eltávolítja onnan, ha már szerepel benne.
+     * A művelet során kinyeri az elem szükséges metaadatait (név, típus, szint, épület),
+     * majd frissíti a helyi tárolót, a felhasználói felületet (UI), és újrarendereli az érintett szintet.
+     */
     function toggleFavoriteCurrent() {
+        // Biztonsági ellenőrzés: ha nincs aktívan kiválasztott elem, megszakítjuk a folyamatot.
         if (!selectedFeature) return;
         
         const id = selectedFeature.id; 
         const p = selectedFeature.properties;
+        
+        // Név meghatározása: elsődlegesen a 'name' vagy 'ref' tulajdonság alapján.
         let name = p.name || p.ref;
-        // Ha nincs neve, akkor a típusát használjuk (pl. "Férfi mosdó")
+        
+        // Ha nem rendelkezik saját névvel, a típusát (pl. "Mosdó") használjuk megnevezésként.
         if (!name) {
             name = (typeof getHungarianType === 'function') ? getHungarianType(p) : "Névtelen hely";
         }
+        
+        // A helyiség típusának és szintjének meghatározása a mentéshez.
         const type = p.room || p.indoor || p.amenity || 'Hely';
         const level = getLevelsFromFeature(selectedFeature)[0] || "0";
 
         if (isFavorite(selectedFeature)) {
-            // Törlés
+            // Eltávolítás a kedvencek listájából az azonosító (id) alapján.
             userFavorites = userFavorites.filter(fav => fav.id !== id);
-            // Nincs showToast hívás!
         } else {
-            // Hozzáadás
+            // Új bejegyzés hozzáadása a kedvencekhez az összegyűjtött adatokkal.
             userFavorites.push({ 
                 id: id, 
                 name: name, 
@@ -611,34 +775,53 @@
             showToast("Hozzáadva a kedvencekhez! ⭐");
         }
         
+        // Változások perzisztens mentése és a nézetek (UI, térkép) frissítése.
         saveFavorites();
         updateFavoriteUI(); 
         renderLevel(currentLevel); 
     }
 
+    /**
+     * Frissíti a kedvencek gomb (csillag ikon) vizuális állapotát a felhasználói felületen.
+     * Megvizsgálja, hogy a jelenleg kiválasztott térképelem szerepel-e a kedvencek között,
+     * és ennek megfelelően módosítja a gomb CSS osztályait.
+     */
     function updateFavoriteUI() {
         const btn = document.getElementById('btn-favorite');
+        
+        // Biztonsági ellenőrzés: ha nincs aktívan kiválasztott elem, megszakítjuk a folyamatot.
         if (!selectedFeature) return;
         
         if (isFavorite(selectedFeature)) {
+            // Aktív állapot beállítása: a gomb megkapja a kiemelést.
             btn.classList.add('active');
             btn.querySelector('span').innerText = 'star'; // Teli csillag (ha a font támogatja a fill-t)
         } else {
+            // Inaktív állapot beállítása: a kiemelés eltávolítása.
             btn.classList.remove('active');
             btn.querySelector('span').innerText = 'star'; // Üres csillag
         }
     }
 
+    /**
+     * Megjeleníti a mentett kedvencek listáját a keresőmező lenyíló találati listájában.
+     * Csak akkor aktiválódik, ha a keresőmező teljesen üres. Lehetőséget biztosít a 
+     * kedvencekre való kattintásra, amely automatikusan a megfelelő épületre és 
+     * térképelemre navigál.
+     */
     function showFavoritesInSearch() {
         const input = document.getElementById('search-input');
-        if (input.value.trim() !== "") return; // Ha már írt valamit, ne zavarjuk
+        
+        // Ha a felhasználó már elkezdett gépelni valamit, nem írjuk felül a keresési eredményeket.
+        if (input.value.trim() !== "") return; 
         
         const resultsDiv = document.getElementById('search-results');
-        resultsDiv.innerHTML = '';
+        resultsDiv.innerHTML = ''; // A találati lista előzetes ürítése
         
-        if (userFavorites.length === 0) return; // Nincs kedvenc, nincs lista
+        // Ha a felhasználónak nincsenek elmentett kedvencei, megszakítjuk a megjelenítést.
+        if (userFavorites.length === 0) return; 
 
-        // Fejléc
+        // Fejléc (szekció cím) létrehozása és formázása a kedvencek listájához.
         const header = document.createElement('div');
         header.className = 'result-item';
         header.style.color = '#aaa'; 
@@ -647,55 +830,69 @@
         header.innerText = "KEDVENCEK";
         resultsDiv.appendChild(header);
 
+        // Végigiterálunk a felhasználó kedvencein, és mindegyikhez létrehozunk egy listaelemet.
         userFavorites.forEach(fav => {
             const div = document.createElement('div');
             div.className = 'result-item';
             div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${fav.name} <span style="color:#888; font-size:12px">(${fav.building} épület, ${fav.level}. szint)</span>`;
             
+            // Kattintás eseménykezelője az adott kedvenc kiválasztásához.
             div.onclick = () => {
-                // Ha másik épületben van
+                // Épületváltás logikája: ha a kiválasztott kedvenc egy másik épületben található.
                 if (fav.building !== currentBuildingKey) {
                     changeBuilding(fav.building);
-                    // Kis hack: várni kell a betöltésre, majd megkeresni ID alapján
-                    // Ezt most egyszerűsítjük: átváltunk, és a usernek kell megkeresnie? 
-                    // NEM, profik vagyunk: ID alapú keresés a loadOsmData végén?
-                    // Ezt a Deep Link logika már tudja! Használjuk azt!
-                    // De most egyszerűsítsünk: Csak váltsunk épületet, ha kell.
+                    // Aszinkron betöltés miatti késleltetés: várni kell a GeoJSON adatok letöltésére,
+                    // mielőtt az azonosító (ID) alapján rákeresnénk a konkrét térképelemre.
+                    // (A jelenlegi implementációban ez még további fejlesztést igényel a Deep Link logika alapján).
                     setTimeout(() => {
                          // Itt kéne megkeresni az ID-t az új tömbben...
                          // Ez aszinkron pokol lehet, egyelőre maradjunk azonos épületnél vagy figyelmeztessünk.
                     }, 1000);
                 }
                 
-                // Ha azonos épület (vagy már betöltött)
+                // Keresés a már betöltött térképelemek között a kedvenc azonosítója (ID) alapján.
                 const target = geoJsonData.features.find(f => f.id === fav.id);
                 if (target) {
+                    // Sikeres találat esetén a kamerát az elemre fókuszáljuk és megnyitjuk az adatlapját.
                     zoomToFeature(target);
                     openSheet(target);
                     resultsDiv.style.display = 'none';
 
+                    // A keresőmező értékének frissítése a kiválasztott kedvenc nevével.
                     document.getElementById('search-input').value = fav.name;
 
-                    // --- B-003 FIX: Ikon frissítése ---
+                    // --- B-003 FIX: A keresőmező melletti gomb ikonjának frissítése ---
                     updateRightButtonState();
 
                 } else {
-                    // Ha azonos épület de nem találja (ritka)
+                    // Hibakezelés: ha az elem az azonos épületben sem található meg.
                     alert("Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
                 }
             };
             resultsDiv.appendChild(div);
         });
+        
+        // A teljes találati lista megjelenítése a felhasználó számára.
         resultsDiv.style.display = 'block';
     }
 
+/**
+     * Meghatározza és magyarra fordítja egy adott térképelem (feature) típusát
+     * az OpenStreetMap-hez hasonló tulajdonságcímkék (tagek) alapján.
+     * @param {Object} p - A térképelem tulajdonságait (properties) tartalmazó objektum.
+     * @returns {string} A helyiség vagy elem magyar nyelvű megnevezése (szótár alapján), vagy alapértelmezetten "Hely".
+     */
     function getHungarianType(p) {
-        // Megnézzük a releváns tageket
+        // A releváns tagek prioritásos vizsgálata a típus meghatározásához
         const key = p.room || p.indoor || p.amenity || p.highway || 'unknown';
         return TYPE_DICT[key] || (key !== 'unknown' ? key : 'Hely');
     }
 
-    // UI Szövegek
+    /**
+     * Felhasználói felületen (UI) megjelenő súgószövegek a különböző 
+     * útvonaltervezési és navigációs preferenciákhoz (pl. lift vagy lépcső használata).
+     * @constant {Object}
+     */
     const HINTS = {
         'stairs': "Csak akkor lift, ha nincs más út.",
         'balanced': "Rövid távon lépcső, emeletek között lift.",
@@ -703,39 +900,53 @@
         'wheelchair': "Kerekeszékkel járható útvonal."
     };
 
+    // --- GLOBÁLIS ÁLLAPOTVÁLTOZÓK ---
+
+    /** Az aktuálisan betöltött és vizsgált épület azonosítója (pl. "K"). */
     let currentBuildingKey = "K"; 
+    /** Az aktuális épület konfigurációs objektuma a BUILDINGS listából. */
     let currentBuilding = BUILDINGS[currentBuildingKey];
+    
+    /** Ideiglenesen tárolt indulási pont, amikor a felhasználó a "Hova mész innen?" funkciót használja. */
     let pendingNavSource = null;
+    /** Automatikus keresési kifejezés, amelyet épületváltás után azonnal végre kell hajtani. */
     let pendingSearchTerm = null;
 
+    /** Az aktív útvonaltervezés alapadatait tartalmazó objektum (kezdő és cél térképelemek). */
     let activeRouteData = null; // { start: feature/null, end: feature }
-    let currentRoutePath = []; // Itt tároljuk a nyers útvonal kulcsokat
+    /** A kiszámolt útvonalat alkotó pontok (gráf csomópontok) nyers kulcsainak tömbje. */
+    let currentRoutePath = []; 
 
-    // Itt tároljuk az aktív navigáció kezdő- és végpontját (feature objektumok)
+    /** Az aktuális navigáció tényleges, megerősített kiindulópontja (feature objektum). */
     let activeNavSource = null;
+    /** Az aktuális navigáció tényleges, megerősített célpontja (feature objektum). */
     let activeNavTarget = null;
 
-    // ÚJ: Erre kattintva odaugrik a térkép az induláshoz vagy érkezéshez
+    /**
+     * A térkép nézetét (kameráját) az aktív navigáció kezdő- vagy végpontjára fókuszálja.
+     * Automatikusan a megfelelő szintre vált, elmozdítja a kamerát az adott pontra,
+     * és a célpont esetében vizuális kiemelést (highlight) is alkalmaz.
+     * @param {string} type - A fókuszálás célpontjának típusa ('start' az induláshoz, 'end' az érkezéshez).
+     */
     function focusOnEndpoint(type) {
-        // Kiválasztjuk a megfelelőt
+        // A kívánt célpont kiválasztása a paraméter alapján
         const target = (type === 'start') ? activeNavSource : activeNavTarget;
         
         if (target) {
-            // 1. Szintváltás (Ha van szint infó)
+            // 1. Szintváltás (ha a kiválasztott elemhez tartozik szintinformáció)
             const levels = getLevelsFromFeature(target);
             if (levels.length > 0) {
                 switchLevel(levels[0]);
             }
             
-            // 2. Smart FlyTo (Oda viszi a kamerát)
+            // 2. Intelligens kameramozgatás: a térkép az elem koordinátáira navigál
             smartFlyTo(target);
 
-            // 3. JAVÍTÁS: Célpont kijelölése (Highlight)
-            // Csak akkor rajzolunk keretet, ha ez a CÉL állomás.
-            // A Start pontnál (főleg ha virtuális pont) nem biztos, hogy akarunk highlightot,
-            // vagy nincs is hozzá megfelelő geometria (pl. csak egy pont).
+            // 3. Vizuális kiemelés (Highlight) kezelése
+            // A kiemelést kizárólag a célpontnál alkalmazzuk, a kezdőpontnál 
+            // (amely gyakran csak egy virtuális koordináta) ez zavaró lehet.
             if (type === 'end') {
-                // Ez csak kirajzolja a sárga vonalat, NEM nyit sheetet, NEM lép ki.
+                // A kiemelés kirajzolása anélkül, hogy megnyitná a részletező panelt (sheet)
                 drawSelectedHighlight(target);
             }
         }
@@ -745,82 +956,117 @@
     const OVERPASS_SERVERS = [
         "https://overpass-api.de/api/interpreter",           // A hivatalos, legstabilabb (néha rate-limitel)
         "https://overpass.kumi.systems/api/interpreter",     // Stabil svájci/német szerver
-        "https://overpass.private.coffee/api/interpreter",   // Nem túl jó szerver de elvileg kéne működnie
-        "https://maps.mail.ru/osm/tools/overpass/api/interpreter" // A haldokló szerver a legvégére fallbacknek
+        "https://overpass.private.coffee/api/interpreter",   // Elvileg kéne működnie
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter" // A leggyorsabb szerver volt, de most (2026 04) le van halva, fallbacknek.
     ];
 
-    // Zoom control nélkül, testreszabott attribution-nel és SMOOTH ZOOM beállításokkal
+    /**
+     * A Leaflet térképpéldány inicializálása és konfigurálása.
+     * Alapértelmezett vezérlők (nagyítás, attribúció) kikapcsolása a testreszabhatóság érdekében.
+     * Finomított nagyítási (smooth zoom) beállítások alkalmazása a folyékonyabb felhasználói élményért.
+     * @type {L.Map}
+     */
     const map = L.map('map', { 
         zoomControl: false, 
         attributionControl: false,
-        // --- F-014: SMOOTH ZOOM BEÁLLÍTÁSOK ---
-        zoomSnap: 0,       // Engedi a tört zoom szinteket (pl. 18.5)
-        zoomDelta: 0.1,    // Finomabb lépések
-        wheelPxPerZoomLevel: 120 // Egér görgő finomítása (opcionális)
+        // Finomított nagyítás (Smooth Zoom) konfigurációja
+        zoomSnap: 0,       // Lehetővé teszi a tört értékű nagyítási szinteket (pl. 18.5)
+        zoomDelta: 0.1,    // A nagyítási lépésköz finomítása
+        wheelPxPerZoomLevel: 120 // Az egérgörgő érzékenységének beállítása
     }).setView(currentBuilding.center, currentBuilding.zoom);
 
-    // --- ÚJ: NAGY TELJESÍTMÉNYŰ RENDERER (B-007 Fix) ---
-    // A padding: 2 azt jelenti, hogy a látható területen kívül még 
-    // +2 képernyőnyi területet előre kirajzol SVG-ben.
+    /**
+     * Nagy teljesítményű SVG renderelő példányosítása.
+     * A 'padding' paraméter értéke (2.0) biztosítja, hogy a látható nézeten kívül 
+     * további két képernyőnyi terület előre kirajzolásra kerüljön, csökkentve a 
+     * görgetés (panning) közbeni villogást vagy akadást.
+     * @type {L.SVG}
+     */
     const smoothRenderer = L.svg({ padding: 2.0 });
 
-    // Saját, rövidebb copyright a jobb alsó sarokba
+    /**
+     * Egyedi, rövidített szerzői jogi (attribution) vezérlő hozzáadása a térképhez.
+     * Alapértelmezetten a jobb alsó sarokban jelenik meg az OpenStreetMap hivatkozással.
+     */
     L.control.attribution({
     }).addAttribution('&copy; OSM contributors').addTo(map);
 
-    // A map létrehozása után add hozzá ezt az eseményfigyelőt:
+    /**
+     * Eseményfigyelő regisztrálása a térkép nagyítási műveletének befejezésére ('zoomend').
+     * Minden egyes zoomolás után frissíti a térképen lévő dinamikus elemek 
+     * láthatóságát a megfelelő részletességi szint (LOD) fenntartása érdekében.
+     */
     map.on('zoomend', function() {
-        updateLabelsVisibility();       // Címkék (korábbi funkció)
-        updateDynamicVisibility();      // ÚJ: Ikonok/Ajtók
+        // Címkék (szobafeliratok) láthatóságának frissítése a jelenlegi nagyítási szint alapján
+        updateLabelsVisibility();       
+        
+        // Dinamikus elemek (ikonok, ajtók) méretének és láthatóságának frissítése
+        updateDynamicVisibility();      
     });
 
+    /**
+     * Dinamikusan frissíti a térkép konténerének CSS osztályait a jelenlegi 
+     * nagyítási szint (zoom) és a képernyőszélesség (viewport width) alapján.
+     * Ez a funkció felelős a térképi elemek (például ikonok, markerek) részletességi 
+     * szintjének (Level of Detail - LOD) szabályozásáért.
+     */
     function updateDynamicVisibility() {
+        // Az aktuális nagyítási szint, a képernyőszélesség és a térkép DOM elemének lekérése
         const zoom = map.getZoom();
         const width = window.innerWidth;
         const mapContainer = map.getContainer(); // A <div id="map">
 
-        // Reseteljük az osztályokat
+        // Az előzőleg beállított láthatósági osztályok eltávolítása az alapállapot visszaállításához
         mapContainer.classList.remove('map-container-mid', 'map-container-low');
 
-        // MOBIL NÉZET (< 600px) - Szigorúbb határok
+        // Mobil nézet specifikus szabályok (600px alatti szélesség esetén szigorúbb határok)
         if (width < 600) {
             if (zoom < 19) {
-                // Távoli: Minden rejtve (Hamarabb tűnik el!)
+                // Távoli nézet: A vizuális elemek (ikonok) teljesen rejtettek a teljesítmény és átláthatóság érdekében
                 mapContainer.classList.add('map-container-low');
             } else if (zoom >= 19 && zoom < 21) {
-                // Közepes: Kicsi ikonok
+                // Köztes nézet: Az ikonok csökkentett méretben jelennek meg
                 mapContainer.classList.add('map-container-mid');
             }
-            // 21+: Normál
+            // 21-es zoom szint felett (Közeli nézet): Az elemek normál méretben láthatóak, nem kap külön osztályt
         } 
-        // ASZTALI NÉZET (>= 600px)
+        // Asztali nézet specifikus szabályok (600px vagy annál nagyobb szélesség esetén)
         else {
             if (zoom < 18.5) {
-                // Távoli: Minden rejtve (Sokkal hamarabb, mint eddig!)
+                // Távoli nézet: Az elemek teljesen rejtettek
                 mapContainer.classList.add('map-container-low');
             } else if (zoom >= 18.5 && zoom < 20.5) {
-                // Közepes
+                // Köztes nézet: Az ikonok csökkentett méretben jelennek meg
                 mapContainer.classList.add('map-container-mid');
             }
-            // 20.5+: Normál (Csak nagyon közelről nagy)
+            // 20.5-ös zoom szint felett (Közeli nézet): Az elemek normál méretben láthatóak
         }
         
-        // Címkék frissítése (Ez a másik réteg)
+        // A szöveges címkék (feliratok) láthatóságának frissítése a módosított állapotnak megfelelően
         updateLabelsVisibility();
     }
 
+    /**
+     * Szabályozza a térképen elhelyezett szöveges feliratok (címkék) láthatóságát.
+     * A vizuális zsúfoltság elkerülése érdekében csak egy meghatározott nagyítási szint 
+     * elérésekor rajzolja ki a feliratokat, eszközfüggő küszöbértékek alapján.
+     */
     function updateLabelsVisibility() {
+        // A jelenlegi nagyítási szint és képernyőszélesség lekérése
         const currentZoom = map.getZoom();
         const width = window.innerWidth;
         
-        // Mobilon 20, Asztalin 19 a határ a feliratoknak
+        // A megjelenítési küszöbérték meghatározása: mobil eszközökön 20-as, asztali környezetben 19-es zoom szint
         const limit = width < 600 ? 20 : 19;
         
+        // Ha a jelenlegi nagyítás elérte vagy meghaladta a küszöbértéket
         if (currentZoom >= limit) {
+            // Ellenőrizzük, hogy a címkék még nincsenek-e kirajzolva (a felesleges újrarenderelés elkerülése végett)
             if (labelLayerGroup.getLayers().length === 0) {
                 drawLabels(currentLevel);
             }
         } else {
+            // Ha a nagyítás a küszöbérték alatt van, eltávolítjuk az összes címkét a rétegről
             labelLayerGroup.clearLayers();
         }
     }
@@ -851,12 +1097,29 @@
     let doorNodes = new Set(); 
 
     // === SETTINGS UI HANDLERS ===
+
+    /**
+     * Megjeleníti vagy elrejti a beállítások modális ablakát.
+     * A láthatóság átváltása (toggle) után frissíti a beállítások 
+     * felhasználói felületét (UI) az aktuális állapotnak megfelelően.
+     */
     function toggleSettings() {
         const modal = document.getElementById('settings-modal');
         modal.classList.toggle('visible');
         updateSettingsUI();
     }
 
+    /**
+     * Alkalmazza a kiválasztott vizuális témát és módot az alkalmazásra.
+     * A funkció kiszámítja a CSS változók (custom properties) végső értékét a következő 
+     * prioritási sorrend alapján (a legalacsonyabbtól a legmagasabbig):
+     * 1. Alapértelmezett globális értékek (THEME_VARS alapok).
+     * 2. Téma specifikus előbeállítások (Preset overrides).
+     * 3. Felhasználói egyedi beállítások (Custom overrides a témaszerkesztőből).
+     * Ezt követően frissíti a dokumentum stílusait, beállítja a világos/sötét mód osztályait, 
+     * optimalizált beállításokkal frissíti a térkép csemperétegét (Tile Layer), 
+     * és végül elmenti az új preferenciákat a helyi tárolóba (localStorage).
+     */
     function applyTheme() {
         const root = document.documentElement;
         const mode = APP_SETTINGS.themeMode; // 'dark' vagy 'light'
@@ -916,95 +1179,153 @@
         localStorage.setItem('pref_color_theme', APP_SETTINGS.activeColorTheme);
     }
 
+    /**
+     * Szinkronizálja a beállítások grafikus felhasználói felületét (UI) az aktuális 
+     * globális alkalmazás-beállításokkal (APP_SETTINGS). Frissíti a szegmentált 
+     * vezérlőgombok aktív állapotát, a tájékoztató szövegeket, valamint a 
+     * gyorsítótár (cache) kapcsolóját és méretkijelzőjét.
+     */
     function updateSettingsUI() {
-        // Gombok állapotának frissítése
+        // A lift/akadálymentesítési preferenciák gombjainak vizuális frissítése
         document.querySelectorAll('#seg-elevator .seg-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.val === APP_SETTINGS.elevatorMode);
         });
+
+        // A mosdóhasználati preferenciák gombjainak vizuális frissítése
         document.querySelectorAll('#seg-toilet .seg-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.val === APP_SETTINGS.toiletMode);
         });
         
-        // Theme gombok frissítése
+        // A világos/sötét mód választó gombjainak vizuális frissítése
         document.querySelectorAll('#seg-theme .seg-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.val === APP_SETTINGS.themeMode);
         });
+
+        // A kiválasztott lift módhoz tartozó magyarázó szöveg megjelenítése
         document.getElementById('elevator-hint').innerText = HINTS[APP_SETTINGS.elevatorMode];
 
-        // --- F-016: CACHE UI UPDATE ---
+        // --- F-016: Gyorsítótár (Cache) UI frissítése ---
+        // A cache engedélyezését szabályozó kapcsoló és a méretkijelző aktualizálása
         const cacheSwitch = document.getElementById('cache-switch');
         if (cacheSwitch) {
             cacheSwitch.checked = APP_SETTINGS.cacheEnabled;
-            updateCacheSizeDisplay(); // Frissítjük a méretet is
+            updateCacheSizeDisplay(); // A lefoglalt tárhely méretének újraszámítása és kiírása
         }
     }
 
+    /**
+     * Beállítja és azonnal alkalmazza az alkalmazás általános megjelenítési módját 
+     * (világos vagy sötét téma).
+     * @param {string} mode - A beállítani kívánt mód azonosítója (pl. 'dark' vagy 'light').
+     */
     function setThemeMode(mode) {
         APP_SETTINGS.themeMode = mode;
         applyTheme();
     }
     
+    /**
+     * Kiválasztja és alkalmazza az aktív színpalettát (színtémát).
+     * A módosítás érvénybe léptetése után a vizuális inkonzisztenciák elkerülése 
+     * érdekében újrarendereli a térképet és frissíti a téma-választó felületet.
+     * @param {string} key - A kiválasztott színtéma egyedi azonosítója (pl. 'default', 'ocean', 'nature').
+     */
     function setColorTheme(key) {
         APP_SETTINGS.activeColorTheme = key;
+        
+        // Az új színváltozók kiszámítása és a DOM-ra történő ráhúzása
         applyTheme();
-        renderLevel(currentLevel); // Színek miatt újra kell rajzolni
-        renderThemeSelector(); // UI frissítés
+        
+        // A térképelemek (szobák, útvonalak, stb.) újrarendelése az új stílusokkal
+        renderLevel(currentLevel); 
+        
+        // A téma kiválasztó lista grafikus frissítése a menüben
+        renderThemeSelector(); 
     }
 
-    // DINAMIKUS TÉMA LISTA GENERÁTOR
+    /**
+     * Dinamikus színtéma-választó lista generálása a felhasználói felületen.
+     * Végigiterál az elérhető színtémákon (COLOR_THEMES), és mindegyikhez 
+     * létrehoz egy választható HTML elemet, megjelenítve a téma nevét 
+     * és a hozzá tartozó reprezentatív színmintákat (pöttyöket).
+     */
     function renderThemeSelector() {
         const container = document.getElementById('color-theme-list');
+        
+        // Biztonsági ellenőrzés: ha a konténer nem létezik a DOM-ban, megszakítjuk a futást
         if (!container) return;
+        
+        // A konténer tartalmának teljes ürítése az újrarenderelés előtt
         container.innerHTML = '';
         
+        // Az aktuálisan beállított (aktív) színtéma lekérése a globális beállításokból
         const currentTheme = APP_SETTINGS.activeColorTheme;
 
+        // Iteráció az összes definiált színtémán a kulcs-érték párok alapján
         for (const [key, data] of Object.entries(COLOR_THEMES)) {
+            // Új befoglaló elem (div) létrehozása az adott témának
             const div = document.createElement('div');
             
-            // --- ITT A JAVÍTÁS: .selected osztály hozzáadása ---
+            // Az elem stílusosztályának beállítása. Ha a ciklusban vizsgált téma
+            // megegyezik az aktív témával, megkapja a 'selected' (kiválasztott) osztályt.
             const isSelected = (key === currentTheme);
             div.className = 'theme-option' + (isSelected ? ' selected' : '');
             
+            // Adat-attribútum beállítása és kattintás eseménykezelő (click handler) hozzárendelése
             div.dataset.key = key;
             div.onclick = () => setColorTheme(key);
             
-            // Pöttyök generálása
+            // Színminta pöttyök (dots) HTML kódjának generálása
             let dotsHtml = '';
-            // Ha van samples, használjuk, ha nincs, vegyük az első 3 színt a definícióból
+            
+            // A megjelenítendő színek meghatározása: elsődlegesen a téma 'samples' tömbjét használja.
+            // Amennyiben ez nem áll rendelkezésre, tartalékként (fallback) kiválasztja az első három definiált színt.
             const colors = data.samples || Object.values(data.colors || {}).slice(0,3);
             
+            // HTML struktúra dinamikus összeállítása a kinyert színminták alapján
             colors.forEach(color => {
                 dotsHtml += `<div class="dot" style="background: ${color}"></div>`;
             });
             
+            // A lista elem belső HTML szerkezetének (név és színminták) véglegesítése
             div.innerHTML = `
                 <span class="theme-name">${data.name}</span>
                 <div class="color-dots">${dotsHtml}</div>
             `;
+            
+            // Az elkészült és feltöltött HTML elem hozzáadása a DOM konténerhez
             container.appendChild(div);
         }
     }
 
     // === TÉMASZERKESZTŐ LOGIKA & COLOR PICKER MOTOR ===
 
-    let activePickrs = []; // Tároljuk a picker példányokat, hogy takarítani tudjunk
+    /**
+     * Az aktív színválasztó (Pickr) példányok tárolója.
+     * A példányok későbbi, memóriaszivárgást megelőző takarításához (destroy) szükséges.
+     * @type {Array<Object>}
+     */
+    let activePickrs = []; 
 
+    /**
+     * Megnyitja és inicializálja a témaszerkesztő (Theme Editor) felületet.
+     * Átváltja a beállítások modális ablakát szerkesztő módba, dinamikusan legenerálja 
+     * az elérhető téma-változókhoz (THEME_VARS) tartozó HTML struktúrát, majd 
+     * példányosítja és beállítja a Pickr színválasztó komponenseket minden egyes változóhoz.
+     */
     function openThemeEditor() {
         const modal = document.getElementById('settings-modal');
         const viewMain = document.getElementById('settings-view-main');
         const viewEditor = document.getElementById('settings-view-editor');
         
-        // 1. ELŐKÉSZÍTÉS (Még mielőtt bármit renderelnénk)
-        // Azonnal ráadjuk az osztályt, így a böngésző már az új stílusokkal számol
+        // 1. Felület előkészítése és DOM manipuláció
+        // Az 'editor-mode' osztály hozzáadásával a böngésző azonnal alkalmazza a szerkesztő specifikus stílusokat
         modal.classList.add('editor-mode'); 
         
-        // Nézet váltás (még a háttérben)
+        // Nézetek cseréje a modális ablakon belül (fő nézet elrejtése, szerkesztő nézet megjelenítése)
         viewMain.style.display = 'none';
         viewEditor.style.display = 'flex'; 
         
-        // Ha a modal esetleg nem volt látható (pl. külső hívás), most jelenítjük meg
-        // De mivel a settingsből nyitottuk, már látható, csak átalakul.
+        // Biztonsági ellenőrzés: ha a modális ablak rejtett állapotban volt, megjelenítjük
         if (!modal.classList.contains('visible')) {
             modal.classList.add('visible');
         }
@@ -1013,7 +1334,7 @@
         const themeKey = APP_SETTINGS.activeColorTheme;
         const themeName = (COLOR_THEMES[themeKey] || COLOR_THEMES['default']).name;
 
-        // --- ÚJ HTML STRUKTÚRA ---
+        // A fejléc (Header) HTML szerkezetének összeállítása, benne az akciógombokkal
         let html = `
             <div class="editor-header">
                 <h3>${themeName} (${mode === 'dark' ? 'Sötét' : 'Világos'})</h3>
@@ -1031,6 +1352,8 @@
             <div class="editor-scroll-area">
         `;
 
+        // A dinamikus tartalom (változók listája) HTML szerkezetének generálása
+        // Végigiterál az összes definiált téma-változón, és mindegyikhez létrehoz egy sort a színválasztóval
         for (const [varName, data] of Object.entries(THEME_VARS)) {
             html += `
                 <div class="editor-row" onclick="focusOnElement('${varName}')">
@@ -1045,7 +1368,7 @@
             `;
         }
 
-        // TISZTA FOOTER: Csak Mégse és Mentés
+        // A lábléc (Footer) HTML szerkezetének hozzáadása a mentés és megszakítás gombokkal
         html += `</div> 
         
         <div class="editor-footer">
@@ -1057,13 +1380,17 @@
 
         viewEditor.innerHTML = html;
 
-        // PICKR PÉLDÁNYOSÍTÁS (Változatlan)
+        // 2. A színválasztó (Pickr) komponensek aszinkron példányosítása
+        // Kis késleltetés (setTimeout) alkalmazása szükséges, hogy a DOM frissülhessen a generált HTML-lel
         setTimeout(() => {
-            activePickrs = [];
+            activePickrs = []; // A tároló ürítése az új példányosítás előtt
+            
             for (const [varName, data] of Object.entries(THEME_VARS)) {
+                // Az aktuálisan érvényben lévő CSS változó értékének lekérése a dokumentum gyökeréről
                 const currentValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
                 const containerId = `#picker-${varName.replace('--', '')}`;
                 
+                // Pickr komponens inicializálása az adott konténerre
                 const pickr = Pickr.create({
                     el: containerId,
                     theme: 'nano',
@@ -1077,11 +1404,15 @@
                     }
                 });
 
+                // Eseménykezelő: Színváltozás esetén (Live Preview funkció)
                 pickr.on('change', (color, source, instance) => {
                     const rgbaColor = color.toRGBA().toString();
+                    // A globális CSS változó értékének azonnali frissítése a DOM-ban
                     document.documentElement.style.setProperty(varName, rgbaColor);
                     pickr.applyColor(true); 
 
+                    // Speciális eset: Ha a kiemelés (highlight) színét változtatják, 
+                    // a meglévő kijelöléseket újra kell rajzolni az új színnel
                     if (varName === '--color-highlight') {
                         selectedHighlightLayer.eachLayer(l => {
                             if (l.feature) drawSelectedHighlight(l.feature);
@@ -1089,38 +1420,47 @@
                     }
                 });
                 
+                // Eseménykezelő: A színválasztó megnyitásakor fókuszálás a kapcsolódó térképi elemre
                 pickr.on('show', () => focusOnElement(varName));
+                
+                // A sikeresen inicializált példány hozzáadása az aktív Pickr-ek listájához
                 activePickrs.push(pickr);
             }
         }, 50);
     }
 
+    /**
+     * Bezárja a témaszerkesztő (Theme Editor) felületet és visszaállítja a beállítások fő nézetét.
+     * Megtisztítja a memóriát az aktív színválasztó (Pickr) példányok törlésével, 
+     * és kezeli a vizuális állapot visszaállítását a művelet megszakítása (Mégse) esetén.
+     * @param {boolean} [saved=false] - Jelzi, hogy a bezárás sikeres mentés után történik-e. 
+     * Ha hamis, a rendszer visszatölti az eredeti (mentés előtti) témát.
+     */
     function closeThemeEditor(saved = false) {
         const modal = document.getElementById('settings-modal');
         const viewMain = document.getElementById('settings-view-main');
         const viewEditor = document.getElementById('settings-view-editor');
         
-        // 1. PICKR TAKARÍTÁS (Ez gyors)
+        // 1. Erőforrások felszabadítása: Az aktív színválasztó (Pickr) példányok megsemmisítése és eltávolítása a DOM-ból.
         activePickrs.forEach(p => p.destroyAndRemove());
         activePickrs = [];
 
-        // 2. VISSZAVÁLTÁS LOGIKA
-        // Először levesszük az editor módot, hogy visszauorjon középre a kártya
+        // 2. Felületi nézetváltás logikája
+        // Az 'editor-mode' osztály eltávolítása a modális ablakról az eredeti, középre igazított elrendezés visszaállításához.
         modal.classList.remove('editor-mode');
         
-        // Aztán cseréljük a tartalmat
+        // A szerkesztő nézet elrejtése és a fő beállítások nézet megjelenítése.
         viewEditor.style.display = 'none';
         viewMain.style.display = 'flex';
         
-        // Kijelölés törlése (ha csak a preview miatt volt)
-        // De csak akkor, ha nem volt eleve kiválasztva valami a főképernyőn!
-        // Egyszerűsítés: Ha nem mentettünk, visszatöltjük a témát.
+        // Visszaállítási logika: Ha a felhasználó mentés nélkül zárt be, visszatöltjük a korábban mentett témát.
         if (!saved) {
             applyTheme(); 
             renderLevel(currentLevel);
         }
         
-        // Ha highlight preview volt, azt állítsuk vissza a normál selectedFeature-re (ha van)
+        // A kiemelési (highlight) réteg állapotának helyreállítása.
+        // Ha az élő előnézet (live preview) során megváltozott a kijelölés, visszaállítjuk az eredetileg kiválasztott térképelemre.
         if (selectedFeature) {
             drawSelectedHighlight(selectedFeature);
         } else {
@@ -1128,60 +1468,77 @@
         }
     }
 
+    /**
+     * Elmenti a felhasználó által a témaszerkesztőben végrehajtott színmódosításokat (felülírásokat).
+     * Kiolvassa az élő előnézetben (live preview) alkalmazott CSS változók aktuális értékeit a DOM-ból, 
+     * frissíti velük a globális felülírási memóriát (CUSTOM_THEME_OVERRIDES), 
+     * majd perzisztensen rögzíti azokat a helyi tárolóban (localStorage).
+     */
     function saveThemeOverrides() {
         const mode = APP_SETTINGS.themeMode;
         const themeKey = APP_SETTINGS.activeColorTheme;
         
+        // Az adatszerkezet inicializálása az adott témához és módhoz, amennyiben még nem létezik.
         if (!CUSTOM_THEME_OVERRIDES[themeKey]) CUSTOM_THEME_OVERRIDES[themeKey] = {};
         if (!CUSTOM_THEME_OVERRIDES[themeKey][mode]) CUSTOM_THEME_OVERRIDES[themeKey][mode] = {};
 
-        // Végigmegyünk a változókon és elmentjük a jelenlegi (live preview-olt) értéket
+        // Iteráció a definiált téma-változókon: az élő nézetben beállított, számított CSS értékek kiolvasása és mentése az objektumba.
         for (const varName of Object.keys(THEME_VARS)) {
             const val = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
             CUSTOM_THEME_OVERRIDES[themeKey][mode][varName] = val;
         }
 
+        // A módosított felülírások JSON formátumban történő rögzítése a helyi tárolóba (localStorage).
         localStorage.setItem('custom_theme_overrides', JSON.stringify(CUSTOM_THEME_OVERRIDES));
         
-        renderLevel(currentLevel); // Renderelés a biztonság kedvéért
-        closeThemeEditor(true); // TRUE = Mentettünk, nem kell revert
+        // A térkép újrarenderelése a vizuális konzisztencia biztosítása érdekében.
+        renderLevel(currentLevel); 
+        
+        // A szerkesztő ablak bezárása 'saved = true' flaggel, hogy megelőzzük az értékek nemkívánatos visszaállítását.
+        closeThemeEditor(true); 
     }
 
+    /**
+     * Vágólapra másolja az aktuális színtéma felhasználó által módosított (felülírt) értékeit.
+     * Összehasonlítja a DOM-ban jelenleg érvényes CSS változókat a THEME_VARS 
+     * globális alapértelmezéseivel az aktív megjelenítési mód (világos/sötét) alapján.
+     * A különbségekből egy formázott JavaScript objektum-részletet generál.
+     */
     function copyThemeCode() {
         const mode = APP_SETTINGS.themeMode; // 'dark' vagy 'light'
         const themeName = (COLOR_THEMES[APP_SETTINGS.activeColorTheme] || {}).name || "Custom";
         
-        // 1. Megnézzük, mi változott az ALAPÉRTELMEZETT (THEME_VARS) értékekhez képest
+        // 1. Az eltérések (felülírások) összegyűjtése a THEME_VARS alapértelmezéseihez képest
         let changes = [];
         
         for (const [varName, data] of Object.entries(THEME_VARS)) {
-            // A jelenlegi (számított/beállított) érték
+            // A jelenleg kiszámított és érvényben lévő CSS érték lekérése és normalizálása
             const currentVal = getComputedStyle(document.documentElement).getPropertyValue(varName).trim().toLowerCase();
             
-            // Az eredeti, gyári alapértelmezett érték (a kódból)
-            // Figyelem: A THEME_VARS-ban lévő értékek lehetnek nagybetűsek is, normalizáljuk kicsire a hasonlításhoz!
+            // Az eredeti, konfigurációban rögzített alapértelmezett érték normalizálása az összehasonlításhoz
             const defaultVal = data[mode].trim().toLowerCase();
             
-            // Ha különbözik, akkor ez egy override, amit menteni kell
+            // Ha a két érték eltér, a módosítás mentésre kerül az exportálandó listába
             if (currentVal !== defaultVal) {
-                // Az eredeti (nem kisbetűsített) current értéket mentjük el, hogy szép legyen
+                // Az eredeti (formázás nélküli) érték mentése a pontos kódgenerálás érdekében
                 const originalCurrentVal = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
                 changes.push(`    '${varName}': '${originalCurrentVal}'`);
             }
         }
 
+        // Ha nem történt módosítás, megszakítjuk a folyamatot
         if (changes.length === 0) {
             alert("Nincs mit másolni: Minden érték megegyezik az alapértelmezettel!");
             return;
         }
 
-        // 2. Kód generálása
+        // 2. A kódblokk strukturált generálása
         let output = `// ${themeName} (${mode} mód) override-ok:\n`;
         output += `${mode}: {\n`;
         output += changes.join(',\n');
         output += `\n}`;
 
-        // 3. Vágólapra másolás
+        // 3. A generált kód vágólapra másolása és hibakezelése fallback megoldással
         navigator.clipboard.writeText(output).then(() => {
             alert("Téma kód (csak a változtatások) másolva! 📋");
         }).catch(err => {
@@ -1190,60 +1547,76 @@
         });
     }
 
+    /**
+     * Visszaállítja a kiválasztott színtéma aktuális módjához (világos/sötét) 
+     * tartozó alapértelmezett beállításokat, törölve minden felhasználói módosítást.
+     * Megerősítés után eltávolítja a vonatkozó bejegyzéseket a memóriából és a 
+     * helyi tárolóból (localStorage), majd újrarendereli a felületet.
+     */
     function resetThemeOverrides() {
         if (!confirm('Biztos visszaállítod az eredeti színeket ennél a témánál?')) return;
         
         const mode = APP_SETTINGS.themeMode;
         const themeKey = APP_SETTINGS.activeColorTheme;
 
+        // A specifikus felülírások törlése a globális objektumból és a perzisztens tárolóból
         if (CUSTOM_THEME_OVERRIDES[themeKey] && CUSTOM_THEME_OVERRIDES[themeKey][mode]) {
             delete CUSTOM_THEME_OVERRIDES[themeKey][mode];
             localStorage.setItem('custom_theme_overrides', JSON.stringify(CUSTOM_THEME_OVERRIDES));
         }
         
-        // Visszaállítás és bezárás
+        // A téma vizuális visszaállítása, a térkép újrarenderelése és a szerkesztő bezárása
         applyTheme(); 
         renderLevel(currentLevel);
         closeThemeEditor(true); // Bezárjuk és mentettnek tekintjük (resetelt állapot)
     }
 
-    // === INTELLIGENS FÓKUSZ ÉS ZOOM ===
+    /**
+     * Intelligens fókusz és zoom funkció a témaszerkesztőhöz.
+     * A kiválasztott stílusváltozó (CSS változó) neve alapján megkeresi a térképen 
+     * a hozzá leginkább illő térképelemet (például egy mosdót, ha a mosdó színét szerkesztjük),
+     * majd a kamerát arra a pontra irányítja az élő előnézet (live preview) biztosítása érdekében.
+     * * @param {string} varName - A módosított téma-változó neve (pl. '--color-toilet' vagy '--color-room').
+     */
     function focusOnElement(varName) {
+        // Biztonsági ellenőrzés: ha nincsenek betöltve térképadatok, megszakítjuk a futást
         if (!geoJsonData || !geoJsonData.features) return;
 
-        // 1. Meghatározzuk, mit keresünk a változónév alapján (B-008 Fix)
+        // 1. A szűrőfüggvény meghatározása a változónév alapján
         let filterFn = null;
 
-        // WC: Bővített szűrés (amenity is játszik)
+        // Mosdók szűrése: figyelembe veszi a 'room' és 'amenity' címkéket is a biztonságos találatért
         if (varName.includes('toilet')) {
             filterFn = f => {
                 const p = f.properties;
                 return p.room === 'toilet' || p.room === 'toilets' || p.room === 'wc' || p.amenity === 'toilets';
             };
         }
-        // Lépcső
+        // Lépcsők szűrése: beltéri lépcsők és lépcsőházak azonosítása
         else if (varName.includes('stairs')) {
             filterFn = f => {
                 const p = f.properties;
                 return p.room === 'stairs' || p.indoor === 'staircase' || p.highway === 'steps';
             };
         }
-        // Lift
+        // Liftek szűrése
         else if (varName.includes('elevator')) {
             filterFn = f => {
                 const p = f.properties;
                 return p.room === 'elevator' || p.highway === 'elevator';
             };
         }
-        // Folyosó
+        // Folyosók szűrése
         else if (varName.includes('corridor')) {
             filterFn = f => f.properties.indoor === 'corridor' || f.properties.highway === 'corridor';
         }
-        // Ajtó
+        // Ajtók és bejáratok szűrése
         else if (varName.includes('door')) {
             filterFn = f => f.properties.door || f.properties.entrance;
         }
-        // Szoba (Kizárásos alapon: ami nem technikai helyiség, de van neve vagy indoor=room)
+        // Általános szobák szűrése: kizárásos alapon működik.
+        // Kiszűri a technikai helyiségeket (mosdó, lépcső, lift, folyosó),
+        // és azokat az elemeket keresi, amelyeknek van nevük, vagy 'room' típusúak.
         else if (varName.includes('room')) {
             filterFn = f => {
                 const p = f.properties;
@@ -1254,42 +1627,53 @@
                 return !isTech && (p.indoor === 'room' || p.indoor === 'classroom' || p.indoor === 'auditorium' || p.name || p.ref);
             };
         }
-        // Highlight (Kivétel: Itt direkt keresünk valamit, hogy rátegyük a highlightot)
+        // Kiemelés (Highlight) szűrése: egy tetszőleges, átlagos szobát keresünk a vizuális teszteléshez
         else if (varName.includes('highlight')) {
              filterFn = f => f.properties.indoor === 'room';
         }
 
-        // Ha nincs specifikus elem (pl. háttérszín), nem csinálunk semmit
+        // Ha a változóhoz nem tartozik specifikus térképelem (pl. általános háttérszín esetén), kilépünk
         if (!filterFn) return;
 
-        // 2. Keresünk egy ILYEN elemet a JELENLEGI szinten
+        // 2. Célpont keresése elsődlegesen az aktuálisan látható szinten
         let target = geoJsonData.features.find(f => getLevelsFromFeature(f).includes(currentLevel) && filterFn(f));
         
-        // Ha a jelenlegi szinten nincs, keresünk bárhol az épületben
+        // Ha a jelenlegi szinten nem található megfelelő elem, az egész épületben keresünk
         if (!target) {
             target = geoJsonData.features.find(f => filterFn(f));
         }
 
+        // Ha sikeresen találtunk egy megfelelő referenciapontot
         if (target) {
-            // 3. Smart FlyTo (Ez viszi oda a kamerát úgy, hogy ne takarja ki az editor)
+            // 3. Intelligens kameramozgatás: a térképet úgy pozicionálja, 
+            // hogy a kiválasztott elem látható legyen, és a szerkesztőablak ne takarja ki
             smartFlyTo(target);
 
-            // 4. KIJELÖLÉS KEZELÉSE (B-008 Lényeg)
-            // CSAK akkor rajzolunk highlightot, ha KONKRÉTAN a highlight színét állítjuk!
-            // Minden más esetben (fal, kitöltés, stroke) zavaró lenne, ezért levesszük.
+            // 4. A vizuális kiemelés (Highlight) logikájának kezelése
+            // Kizárólag akkor rajzoljuk ki a kiemelés keretét, ha konkrétan a kiemelés színét szerkesztik.
+            // Más stílusok (pl. falak vagy szobák kitöltése) szerkesztésekor a keret zavaró lehet, így azt eltávolítjuk.
             if (varName.includes('highlight')) {
                 drawSelectedHighlight(target);
             } else {
-                // Tiszta vizet a pohárba: töröljük a kijelölést, hogy lásd a színeket
+                // A kiemelési réteg ürítése a színek zavartalan ellenőrzéséhez
                 selectedHighlightLayer.clearLayers();
             }
         }
     }
 
-    // LIVE PREVIEW: Azonnal frissíti a CSS változót
+    /**
+     * Élő előnézet (Live Preview) biztosítása a színek módosításakor.
+     * Azonnal frissíti a megadott CSS változót a dokumentum gyökerén (documentElement), 
+     * és vizuálisan megjeleníti a kiválasztott szín értékét (pl. hexadecimális kódot) a felületen.
+     * Megjegyzés: A komplex térképelemek (pl. szobák kitöltése, canvas/SVG elemek) 
+     * azonnali újrarenderelése teljesítményi okokból (a csúszka húzásának akadása miatt) 
+     * szándékosan mellőzve van, így a drasztikus változások csak mentéskor érvényesülnek.
+     * @param {string} varName - A módosítandó CSS változó neve (pl. '--bg-surface').
+     * @param {string} value - Az új szín értéke.
+     */
     function handleColorChange(varName, value) {
         document.documentElement.style.setProperty(varName, value);
-        // Hex kód frissítése
+        // Hex kód frissítése a felületen az aktuális esemény (event) célpontja mellett
         event.target.nextElementSibling.innerText = value;
         // Ha valami drasztikusat (pl szoba szín) változtatunk, újra kell rajzolni a réteget
         // De csak óvatosan, mert lassíthatja a dragginget.
@@ -1297,6 +1681,13 @@
         // renderLevel(currentLevel); // Ezt inkább hagyjuk a mentésre, vagy ha nagyon kell, debounce-al.
     }
 
+    /**
+     * Beállítja az útvonaltervezéshez használt lift és lépcső preferenciát.
+     * A módosítás elmentése után frissíti a felhasználói felületet, és 
+     * a megváltozott navigációs feltételeknek (súlyoknak) megfelelően 
+     * azonnal újraépíti az útvonaltervezési gráfot.
+     * @param {string} mode - A kiválasztott mód (pl. 'balanced', 'stairs', 'elevator').
+     */
     function setElevatorMode(mode) {
         APP_SETTINGS.elevatorMode = mode;
         updateSettingsUI();
@@ -1304,11 +1695,21 @@
         buildRoutingGraph(); 
     }
 
+    /**
+     * Beállítja a mosdókereső algoritmus preferenciáit (pl. minden mosdó listázása, 
+     * vagy csak specifikus típusok). A változtatás után szinkronizálja a felületet.
+     * @param {string} mode - A kiválasztott mosdóhasználati mód.
+     */
     function setToiletMode(mode) {
         APP_SETTINGS.toiletMode = mode;
         updateSettingsUI();
     }
 
+    /**
+     * Visszaállítja a felhasználói beállításokat (lift és mosdó preferenciák) 
+     * a gyári alapértékekre. Ezt követően frissíti a felületet, újraépíti a 
+     * navigációs gráfot az alapértelmezett paraméterekkel, és bezárja a modális ablakot.
+     */
     function resetSettings() {
         APP_SETTINGS.elevatorMode = 'balanced';
         APP_SETTINGS.toiletMode = 'all';
@@ -1317,6 +1718,11 @@
         toggleSettings(); // Bezárás
     }
 
+    /**
+     * Váltakozva megjeleníti vagy elrejti az impresszum modális ablakát.
+     * A vizuális ütközések és átfedések elkerülése érdekében biztosítja, 
+     * hogy a beállítások (settings) panel bezáruljon az impresszum megnyitásakor.
+     */
     function toggleImpressum() {
         // Ha a settings nyitva van, csukjuk be
         document.getElementById('settings-modal').classList.remove('visible');
@@ -1325,51 +1731,70 @@
         modal.classList.toggle('visible');
     }
 
-    // === GPS ALAPÚ ÉPÜLET VÁLASZTÓ (MOBILON) ===
+    /**
+     * GPS alapú, automatikus épületválasztó funkció (kizárólag mobil eszközökre).
+     * Ha a felhasználó mobilról böngészik, és a helymeghatározás engedélyezett,
+     * a funkció kiszámítja a felhasználó távolságát az összes definiált épülettől.
+     * Ha a felhasználó egy másik épület (pl. 'Q') közelében van (1000 méteren belül), 
+     * mint az alapértelmezetten betöltött (pl. 'K'), a rendszer automatikusan 
+     * átvált a közelebbi épületre.
+     * Fontos: Nem írja felül a betöltést, ha az URL-ben megosztási kód (Deep Link) szerepel.
+     */
     function detectClosestBuilding() {
-        // 1. Csak mobilon fusson
+        // 1. Környezet vizsgálata: A funkció csak mobil eszközökön fut le.
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         if (!isMobile) return;
 
-        // 2. Ha Deep Link (Megosztás) van, NE írjuk felül GPS-el!
+        // 2. Deep Link prioritás: Ha az URL tartalmaz 'share' paramétert (megosztott hivatkozás),
+        // az felhasználói szándékot jelez egy konkrét épületre, így a GPS felülírást letiltjuk.
         const params = new URLSearchParams(window.location.search);
         if (params.get('share')) return;
 
+        // 3. Geolocation API ellenőrzése és pozíció lekérése
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition((position) => {
+                // Felhasználó koordinátáinak kinyerése
                 const userLat = position.coords.latitude;
                 const userLon = position.coords.longitude;
+                // A Turf.js [hosszúság, szélesség] formátumot vár
                 const userPoint = turf.point([userLon, userLat]);
 
                 let closestKey = null;
                 let minDist = Infinity;
 
-                // Távolságok ellenőrzése minden épülethez
+                // Iteráció az összes konfigurált épületen (BUILDINGS objektum)
                 for (const [key, data] of Object.entries(BUILDINGS)) {
-                    // A BUILDINGS-ben [lat, lon] van, a Turf [lon, lat]-ot vár!
+                    // Épület koordinátáinak konvertálása Turf kompatibilis formátumra
+                    // Figyelem: A BUILDINGS[key].center [szélesség, hosszúság] formátumú
                     const bPoint = turf.point([data.center[1], data.center[0]]);
-                    const dist = turf.distance(userPoint, bPoint, { units: 'kilometers' }) * 1000; // méterben
+                    
+                    // Távolság kiszámítása a felhasználó és az épület között (kilométerből méterre váltva)
+                    const dist = turf.distance(userPoint, bPoint, { units: 'kilometers' }) * 1000; 
 
+                    // A legkisebb távolság (legközelebbi épület) nyilvántartása
                     if (dist < minDist) {
                         minDist = dist;
                         closestKey = key;
                     }
                 }
 
-                // 3. Váltás logika
-                // Csak akkor váltunk, ha:
-                // - Találtunk épületet
-                // - Nem az, ami most be van töltve
-                // - És 1000 méteren belül vagyunk (ne váltson át, ha otthonról nézed)
+                // 4. Épületváltás végrehajtása meghatározott feltételek mellett
+                // Csak akkor történik automatikus váltás, ha:
+                // - A GPS azonosított egy legközelebbi épületet
+                // - Az nem egyezik meg a már betöltöttel
+                // - A távolság kevesebb, mint 1 km (ne váltson, ha a felhasználó messze van az egyetemtől)
                 if (closestKey && closestKey !== currentBuildingKey && minDist < 1000) {
                     console.log(`GPS: ${closestKey} épület észlelve (${Math.round(minDist)}m). Váltás...`);
                     showToast(`📍 GPS: ${BUILDINGS[closestKey].name} észlelve. Betöltés...`);
+                    // Globális funkció meghívása a közelebbi épület betöltésére
                     changeBuilding(closestKey);
                 }
 
             }, (error) => {
+                // Hibakezelés: ha a GPS nincs engedélyezve, vagy a lekérés sikertelen
                 console.warn("GPS hiba vagy elutasítva:", error.message);
             }, {
+                // Geolocation opciók: nagy pontosság igénylése, 5 másodperc timeout, 1 perc cache
                 enableHighAccuracy: true,
                 timeout: 5000,
                 maximumAge: 60000
@@ -1377,250 +1802,399 @@
         }
     }
 
+    /**
+     * Inicializálja az épületválasztó menüt a felhasználói felületen.
+     * Végigiterál a konfigurált épületeken (BUILDINGS), és legenerálja 
+     * a kiválasztásukhoz szükséges HTML elemeket a legördülő listában.
+     */
     function initBuildings() {
         const optionsDiv = document.getElementById('building-options');
         optionsDiv.innerHTML = "";
         
         for (const [key, data] of Object.entries(BUILDINGS)) {
             const div = document.createElement('div');
+            
+            // Az aktuálisan kiválasztott épület vizuális kiemelése
             div.className = 'option' + (key === currentBuildingKey ? ' selected' : '');
             div.innerHTML = `<span class="material-symbols-outlined">apartment</span> ${data.name}`;
+            
+            // Kattintás eseménykezelő az épületváltáshoz és a menü bezárásához
             div.onclick = () => {
                 changeBuilding(key);
                 toggleBuildingMenu();
             };
+            
             optionsDiv.appendChild(div);
         }
+        
+        // A fejlécben megjelenő aktív épületnév frissítése
         document.getElementById('current-building-name').innerText = BUILDINGS[currentBuildingKey].name;
     }
     
+    /**
+     * Globális eseményfigyelő a kattintásokra.
+     * Bezárja az épületválasztó menüt, ha a felhasználó a menün kívülre kattint.
+     */
     document.addEventListener('click', function(event) {
         const select = document.querySelector('.custom-select');
+        
+        // Ha a kattintás nem a választó elemen belül történt, elrejtjük a menüt
         if (!select.contains(event.target)) {
             document.getElementById('building-options').classList.remove('show');
         }
     });
 
+    /**
+     * Megjeleníti vagy elrejti az épületválasztó legördülő menüt 
+     * a 'show' CSS osztály hozzáadásával vagy eltávolításával.
+     */
     function toggleBuildingMenu() {
         document.getElementById('building-options').classList.toggle('show');
     }
 
+    /**
+     * Átvált egy másik épület nézetére.
+     * Megtisztítja a térképet a korábbi adatoktól, rétegektől és állapotoktól,
+     * majd elindítja az új épület adatainak betöltését és a nézet beállítását.
+     * * @param {string} key - Az újonnan kiválasztott épület egyedi azonosítója.
+     * @param {string|null} [autoSearchTerm=null] - Opcionális keresési kifejezés, amely a betöltés után automatikusan lefut.
+     */
     function changeBuilding(key, autoSearchTerm = null) {
+        // Biztonsági ellenőrzés: ha az épület nem létezik a konfigurációban, megszakítjuk a folyamatot
         if (!BUILDINGS[key]) return;
+        
+        // Aktuális épület állapotváltozóinak frissítése
         currentBuildingKey = key;
         currentBuilding = BUILDINGS[key];
         
+        // Ha meg van adva automatikus keresés, elmentjük a globális változóba a későbbi futtatáshoz
         if (autoSearchTerm) pendingSearchTerm = autoSearchTerm;
 
+        // Az előző épülethez tartozó memóriában tárolt adatok és vizuális rétegek teljes ürítése
         geoJsonData = null;
         indoorLayerGroup.clearLayers();
         iconLayerGroup.clearLayers();
         routeLayerGroup.clearLayers();
         highlightLayerGroup.clearLayers();
         selectedHighlightLayer.clearLayers();
+        
+        // Aktív navigációs indulópont törlése az épületváltás miatt
         pendingNavSource = null;
 
+        // Keresőmező tartalmának alaphelyzetbe állítása
         document.getElementById('search-input').value = "";
 
-        // --- B-003 FIX: Ikon visszaállítása alaphelyzetbe (Tune) ---
+        // UI frissítése: A keresőmező melletti ikon alapállapotba (Tune) hozása
         updateRightButtonState();
         
+        // Az épületválasztó menü újrarenderelése az új kiválasztott állapottal
         initBuildings(); 
-        // --- MÓDOSÍTÁS: Előbb hívjuk a loadert/betöltést, aztán a nézetet ---
-        // Így a loader már kint lesz, ha esetleg a setView megakadna (bár a fenti fix miatt nem fog).
+        
+        // Az új épület adatainak betöltése (OpenStreetMap adatok letöltése vagy cache-ből olvasása)
+        // A függvényhívás sorrendje biztosítja, hogy a betöltő (loader) hamarabb jelenjen meg, mint a kamera mozgatása
         loadOsmData(); 
         
-        // A setView mehet a végére, vagy maradhat itt, most már mindegy.
+        // A térkép kamerájának pozicionálása az új épület középpontjára és alapértelmezett nagyítási szintjére
         map.setView(currentBuilding.center, currentBuilding.zoom);
     }
 
+    /**
+     * Megjelenít egy egyedi modális (felugró) ablakot a megadott címmel és szöveggel,
+     * valamint beállítja a megerősítő gomb eseménykezelőjét.
+     * A DOM elem klónozásával biztosítja a korábban csatolt eseménykezelők eltávolítását,
+     * megelőzve a többszörös futást.
+     * @param {string} title - A modális ablak címe.
+     * @param {string} text - A modális ablakban megjelenő szöveges tartalom.
+     * @param {Function} confirmCallback - A megerősítő gomb megnyomásakor lefutó visszahívási függvény.
+     */
     function showModal(title, text, confirmCallback) {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-text').innerText = text;
+        
+        // A megerősítő gomb referenciájának lekérése
         const confirmBtn = document.getElementById('modal-confirm');
+        
+        // A gomb klónozása a rajta lévő event listenerek törlése céljából
         const newBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+        
+        // Az új kattintási esemény hozzárendelése: bezárja az ablakot, majd lefuttatja a callbacket
         newBtn.onclick = () => { closeModal(); confirmCallback(); };
+        
+        // A modális ablak megjelenítése a megfelelő CSS osztály hozzáadásával
         document.getElementById('custom-modal').classList.add('visible');
     }
-    function closeModal() { document.getElementById('custom-modal').classList.remove('visible'); }
 
-    function toKey(lat, lon, level) { return `${parseFloat(lat).toFixed(PRECISION)},${parseFloat(lon).toFixed(PRECISION)},${level}`; }
+    /**
+     * Bezárja (elrejti) az egyedi modális ablakot a láthatóságot szabályozó CSS osztály eltávolításával.
+     */
+    function closeModal() { 
+        document.getElementById('custom-modal').classList.remove('visible'); 
+    }
 
+    /**
+     * Egyedi azonosító kulcsot (stringet) generál a megadott koordináták és a szint alapján.
+     * A szélességi és hosszúsági fokokat a globális PRECISION változó alapján kerekíti
+     * az inkonzisztens lebegőpontos számítások elkerülése végett.
+     * @param {number|string} lat - A földrajzi szélesség (latitude).
+     * @param {number|string} lon - A földrajzi hosszúság (longitude).
+     * @param {string|number} level - A szint azonosítója.
+     * @returns {string} A formázott azonosító kulcs (pl. "47.47,19.05,1").
+     */
+    function toKey(lat, lon, level) { 
+        return `${parseFloat(lat).toFixed(PRECISION)},${parseFloat(lon).toFixed(PRECISION)},${level}`; 
+    }
+
+    /**
+     * Kinyeri és feldolgozza egy térképelem (GeoJSON feature) szintadatait (level property).
+     * Kezeli a többértékű mezőket, értelmezi a számtartományokat (pl. "0-2" vagy "-1-1"), 
+     * és kiszűri az érvénytelen vagy hibás adatokat.
+     * @param {Object} feature - A vizsgálandó GeoJSON térképelem.
+     * @returns {string[]} Az érvényes szintek egyedi, növekvő sorrendbe rendezett tömbje.
+     */
     function getLevelsFromFeature(feature) {
+        // Biztonsági ellenőrzés: ha az elem vagy a szintadat nem létezik, üres tömbbel térünk vissza
         if (!feature || !feature.properties || !feature.properties.level) return [];
         
+        // A nyers szintadat sztringgé alakítása a biztonságos string műveletekhez
         const raw = feature.properties.level.toString();
-        // Minden elválasztót pontosvesszőre cserélünk, aztán darabolunk
+        
+        // A vesszőket pontosvesszőre cseréljük a formátum egységesítése érdekében, majd feldaraboljuk
         const parts = raw.replace(/,/g, ';').split(';');
         
+        // Set adatszerkezet használata a duplikált szintek automatikus kiszűrésére
         let levels = new Set();
         
         parts.forEach(part => {
+            // Felesleges szóközök eltávolítása a darabok elejéről és végéről
             part = part.trim();
             if (!part) return;
 
             // 1. TARTOMÁNY DETEKTÁLÁS (pl. "0-2" vagy "-1-1")
-            // Regex: (szám) - (szám)
+            // Reguláris kifejezés: opcionális mínusz jel, számok, kötőjel, majd ismét opcionális mínusz és számok
             const rangeMatch = part.match(/^(-?\d+)\s*-\s*(-?\d+)$/);
 
             if (rangeMatch) {
                 const min = parseInt(rangeMatch[1]);
                 const max = parseInt(rangeMatch[2]);
                 
-                // Biztonsági fék: Csak ha valid számok és nem túl nagy a távolság (max 30 emelet)
-                // Ez kiszűri a véletlen dátumokat vagy hülyeségeket
+                // Biztonsági korlát: Csak akkor fogadjuk el, ha valid számok, és a távolságuk nem irreális (max 30 emelet).
+                // Ezzel elkerülhető a hibás adatokból (pl. dátumok beírása) származó végtelen ciklus vagy hibás generálás.
                 if (!isNaN(min) && !isNaN(max) && Math.abs(max - min) < 30) {
+                    // Iteráció a minimum és maximum érték között, beleértve a határokat is
                     for (let i = Math.min(min, max); i <= Math.max(min, max); i++) {
                         levels.add(i.toString());
                     }
                 }
             } else {
-                // 2. SIMA ÉRTÉK DETEKTÁLÁS (Szigorú Integers Only)
-                // Ez kiszűri a "-0.5"-öt és a szöveges szemetet
+                // 2. EGYSZERŰ ÉRTÉK DETEKTÁLÁS (Szigorúan csak egész számok)
                 const num = Number(part);
+                
+                // Ez a feltétel kiszűri a tört számokat (pl. "-0.5") és a nem numerikus, szöveges szemetet
                 if (!isNaN(num) && Number.isInteger(num)) {
                      levels.add(num.toString());
                 }
             }
         });
         
+        // A Set objektum szabványos tömbbé alakítása és numerikus érték szerinti növekvő sorrendbe rendezése
         return Array.from(levels).sort((a,b) => parseFloat(a) - parseFloat(b));
     }
 
+    /**
+     * Aszinkron függvény az OpenStreetMap Overpass API lekérdezésére.
+     * Tartalmaz egy beépített hibatűrő mechanizmust (fallback): amennyiben az aktuális szerver
+     * nem válaszol vagy időtúllépés (timeout) történik, automatikusan megpróbálja
+     * a listában szereplő következő szervert.
+     * @param {string} query - Az Overpass QL nyelven írt lekérdezés törzse.
+     * @param {number} [serverIndex=0] - Az aktuálisan próbált szerver indexe az OVERPASS_SERVERS tömbben.
+     * @returns {Promise<Object>} A lekérdezés eredménye JSON objektumként.
+     * @throws {Error} Hibát dob, ha az összes elérhető szerver lekérdezése sikertelen.
+     */
     async function fetchOverpass(query, serverIndex = 0) {
+        // Ellenőrizzük, hogy elfogytak-e a próbálkozásra szánt szerverek
         if (serverIndex >= OVERPASS_SERVERS.length) throw new Error("Minden szerver halott.");
+        
         const server = OVERPASS_SERVERS[serverIndex];
+        
+        // Felhasználói felület frissítése az aktuális kapcsolat állapotáról
         document.getElementById('loader-status').innerText = `Connecting to ${new URL(server).hostname}...`;
+        
         try {
+            // Megszakításvezérlő inicializálása az időtúllépés (timeout) kezeléséhez
             const controller = new AbortController();
+            
+            // 10 másodperces időtúllépés beállítása a lekérdezésre
             const timeoutId = setTimeout(() => controller.abort(), 10000); 
+            
+            // Hálózati kérés küldése a kiválasztott szerver felé
             const response = await fetch(server, { method: "POST", body: query, signal: controller.signal });
+            
+            // Ha a kérés befejeződött, töröljük az időtúllépés időzítőjét
             clearTimeout(timeoutId);
+            
+            // Ha a válasz nem sikeres (pl. 404 vagy 500-as hiba), kivételt dobunk
             if (!response.ok) throw new Error(`Status ${response.status}`);
+            
+            // Sikeres válasz esetén a JSON adat visszaadása
             return await response.json();
         } catch (e) {
+            // Hiba esetén (pl. hálózati hiba vagy timeout) naplózzuk a figyelmeztetést,
+            // és rekurzívan megpróbáljuk a lekérdezést a következő szerverrel
             console.warn(`Server ${server} failed. Trying next...`);
             return fetchOverpass(query, serverIndex + 1);
         }
     }
 
-    // === ÚJ: ÉPÜLET KÖZÉPPONTRA IGAZÍTÁS ===
+    /**
+     * A térkép nézetét automatikusan a betöltött épület geometriai középpontjára igazítja.
+     * A funkció kiszámítja az összes térképelem (GeoJSON) alapján a befoglaló dobozt (bounding box),
+     * meghatározza annak középpontját, majd a kamerát finom animációval oda mozgatja.
+     */
     function alignMapToBuildingCenter() {
-        // Ha van megosztott link (share paraméter), akkor NE rángassuk a térképet, 
-        // mert a processUrlParams majd odaviszi a kamerát a konkrét szobára.
+        // Ha van megosztott link (share paraméter az URL-ben), akkor megszakítjuk az automatikus 
+        // középre igazítást, mivel a megosztási logika (processUrlParams) egy konkrét szobára fog fókuszálni.
         const params = new URLSearchParams(window.location.search);
         if (params.get('share')) return;
 
+        // Biztonsági ellenőrzés: csak akkor hajtjuk végre, ha a térképadatok érvényesek és nem üresek
         if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) return;
 
         try {
-            // A teljes betöltött geometria befoglaló doboza (BBOX) [minX, minY, maxX, maxY]
+            // A teljes betöltött geometria befoglaló dobozának (BBOX) kiszámítása a Turf.js segítségével.
+            // Formátum: [minX, minY, maxX, maxY] (azaz [minLon, minLat, maxLon, maxLat])
             const bbox = turf.bbox(geoJsonData); 
             
             if (bbox) {
-                // Kiszámoljuk a geometriai középpontot
+                // A geometriai középpont (szélességi és hosszúsági fokok) kiszámítása a határok átlagolásával
                 const centerLon = (bbox[0] + bbox[2]) / 2;
                 const centerLat = (bbox[1] + bbox[3]) / 2;
                 
-                // Finom igazítás a valós középpontra
-                // A panTo animálva viszi oda, ami szép visszajelzés, hogy "betöltöttem"
+                // Finom kameramozgatás (pan) a valós középpontra, amely vizuális megerősítést ad a betöltésről
                 map.panTo([centerLat, centerLon]);
                 console.log("Map aligned to building center:", centerLat, centerLon);
             }
         } catch (e) {
+            // Hibakezelés a Turf.js számítási hibái vagy egyéb váratlan kivételek esetén
             console.warn("Auto-align error:", e);
         }
     }
 
 
-    // === B-009 FIX: RÉTEG SORRENDEZÉS (Z-INDEX) ===
-    // Meghatározza, mi kerüljön alulra és mi felülre az SVG-ben.
-    // Minél nagyobb a szám, annál feljebb lesz (kattinthatóbb).
+    /**
+     * Meghatározza a térképelemek vizuális rétegsorrendjét (z-index) az SVG renderelés során.
+     * Célja, hogy a nagyobb súlyú elemek (pl. ajtók, szobák) feljebb kerüljenek, 
+     * biztosítva a megfelelő láthatóságot és kattinthatóságot az alaprajzon.
+     * @param {Object} f - A vizsgálandó GeoJSON térképelem (feature).
+     * @returns {number} Az elem rétegzési súlya (1-től 4-ig), ahol a magasabb érték felsőbb réteget jelent.
+     */
     function getFeatureWeight(f) {
         const p = f.properties;
         
-        // 1. SZINT: Háttér (Padló, Fal, Épület körvonal) - LEGALUL
+        // 1. SZINT (Legalul): Szerkezeti alapelemek (Padló, Fal, Épület körvonal)
         if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall') return 1;
         
-        // 2. SZINT: Folyosó (Hogy a szobák "kiemelkedjenek" belőle)
+        // 2. SZINT: Folyosók. Biztosítja, hogy az ezekből nyíló szobák vizuálisan kiemelkedjenek.
         if (p.indoor === 'corridor' || p.highway === 'corridor') return 2;
         
-        // 3. SZINT: Szobák / WC / Lépcső / Lift (A lényeg!)
-        // Ez az alapértelmezett, ide esik minden névvel rendelkező hely is.
-        
-        // 4. SZINT: Ajtók / Bejáratok (Hogy mindig eltalálhatóak legyenek) - LEGFELÜL
+        // 4. SZINT (Legfelül): Ajtók és bejáratok. Garantálja, hogy ezek az apróbb elemek
+        // mindig jól láthatóak és interakcióba léphetők maradjanak.
         if (p.entrance || p.door) return 4;
 
-        return 3; // Szobák alapértelmezett súlya
+        // 3. SZINT (Alapértelmezett): Szobák, mosdók, lépcsők, liftek és egyéb névvel rendelkező helyiségek.
+        return 3; 
     }
 
-    // Ez a függvény felel az OSM JSON -> Térkép konverzióért
-    // Ez a függvény felel az adat -> Térkép konverzióért
+    /**
+     * Feldolgozza a betöltött OpenStreetMap (OSM) adatokat és inicializálja a térképi modellt.
+     * Intelligens adatkonverziót végez: ha az adat már kész GeoJSON formátumú, közvetlenül felhasználja,
+     * ha nyers OSM formátumú, elvégzi a szükséges konverziót. Emellett sorba rendezi a rétegeket,
+     * felépíti a logikai gráfot, megőrzi az aktuális szinti nézetet, majd frissíti a felhasználói felületet.
+     * @param {Object} osmData - A letöltött térképadat (nyers OSM JSON vagy GeoJSON FeatureCollection).
+     * @param {boolean} [isUpdate=false] - Jelzi, hogy a folyamat egy meglévő térkép frissítése-e 
+     * (ha igaz, elkerüli a kamera zavaró, automatikus középre igazítását).
+     */
     function processOsmData(osmData, isUpdate = false) {
-        // 1. ÁLLAPOT MENTÉSE (B-010 Fix)
+        // 1. Aktuális állapot (szint/emelet) mentése a vizuális ugrálások elkerülése végett (B-010 Fix)
         const savedLevel = currentLevel;
 
         console.log("🛠️ processOsmData indítása... Adat típusa:", osmData ? (osmData.type || "Nyers OSM API adat") : "UNDEFINED!");
 
-        // OKOS KONVERZIÓ:
-        // Ha az adat már GeoJSON (mert a GitHub Action legyártotta nekünk)
+        // Intelligens adatkonverzió vizsgálata
         if (osmData && osmData.type === 'FeatureCollection') {
+            // Statikus, előkészített GeoJSON fájl (pl. GitHub Actions által generálva) feldolgozása
             console.log("✅ Kész GeoJSON-t kaptunk (Statikus fájl), kihagyjuk a konvertálást.");
             geoJsonData = osmData;
-        } 
-        // Ha nyers OSM adat (mert a fallback API-ról jött)
-        else {
+        } else {
+            // Nyers OSM adatok konvertálása GeoJSON formátumba (Fallback API esetén)
             console.log("⚙️ Nyers OSM adatot kaptunk (Fallback), osmtogeojson konvertálás indul...");
             geoJsonData = osmtogeojson(osmData);
         }
         
-        // Z-Index rendezés (Padló alulra, szoba felülre)
+        // A térképelemek mélységi (Z-Index) rendezése a getFeatureWeight függvény alapján
         if (geoJsonData && geoJsonData.features) {
             geoJsonData.features.sort((a, b) => {
                 return getFeatureWeight(a) - getFeatureWeight(b);
             });
         }
 
+        // Térképi logika és adatszerkezetek inicializálása
         processLevels(); 
         collectDoors(); 
         buildRoutingGraph(); 
         
-        // 2. ÁLLAPOT VISSZATÖLTÉSE (B-010 Fix)
+        // 2. Az előzőleg mentett szint (emelet) állapotának biztonságos visszaállítása
         if (availableLevels.includes(savedLevel)) {
             currentLevel = savedLevel;
         } else {
+            // Ha a mentett szint nem elérhető az új adatokban, 
+            // alapértelmezetten a földszintet ('0') vagy a legelső elérhető szintet választjuk
             if (!availableLevels.includes(currentLevel)) {
                 currentLevel = availableLevels.includes('0') ? '0' : (availableLevels[0] || "0");
             }
         }
 
+        // Felhasználói felület és térkép renderelése a beállított adatok alapján
         renderLevel(currentLevel);
         createLevelControls();
 
-        // Ha ez frissítés, nem rángatjuk a kamerát
+        // Kamera pozicionálása: Csak az első betöltésnél igazítjuk középre, frissítésnél (isUpdate) mellőzzük
         if (!isUpdate) {
             alignMapToBuildingCenter();
         }
         
+        // Dinamikus láthatóság (részletességi szint / LOD) frissítése az aktuális nagyításhoz
         updateDynamicVisibility();
     }
 
+    /**
+     * Aszinkron függvény a kiválasztott épület térképadatainak betöltésére.
+     * Háromszintű betöltési logikát alkalmaz a maximális teljesítmény és megbízhatóság érdekében:
+     * 1. Gyorsítótár (Cache): Azonnali megjelenítés a helyi tárolóból, ha rendelkezésre áll.
+     * 2. Statikus adatfájl: Elsődleges hálózati forrás (előre generált, optimalizált JSON fájl).
+     * 3. Élő Overpass API (Fallback): Tartalék megoldás a statikus fájl elérhetetlensége esetén.
+     */
     async function loadOsmData() {
         const loader = document.getElementById('loader');
         const buildingKey = currentBuildingKey;
         
-        // 1. CACHE KEZELÉS (Azonnali megjelenítés)
+        // 1. GYORSÍTÓTÁR (CACHE) KEZELÉSE
+        // Megkíséreljük betölteni az adatokat a helyi tárolóból a várakozás nélküli megjelenítéshez.
         const cachedData = loadFromCache(buildingKey);
+        
+        // Jelzőváltozó, amely mutatja, hogy történt-e sikeres betöltés a gyorsítótárból
         let loadedFromCache = false;
 
         if (cachedData) {
             try {
                 console.log("Rendering from cache...");
+                
+                // Adatok feldolgozása és térkép renderelése a gyorsítótárazott adatok alapján
                 processOsmData(cachedData, false);
                 loader.style.display = 'none';
                 loadedFromCache = true;
                 
+                // Függőben lévő keresés végrehajtása kis késleltetéssel (pl. automatikus épületváltás után)
                 if (pendingSearchTerm) {
                     setTimeout(() => {
                          if(pendingSearchTerm) {
@@ -1630,35 +2204,44 @@
                          }
                     }, 100);
                 }
+                
+                // URL paraméterek (pl. Deep Link megosztás) feldolgozása a betöltés befejezésekor
                 processUrlParams();
             } catch (e) {
+                // Hibakezelés: Sérült vagy feldolgozhatatlan gyorsítótár-bejegyzés törlése
                 console.error("Cache render failed:", e);
                 localStorage.removeItem(CACHE_PREFIX + buildingKey);
             }
         } else {
+            // Ha nincs gyorsítótárazott adat, megjelenítjük a betöltést jelző felületet
             loader.style.display = 'block';
             document.getElementById('loader-status').innerText = "Betöltés...";
         }
 
-        // 2. ELSŐDLEGES ADATFORRÁS: A GitHub Action által generált statikus fájl
+        // 2. ELSŐDLEGES ADATFORRÁS: STATIKUS FÁJL LETÖLTÉSE
+        // Megpróbáljuk letölteni a szerveren tárolt, előkészített adatfájlt.
         try {
             if (!loadedFromCache) document.getElementById('loader-status').innerText = "Térkép lekérése a szerverről...";
             
-            // Fájl lekérése a data mappából
+            // Fájl lekérése a 'data' könyvtárból az épület azonosítója alapján
             const res = await fetch(`./data/${buildingKey.toLowerCase()}_epulet.json`);
             if (!res.ok) throw new Error("Statikus fájl nem található (HTTP " + res.status + ")");
             
             const newData = await res.json();
+            
+            // Ellenőrizzük, hogy a hálózatról érkezett adat eltér-e a gyorsítótárazott állapottól
             const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(newData);
 
             if (isDataNew) {
                 console.log("Új statikus adat érkezett, frissítés...");
+                // Új adatok esetén frissítjük a térképet és felülírjuk a gyorsítótárat
                 processOsmData(newData, loadedFromCache);
                 saveToCache(buildingKey, newData);
             } else {
                 console.log("A statikus adat up-to-date.");
             }
 
+            // Ha eddig a pontig csak a betöltőképernyő volt látható, most elrejtjük és futtatjuk a kiegészítő funkciókat
             if (!loadedFromCache) {
                 loader.style.display = 'none';
                 if (pendingSearchTerm) {
@@ -1669,16 +2252,21 @@
                 processUrlParams();
             }
             
-            return; // Ha idáig eljutottunk, minden szuper, kilépünk a függvényből!
+            // Sikeres adatbetöltés esetén kilépünk, nincs szükség a tartalék (fallback) megoldásra
+            return; 
 
         } catch (localError) {
+            // Hibakezelés: Ha a statikus fájl letöltése sikertelen, továbblépünk a 3. lépésre
             console.warn("⚠️ Hiba a statikus fájl betöltésekor, indul a FALLBACK az Overpass API-ra!", localError);
             if (!loadedFromCache) document.getElementById('loader-status').innerText = "Fallback API csatlakozás...";
         }
 
-        // 3. FALLBACK: Ha a statikus fájl nincs meg, kérdezzük le élőben az Overpass-tól
+        // 3. TARTALÉK MEGOLDÁS (FALLBACK): ÉLŐ OVERPASS API LEKÉRDEZÉS
+        // Ha a statikus fájl nem elérhető, a szükséges adatokat közvetlenül az OpenStreetMap szervereiről kérjük le.
         const radius = 250;
         const center = currentBuilding.center;
+        
+        // Az Overpass QL lekérdezés összeállítása a releváns épületi adatok (szobák, folyosók, lépcsők) kinyeréséhez
         const query = `
             [out:json][timeout:25];
             (
@@ -1703,7 +2291,10 @@
         `;
 
         try {
+            // A lekérdezés végrehajtása a hálózaton keresztül
             const osmData = await fetchOverpass(query);
+            
+            // Az élő adat összehasonlítása az esetlegesen gyorsítótárazott állapottal
             const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(osmData);
 
             if (isDataNew) {
@@ -1712,6 +2303,7 @@
                 saveToCache(buildingKey, osmData);
             }
 
+            // A felület frissítése az élő adatok sikeres betöltése után
             if (!loadedFromCache) {
                 loader.style.display = 'none';
                 if (pendingSearchTerm) {
@@ -1723,92 +2315,121 @@
             }
 
         } catch (e) {
+            // Végső hibakezelés: Ha sem a statikus, sem a fallback adatforrás nem működik
             console.error("Végzetes hiba, a fallback szerverek is elszálltak:", e);
+            
             if (!loadedFromCache) {
+                // Teljes adatkimaradás esetén vizuális hibaüzenet a felhasználónak
                 document.getElementById('loader-status').innerText = "FAILED.";
                 alert("Hiba a letöltéskor: Minden szerver elérhetetlen.\n(Ellenőrizd az internetkapcsolatot!)");
             } else {
+                // Ha van gyorsítótárazott változat, tájékoztatjuk a felhasználót az offline üzemmódról
                 showToast("Offline mód: Nem sikerült frissíteni a szerverről.");
             }
         }
     }
 
+    /**
+     * Összegyűjti és eltárolja az épület összes ajtajának és bejáratának csomópontját.
+     * Végigiterál a térképadatokon (GeoJSON), megkeresi az 'entrance' vagy 'door' tulajdonsággal
+     * rendelkező pont (Point) geometriákat, majd generál hozzájuk egy egyedi azonosítót 
+     * (koordináta és szint alapján), amelyet a globális 'doorNodes' halmazban (Set) tárol el.
+     * A funkció az útvonaltervezés (routing) logikájának előkészítéséhez szükséges.
+     */
     function collectDoors() {
+        // A korábban eltárolt ajtó-csomópontok törlése az új adatok betöltése előtt
         doorNodes.clear();
+        
         geoJsonData.features.forEach(f => {
             const p = f.properties;
+            
+            // Kizárólag a pont típusú geometriákat vizsgáljuk, amelyek bejáratként vagy ajtóként vannak megjelölve
             if (f.geometry.type === 'Point' && (p.entrance || p.door)) {
                 const levels = getLevelsFromFeature(f);
                 const lat = f.geometry.coordinates[1];
                 const lon = f.geometry.coordinates[0];
+                
+                // Fallback: Ha az elemhez nincs szint (level) adat társítva, alapértelmezésként 
+                // hozzárendeljük a leggyakoribb szinteket, hogy az útvonaltervező megtalálja
                 if (levels.length === 0) levels.push("0", "1", "2", "3", "-1"); 
+                
+                // A csomópont hozzáadása a halmazhoz minden érintett szinten
                 levels.forEach(lvl => { doorNodes.add(toKey(lat, lon, lvl)); });
             }
         });
     }
 
+    /**
+     * Kirajzolja a szobákhoz és helyiségekhez tartozó szöveges címkéket (feliratokat) a térképre.
+     * A funkció teljesítményoptimalizálási és vizuális okokból csak megfelelő nagyítási szint (zoom) 
+     * felett fut le, kiszűri a technikai helyiségeket, és garantálja, hogy a felirat 
+     * a szoba geometriájának belsejébe kerüljön.
+     * @param {string} level - Az aktuálisan megjelenített szint (emelet) azonosítója.
+     */
     function drawLabels(level) {
+        // A korábban kirajzolt címkék eltávolítása a rétegről az újrarendereléshez
         labelLayerGroup.clearLayers();
 
-        // HA NINCS ADAT, NE CSINÁLJ SEMMIT! - Biztonsági ellenőrzés (Crash fix)
+        // Biztonsági ellenőrzés: ha nincsenek betöltött adatok, megszakítjuk a futást a futásidejű hibák elkerülése végett
         if (!geoJsonData || !geoJsonData.features) return;
         
-        // Csak ha elég közel vagyunk (biztos ami biztos 19+)
+        // A feliratok csak a 19-es vagy annál nagyobb zoom szinten jelennek meg a zsúfoltság megelőzése érdekében
         if (map.getZoom() < 19) return;
 
         geoJsonData.features.forEach(feature => {
-            // 1. Szűrés: Csak a jelenlegi szinten lévő dolgok kellenek
+            // Szűrés a szintre: Csak az aktuálisan látható emelet elemeivel dolgozunk
             const levels = getLevelsFromFeature(feature);
             if (!levels.includes(level)) return;
 
             const p = feature.properties;
 
-            // --- SZŰRÉS (BLACKLIST) ---
-            // Nem kérünk címkét: Folyosó, WC, Lépcső, Lift
+            // --- Szűrési logika (Blacklist) ---
+            // Meghatározzuk, hogy az adott elem technikai vagy közlekedő funkciót tölt-e be
             const isCorridor = p.indoor === 'corridor' || p.highway === 'corridor';
             const isToilet = p.amenity === 'toilets' || p.room === 'toilet' || p.room === 'toilets' || p.room === 'wc';
             const isStairs = p.highway === 'steps' || p.room === 'stairs' || p.indoor === 'staircase';
             const isElevator = p.highway === 'elevator' || p.room === 'elevator';
 
-            // Ha bármelyik ezek közül, akkor SKIP
+            // Ha az elem az előbbi kategóriák bármelyikébe esik, nem kap szöveges címkét
             if (isCorridor || isToilet || isStairs || isElevator) return;
             
-            // 2. Mi legyen a felirat? (Ref > Név > Semmi)
-            // Rövid nevek előnyben, hogy kiférjenek.
+            // A felirat szövegének meghatározása: elsődlegesen a referenciaszámot (ref) használjuk
             let labelText = p.ref;
             
-            // Ha nincs ref, de van név (pl. "Büfé"), mehet az.
-            // De ha a név nagyon hosszú, inkább hagyjuk, vagy vágjuk?
+            // Ha nincs referenciaszám, de az elem rendelkezik névvel, azt használjuk, 
+            // feltéve, hogy a név hossza nem haladja meg a 15 karaktert (a térkép olvashatósága érdekében)
             if (!labelText && p.name) {
-                // Csak akkor írjuk ki a nevet, ha nem túl hosszú (pl. < 15 karakter)
                 if (p.name.length < 15) labelText = p.name;
             }
 
-            // Ha még mindig nincs, vagy ez csak egy fal
+            // Ha semmilyen érvényes feliratszöveg nem áll rendelkezésre, vagy az elem csak egy fal, továbblépünk
             if (!labelText || p.indoor === 'wall') return;
 
-            // 3. Pozíció keresése (L-alak support)
+            // A felirat geometriai pozíciójának meghatározása
             let centerLat, centerLon;
 
             if (feature.geometry.type === "Point") {
+                // Pont geometria esetén a koordináták egyértelműek
                 centerLat = feature.geometry.coordinates[1];
                 centerLon = feature.geometry.coordinates[0];
             } else {
-                // ITT A TRÜKK: turf.pointOnFeature
-                // Ez garantálja, hogy a pont a poligon BELSEJÉBEN lesz.
+                // Poligon geometria (pl. L-alakú szoba) esetén a Turf.js 'pointOnFeature' függvénye 
+                // garantálja, hogy a számított középpont ténylegesen a poligon belső területére essen
                 const pointOnPoly = turf.pointOnFeature(feature);
                 centerLat = pointOnPoly.geometry.coordinates[1];
                 centerLon = pointOnPoly.geometry.coordinates[0];
             }
 
-            // 4. Marker kirajzolása (DivIcon szöveggel)
+            // A vizuális ikon (DivIcon) létrehozása a felirat számára a megfelelő HTML és CSS beállításokkal
             const labelIcon = L.divIcon({
                 className: 'room-label',
                 html: labelText,
-                iconSize: [40, 20], // Kb. méret, de a CSS flexbox kezeli
-                iconAnchor: [20, 10] // Középre igazítva
+                iconSize: [40, 20],  // Alapértelmezett méret, a végső méretezést a CSS flexbox kezeli
+                iconAnchor: [20, 10] // A felirat középre igazítása a kiszámított koordinátához képest
             });
 
+            // A marker hozzáadása a térképhez, kikapcsolt interaktivitással (kattinthatatlan), 
+            // a dedikált címke rétegen (labelPane)
             L.marker([centerLat, centerLon], {
                 icon: labelIcon,
                 interactive: false,
@@ -1816,6 +2437,8 @@
             }).addTo(labelLayerGroup);
         });
     }
+
+    // ---------- ---------- ---------- ----------
 
     function renderLevel(level) {
         indoorLayerGroup.clearLayers();
