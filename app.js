@@ -5282,64 +5282,72 @@
         console.log("Switched to level:", currentLevel, "(Alias:", levelAliases[currentLevel] || "N/A", ")");
     }
 
-    // ---------- ---------- ---------- ---------- ----------
+    // === INTELLIGENS KAMERAMOZGATÁS (OFFSET LOGIKA) ===
 
-    // === OKOS KAMERA MOZGATÁS (OFFSET LOGIKA) ===
+    /**
+     * Pozícionálja a térkép kameráját a megadott térképelemre (feature), 
+     * intelligensen kompenzálva a felhasználói felület (UI) által kitakart képernyőterületeket.
+     * Pixel alapú eltolást alkalmaz, hogy a fókuszpont vizuálisan mindig a szabadon 
+     * látható térképrész közepére essen, majd szükség esetén végrehajtja az emeletváltást is.
+     *
+     * @param {Object} feature - A fókuszba helyezendő GeoJSON térképelem.
+     */
     function smartFlyTo(feature) {
+        // Biztonsági ellenőrzés: érvénytelen vagy hiányzó paraméter esetén megszakítjuk a futást
         if (!feature) return;
 
-        // 1. Koordináta meghatározása (Középpont)
+        // --- 1. A célpont földrajzi koordinátáinak (középpont) meghatározása ---
         let lat, lon;
+        
         if (feature.geometry.type === "Point") {
+            // Pont geometria esetén közvetlenül a koordinátákat használjuk
             lat = feature.geometry.coordinates[1];
             lon = feature.geometry.coordinates[0];
         } else {
+            // Poligon vagy vonal esetén a Turf.js segítségével kiszámítjuk a geometriai középpontot
             const c = turf.centroid(feature);
             lat = c.geometry.coordinates[1];
             lon = c.geometry.coordinates[0];
         }
 
-        // 2. Mennyit takar ki az UI az aljából?
+        // --- 2. A felhasználói felület (UI) által kitakart alsó képernyőterület számítása ---
         let bottomOffset = 0;
         
         const sheet = document.getElementById('bottom-sheet');
         const settingsModal = document.getElementById('settings-modal');
         
-        // A) Ha a Bottom Sheet nyitva van (Sheet mód)
         if (sheet.classList.contains('open')) {
-            // A látható magasságot vesszük figyelembe
+            // Az alsó információs panel (Bottom Sheet) magasságának lekérése, ha nyitva van
             bottomOffset = sheet.getBoundingClientRect().height;
-        } 
-        // B) Ha a Theme Editor nyitva van (Editor mód)
-        else if (settingsModal.classList.contains('editor-mode')) {
-            // A kártya magassága
+        } else if (settingsModal.classList.contains('editor-mode')) {
+            // A témaszerkesztő (Theme Editor) kártya magasságának lekérése, ha az aktív
             const card = settingsModal.querySelector('.settings-card');
             if (card) bottomOffset = card.getBoundingClientRect().height;
         }
 
-        // 3. Cél Zoom Szint
+        // --- 3. A célzott nagyítási szint (zoom) meghatározása ---
         const targetZoom = 20;
 
-        // 4. MÁGIA: Pixel alapú eltolás
-        // Átvetítjük a koordinátát pixelekre az adott zoom szinten
+        // --- 4. Pixel alapú eltolás (Offset) számítása ---
+        // A földrajzi koordináták képernyőpixelekké történő vetítése a célzott nagyítási szinten
         const centerPoint = map.project([lat, lon], targetZoom);
         
-        // Hozzáadunk az Y tengelyhez (lefelé) a takarás felét.
-        // Miért? Mert ha a kamera lejjebb néz, a célpont feljebb kerül a képernyőn.
-        // Ha 300px a sheet, akkor 150px-el lejjebb kell célozni a kamerával,
-        // hogy a pont 150px-el feljebb (a maradék hely közepén) legyen.
-        centerPoint.y += (bottomOffset / 2); // Kicsit kevesebbet is lehet (pl / 2.2), ha a fejlécet is beszámítjuk
+        // Az Y tengely (függőleges) értékének növelése a kitakart terület felével. 
+        // Ezáltal a kamera fizikailag lejjebb céloz, így maga a vizsgált pont 
+        // vizuálisan feljebb kerül a látható térképernyő geometriai közepére.
+        centerPoint.y += (bottomOffset / 2); 
 
-        // Visszavetítjük koordinátára
+        // A módosított pixelkoordináták visszavetítése szabványos földrajzi koordinátákká
         const targetLatLng = map.unproject(centerPoint, targetZoom);
 
-        // Repülés
+        // --- 5. A kameramozgás (animáció) végrehajtása ---
         map.flyTo(targetLatLng, targetZoom, {
             animate: true,
-            duration: 0.8 // Kicsit gyorsabb, pattogósabb
+            duration: 0.8 // Optimalizált, dinamikus animációs sebesség
         });
         
-        // Ha szükséges, szintet váltunk
+        // --- 6. Szintváltás ellenőrzése és végrehajtása ---
+        // Amennyiben a célpont egy másik emeleten található, automatikusan átváltjuk a nézetet
         const levels = getLevelsFromFeature(feature);
         if (levels.length > 0 && !levels.includes(currentLevel)) {
             switchLevel(levels[0]);
@@ -5350,116 +5358,180 @@
          smartFlyTo(feature);
     }
 
-    // === BOTTOM SHEET DRAG LOGIC v2 (SNAP & SPRING) ===
+    // === ALSÓ INFORMÁCIÓS PANEL (BOTTOM SHEET) MOZGATÁSI LOGIKA ===
+
+    // DOM elemek referenciáinak inicializálása a panel manipulációjához
     const sheet = document.getElementById('bottom-sheet');
     const handle = document.getElementById('sheet-handle');
     const content = document.getElementById('sheet-scroll-content');
     const footer = document.querySelector('.sheet-footer');
     const header = document.querySelector('.sheet-header');
     
-    let startY = 0;
-    let startHeight = 0;
-    let isDragging = false;
-    let lastY = 0; // Sebességméréshez
-    let velocity = 0;
+    // Állapotváltozók a húzási (drag) interakció és a fizikai szimuláció nyomon követéséhez
+    let startY = 0;           // Az érintés/kattintás kezdeti Y koordinátája
+    let startHeight = 0;      // A panel magassága a húzás megkezdésekor
+    let isDragging = false;   // Logikai jelző a húzási folyamat állapotáról
+    let lastY = 0;            // Az előző mérési pont Y koordinátája a mozgási sebesség (velocity) számításához
+    let velocity = 0;         // A mozgás sebessége az inercia és a lendület (spring) logikájához
 
-    // Kiszámolja a minimum magasságot (Peek), ahol csak a gombok és a cím látszik
+    /**
+     * Kiszámítja az alsó információs panel minimális (betekintő / peek) magasságát.
+     * Ez az a vertikális méret, amelynél a fejléc, a húzófogantyú és a lábléc (az akciógombokkal) 
+     * látható marad, de maga a tartalom rejtve van a felhasználó elől.
+     *
+     * @returns {number} A számított betekintő magasság pixelben kifejezve.
+     */
     function getPeekHeight() {
+        // A UI komponensek aktuális magasságának lekérése, biztonsági alapértelmezett értékekkel (fallback)
         const handleH = handle.offsetHeight || 25;
         const headerH = header.offsetHeight || 60;
         const footerH = footer.offsetHeight || 80;
-        // +10px ráhagyás, hogy ne legyen zsúfolt
+        
+        // A komponensek magasságának összegzése, kiegészítve egy 10px-es vizuális margóval a zsúfoltság elkerülésére
         return handleH + headerH + footerH + 10;
     }
 
-    // Kiszámolja az "Auto" magasságot (tartalomhoz igazítva)
+    /**
+     * Kiszámítja a panel automatikus (optimális) magasságát a belső tartalom kiterjedése alapján.
+     * A függvény biztosítja, hogy a panel alapértelmezetten ne takarja ki a képernyőt teljesen,
+     * és egy meghatározott aránynál (60%) megálljon.
+     *
+     * @returns {number} Az ideális magasság pixelben kifejezve.
+     */
     function getAutoHeight() {
         const contentH = content.scrollHeight;
         const peekH = getPeekHeight();
+        
+        // A teljes szükséges magasság: a fix elemek (peek) és a görgethető belső tartalom összege
         const total = peekH + contentH;
-        // De ne legyen nagyobb, mint a képernyő 60%-a alapból
+        
+        // A visszaadott érték maximalizálása az elérhető ablakmagasság 60%-ában
         return Math.min(total, window.innerHeight * 0.6);
     }
 
+    /**
+     * Összecsukja az információs panelt a minimális (peek) állapotába.
+     * CSS átmenetet (transition) alkalmaz a finom animációhoz, és visszaállítja
+     * a belső görgetési pozíciót az alaphelyzetbe, hogy a következő megnyitáskor 
+     * a tartalom ismét a tetejétől legyen olvasható.
+     */
     function collapseToPeek() {
         const peekH = getPeekHeight();
+        
+        // A panel magasságának és az animációs átmenet paramétereinek beállítása
         sheet.style.height = `${peekH}px`;
         sheet.style.transition = 'height 0.3s ease-out';
+        
+        // A nyitott állapotot jelző CSS osztály fenntartása (mivel a peek is egy látható, interaktív állapot)
         sheet.classList.add('open');
-        // Ha esetleg el volt görgetve a tartalom, tekerjük vissza
+        
+        // A belső görgetősáv (scroll) pozíciójának nullázása a tiszta állapot eléréséhez
         document.getElementById('sheet-scroll-content').scrollTop = 0;
     }
 
-    // === ESEMÉNYEK ===
+    // === ESEMÉNYKEZELŐK (EVENT LISTENERS) ===
 
+    /**
+     * Eseménykezelő a panel húzásának (drag) megkezdéséhez érintőképernyős eszközökön.
+     * Inicializálja az állapotváltozókat és kikapcsolja a CSS animációkat az azonnali, 
+     * késleltetés nélküli ujjkövetés (1:1 tracking) érdekében.
+     */
     handle.addEventListener('touchstart', (e) => {
         isDragging = true;
         startY = e.touches[0].clientY;
         lastY = startY;
         velocity = 0;
         startHeight = sheet.getBoundingClientRect().height;
-        sheet.style.transition = 'none'; // Drag közben nincs animáció (azonnali reakció)
+        
+        // Animáció letiltása a sima, azonnali reakcióhoz a húzás alatt
+        sheet.style.transition = 'none'; 
     }, {passive: true});
 
-    // === KLIKK A KERESŐN KÍVÜL (Focus Lost) ===
+    /**
+     * Globális eseménykezelő a keresőmezőn kívüli kattintások (focus lost) detektálására.
+     * Ha a felhasználó a keresősávon és a találati listán kívülre kattint, 
+     * a rendszer automatikusan elrejti az aktív találati listát.
+     */
     document.addEventListener('click', (e) => {
         const searchWrapper = document.getElementById('search-wrapper');
         const resultsDiv = document.getElementById('search-results');
         
-        // Ha a kattintás NEM a keresőben történt, és a lista látható
+        // Ellenőrzés: ha a kattintás nem a kereső komponensein belül történt, 
+        // és a találati lista jelenleg látható
         if (!searchWrapper.contains(e.target) && resultsDiv.style.display !== 'none') {
             resultsDiv.style.display = 'none';
         }
     });
 
+    /**
+     * Eseménykezelő a panel folyamatos húzásának (touchmove) lekövetésére.
+     * Kiszámítja a pozícióváltozást (deltaY) és az aktuális mozgási sebességet (velocity) 
+     * a gesztusok (pl. pöccintés) későbbi értelmezéséhez, majd korlátozott keretek 
+     * között frissíti a panel magasságát.
+     */
     document.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
+        
         const currentY = e.touches[0].clientY;
-        const deltaY = startY - currentY; // Felfelé pozitív
+        const deltaY = startY - currentY; // Felfelé történő mozgás esetén pozitív érték
         const newHeight = startHeight + deltaY;
         
-        // Sebesség számítása (Pöccintéshez)
-        velocity = currentY - lastY; // Pozitív = lefelé, Negatív = felfelé
+        // A mozgási sebesség kiszámítása a későbbi lendület (momentum) alapú döntésekhez.
+        // Pozitív érték: lefelé haladó mozgás; Negatív érték: felfelé haladó mozgás.
+        velocity = currentY - lastY; 
         lastY = currentY;
 
         const peekH = getPeekHeight();
         const maxH = window.innerHeight * 0.9;
 
-        // Csak ésszerű határok között engedjük húzni
+        // A panel magasságának frissítése, biztosítva, hogy a mozgatás a logikai és 
+        // fizikai határokon (képernyőméret) belül maradjon
         if (newHeight >= peekH * 0.8 && newHeight <= maxH) {
             sheet.style.height = `${newHeight}px`;
         }
     }, {passive: true});
 
+    /**
+     * Eseménykezelő a panel elengedésére (touchend).
+     * Visszaállítja a CSS animációkat egy finom, ruganyos (spring) effekttel, majd 
+     * a mozgás sebessége (pöccintés) vagy a végpozíció alapján kiszámítja a legideálisabb 
+     * rögzítési pontot (snap point: peek, auto vagy max), és oda igazítja a panelt.
+     */
     document.addEventListener('touchend', () => {
         if (!isDragging) return;
+        
         isDragging = false;
-        sheet.style.transition = 'height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; // Ruganyos effekt (Spring)
+        
+        // Ruganyos (spring) animációs görbe alkalmazása a természetesebb fizikai hatásért
+        sheet.style.transition = 'height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; 
         
         const currentHeight = sheet.getBoundingClientRect().height;
         const peekH = getPeekHeight();
         const autoH = getAutoHeight();
         const maxH = window.innerHeight * 0.85;
 
-        // LOGIKA: Hova ugorjon elengedéskor?
+        // --- RÖGZÍTÉSI PONT (SNAP) LOGIKA ---
         
-        // 1. Ha lefelé pöccintettél (gyors mozdulat) -> PEEK
+        // 1. Lefelé irányuló, magas sebességű mozdulat (pöccintés lefelé) -> Betekintő (PEEK) állapot
         if (velocity > 10) {
             sheet.style.height = `${peekH}px`;
         }
-        // 2. Ha felfelé pöccintettél -> AUTO (vagy MAX)
+        // 2. Felfelé irányuló, magas sebességű mozdulat (pöccintés felfelé) -> AUTO vagy MAX állapot
         else if (velocity < -10) {
-            if (currentHeight < autoH) sheet.style.height = `${autoH}px`;
-            else sheet.style.height = `${maxH}px`;
+            if (currentHeight < autoH) {
+                sheet.style.height = `${autoH}px`;
+            } else {
+                sheet.style.height = `${maxH}px`;
+            }
         }
-        // 3. Ha lassan húztad, nézzük a pozíciót
+        // 3. Alacsony sebességű mozgás (lassú húzás) esetén a legközelebbi rögzítési ponthoz igazítás
         else {
-            // Távolságok a snap pontoktól
+            // A panel aktuális magasságának távolsága a lehetséges végpontoktól
             const distToPeek = Math.abs(currentHeight - peekH);
             const distToAuto = Math.abs(currentHeight - autoH);
             const distToMax = Math.abs(currentHeight - maxH);
 
-            // Melyikhez van legközelebb?
+            // A legkisebb távolság kiválasztása a végleges rögzítési ponthoz
             if (distToPeek < distToAuto && distToPeek < distToMax) {
                 sheet.style.height = `${peekH}px`;
             } else if (distToMax < distToAuto) {
@@ -5469,109 +5541,168 @@
             }
         }
         
-        // Ha PEEK-be megyünk, rejtsük el a scrollbart vizuálisan (opcionális clean up)
-        if (sheet.style.height === `${peekH}px`) content.scrollTop = 0;
+        // Belső nézet takarítása: ha a panel a betekintő (peek) állapotba került, 
+        // a tartalom görgetését visszaállítjuk az alaphelyzetbe
+        if (sheet.style.height === `${peekH}px`) {
+            content.scrollTop = 0;
+        }
     });
 
-    // KLIKK A FOGANTYÚRA (Toggle)
+    /**
+     * Eseménykezelő a húzófogantyúra (handle) történő normál kattintásra.
+     * Alternatívát nyújt a húzás (drag) interakció helyett: egyszerű kattintással vált (toggle)
+     * az optimális nyitott (auto) és a betekintő (peek) állapotok között.
+     */
     handle.addEventListener('click', () => {
         const currentH = sheet.getBoundingClientRect().height;
         const peekH = getPeekHeight();
         const autoH = getAutoHeight();
 
+        // Egyenletes (ease-out) animáció alkalmazása a kattintásos állapotváltásnál
         sheet.style.transition = 'height 0.3s ease-out';
 
-        // Ha lent van (vagy közel hozzá) -> NYITÁS
+        // Állapotvizsgálat: ha a panel a betekintő magasság közelében van, kinyitjuk
         if (currentH < peekH + 50) {
             sheet.style.height = `${autoH}px`;
         } 
-        // Ha nyitva van -> ZÁRÁS (PEEK)
+        // Ha a panel nyitva van, összecsukjuk a betekintő állapotba
         else {
             sheet.style.height = `${peekH}px`;
         }
     });
 
 
-    // === SHARE & DEEP LINK LOGIC ===
+    // === MEGOSZTÁS ÉS MÉLYHIVATKOZÁS (DEEP LINK) LOGIKA ===
 
-    // 1. ADAT KINYERÉSE FEATURE-BŐL (PRIORITÁS FIX)
+    /**
+     * Kinyeri a legmegbízhatóbb egyedi azonosítót egy térképelemből (GeoJSON feature)
+     * a megosztási hivatkozások és állapotmentés számára. 
+     * Azonosítási prioritás: 1. OSM ID, 2. Referencia (ref) vagy Név (name), 3. Geometriai középpont.
+     *
+     * @param {Object} feature - A feldolgozandó GeoJSON térképelem.
+     * @returns {Object|null} Az azonosítót ({type, val|lat, lon, lvl}) tartalmazó objektum, 
+     * vagy null, ha a bemenet érvénytelen.
+     */
     function getFeatureId(feature) {
         if (!feature) return null;
+        
         const p = feature.properties;
         const lvl = getLevelsFromFeature(feature)[0] || "0";
 
-        // --- ITT A VÁLTOZÁS: AZ ID KERÜLT AZ ELSŐ HELYRE ---
-        
-        // 1. OSM ID (A legpontosabb, egyedi azonosító)
-        // Ezzel elkerüljük, hogy név alapján véletlenül a szomszéd folyosót találja meg.
-        if (feature.id) return { type: 'id', val: feature.id, lvl: lvl };
+        // 1. PRIORITÁS: OSM ID (A legpontosabb, globálisan egyedi azonosító)
+        // Használatával elkerülhető a névütközésekből adódó pontatlan helymeghatározás.
+        if (feature.id) {
+            return { type: 'id', val: feature.id, lvl: lvl };
+        }
 
-        // 2. Ref / Név (Csak fallback, ha valamiért nincs ID)
-        if (p.ref) return { type: 'ref', val: p.ref, lvl: lvl };
-        if (p.name) return { type: 'name', val: p.name, lvl: lvl };
+        // 2. PRIORITÁS: Referencia azonosító vagy Név (Tartalék megoldás)
+        if (p.ref) {
+            return { type: 'ref', val: p.ref, lvl: lvl };
+        }
+        if (p.name) {
+            return { type: 'name', val: p.name, lvl: lvl };
+        }
         
-        // 3. Koordináta (Végső eset)
+        // 3. PRIORITÁS: Földrajzi koordináta (Végső tartalék megoldás)
+        // A térképelem geometriai középpontjának (centroid) kiszámítása a Turf.js segítségével.
         const c = turf.centroid(feature);
         return { 
             type: 'coord', 
+            // A koordinátákat 6 tizedesjegy pontosságra (kb. 10 cm) kerekítjük az URL rövidsége érdekében
             lat: c.geometry.coordinates[1].toFixed(6), 
             lon: c.geometry.coordinates[0].toFixed(6),
             lvl: lvl
         };
     }
 
-    // 1. A FELOKOSÍTOTT TOAST (Szöveget is vár)
+    /**
+     * Megjelenít egy rövid ideig tartó, vizuális értesítést (toast notification) a képernyőn.
+     *
+     * @param {string} message - A megjelenítendő tájékoztató szöveg.
+     */
     function showToast(message) {
         const t = document.getElementById('toast-notification');
-        if (message) t.innerText = message; // Ha kap szöveget, átírja
+        
+        // Szöveges tartalom dinamikus frissítése, amennyiben paraméterként megadásra került
+        if (message) {
+            t.innerText = message; 
+        }
+        
+        // A láthatóságot vezérlő CSS osztály hozzáadása
         t.classList.add('visible');
+        
+        // Az értesítés automatikus elrejtése 3000 ezredmásodperc (3 másodperc) eltelte után
         setTimeout(() => t.classList.remove('visible'), 3000);
     }
 
-    // 2. MEGOSZTÁS GOMB KEZELŐ
+    /**
+     * Generál egy egyedi URL-t (mélyhivatkozást) az alkalmazás aktuális állapotáról, 
+     * majd automatikusan a felhasználó vágólapjára másolja azt.
+     * Képes teljes útvonalak (navigáció) vagy egyedi kiválasztott helyszínek megosztására.
+     */
     function shareCurrentState() {
-        let payload = { b: currentBuildingKey }; // Épület mindig kell
+        // Az alapvető adatcsomag inicializálása az aktuális épület azonosítójával
+        let payload = { b: currentBuildingKey }; 
 
         if (activeRouteData) {
-            // Útvonal megosztása
+            // --- ÚTVONAL MEGOSZTÁSI MÓD ---
             payload.mode = 'route';
-            payload.s = getFeatureId(activeRouteData.start); // Start (lehet null -> Main Entrance)
-            payload.e = getFeatureId(activeRouteData.end);   // End
+            // A kezdőpont és a célpont azonosítóinak kinyerése
+            // Megjegyzés: activeRouteData.start lehet null (pl. Főbejárat használata esetén)
+            payload.s = getFeatureId(activeRouteData.start); 
+            payload.e = getFeatureId(activeRouteData.end);   
         } else if (selectedFeature) {
-            // Csak egy hely megosztása
+            // --- EGYEDI HELYSZÍN MEGOSZTÁSI MÓD ---
             payload.mode = 'loc';
             payload.t = getFeatureId(selectedFeature);
         } else {
-            return; // Nincs mit megosztani
+            // Megszakítás: nincs megosztható állapot
+            return; 
         }
 
-        // Kódolás: JSON -> String -> UTF8 Fix -> Base64
+        // --- ADATKÓDOLÁS (Serialization & Encoding) ---
+        // Az objektum JSON formátummá alakítása
         const jsonStr = JSON.stringify(payload);
-        // UTF-8 karakterek kezelése btoa előtt:
+        
+        // Biztonságos Base64 kódolás generálása UTF-8 karakterek (pl. ékezetek) támogatásával
         const encoded = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g,
             function toSolidBytes(match, p1) { return String.fromCharCode('0x' + p1); }));
 
-        // URL generálás
+        // A jelenlegi böngésző URL-jének feldolgozása és a kódolt adatcsomag hozzáfűzése a lekérdezési paraméterekhez
         const url = new URL(window.location.href);
         url.searchParams.set('share', encoded);
 
-        // Vágólapra másolás
+        // --- VÁGÓLAPRA MÁSOLÁS ---
+        // Kísérlet a generált URL vágólapra helyezésére a Clipboard API használatával
         navigator.clipboard.writeText(url.toString()).then(() => {
+            // Sikeres másolás esetén értesítés megjelenítése
             showToast("Link másolva! 📋");
         }).catch(err => {
+            // Hibakezelés: ha a böngésző biztonsági okokból blokkolja a vágólap hozzáférést,
+            // egy manuális prompt ablakot biztosítunk a másoláshoz
             console.error('Copy failed', err);
             prompt("Másold ki a linket:", url.toString());
         });
     }
 
-    // 3. URL FELDOLGOZÁS (BETÖLTÉSKOR)
+    // === 3. URL FELDOLGOZÁS ÉS ÁLLAPOTVISSZAÁLLÍTÁS (DEEP LINKING) ===
+
+    /**
+     * Feldolgozza a böngésző URL-jében található lekérdezési paramétereket (query parameters),
+     * specifikusan a megosztási (share) kódot keresve. Ha talál ilyet, dekódolja az adatokat,
+     * és automatikusan visszaállítja az alkalmazás állapotát (egy adott helyszín megjelenítése 
+     * vagy egy útvonaltervezés elindítása).
+     */
     async function processUrlParams() {
         const params = new URLSearchParams(window.location.search);
         const shareCode = params.get('share');
+        
+        // Ha nincs megosztási kód az URL-ben, a függvény esemény nélkül kilép
         if (!shareCode) return;
 
         try {
-            // Dekódolás: Base64 -> UTF8 Fix -> JSON
+            // --- ADATDEKÓDOLÁS ---
+            // A kódolási folyamat visszafordítása: Base64 -> UTF-8 kompatibilis string -> JSON objektum
             const jsonStr = decodeURIComponent(atob(shareCode).split('').map(function(c) {
                 return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
             }).join(''));
@@ -5579,64 +5710,80 @@
             const data = JSON.parse(jsonStr);
             console.log("Deep Link Data:", data);
 
-            // Ha más épületben vagyunk, mint a link, VÁLTÁS!
-            // (Ez trükkös, mert a changeBuilding újratölti az adatokat)
-            // Ezért ezt a logikát a loadOsmData hívása ELŐTT kell kezelni az init-ben.
+            // Megjegyzés: Az esetleges épületváltás logikáját (ha a link más épületre mutat, 
+            // mint az alapértelmezett) az inicializációs fázisban, a térképadatok (loadOsmData) 
+            // betöltése előtt kell kezelni a redundáns hálózati kérések elkerülése végett.
+            // Itt már feltételezzük, hogy a megfelelő épület adatai be vannak töltve az OSM-ből.
             
-            // ITT már feltételezzük, hogy jó épületben vagyunk és betöltött az OSM.
-            
-            // Feature kereső segéd (ID Supporttal)
+            /**
+             * Belső segédfüggvény a megosztott adatokban szereplő térképelem (feature) 
+             * azonosítására a memóriában lévő GeoJSON adathalmazból.
+             * * @param {Object} desc - A térképelem leíró objektuma (type, val, lvl).
+             * @returns {Object|null} A megtalált GeoJSON elem, vagy null, ha nincs találat.
+             */
             const findFeat = (desc) => {
                 if (!desc) return null;
                 
-                // A) ID ALAPÚ KERESÉS (Legpontosabb)
+                // A) ID ALAPÚ KERESÉS (Legmagasabb prioritás)
+                // Közvetlen egyezés vizsgálata az OSM azonosító alapján, amely garantálja a pontosságot.
                 if (desc.type === 'id') {
-                    // Közvetlen keresés a memóriában lévő adatok között
                     return geoJsonData.features.find(f => f.id === desc.val);
                 }
 
-                // B) KOORDINÁTA ALAPÚ (Még mindig TODO, de ritka)
+                // B) KOORDINÁTA ALAPÚ KERESÉS (Fenntartott hely későbbi implementációnak)
                 if (desc.type === 'coord') {
-                    return null; // Ide jöhetne egy turf.nearest, de az ID most megoldja
+                    // Megjegyzés: Jelenleg nincs implementálva (pl. turf.nearestPoint használható lenne), 
+                    // mivel az elsődleges ID alapú azonosítás lefedi a használati esetek többségét.
+                    return null; 
                 }
                 
-                // C) NÉV/REF ALAPÚ (Smart Filter)
+                // C) NÉV VAGY REFERENCIA ALAPÚ KERESÉS (Okos szűrés)
+                // A smartFilter algoritmus használata a találatok listázására
                 const hits = smartFilter(desc.val);
                 if (hits.length > 0 && desc.lvl) {
+                    // Ha van szintinformáció, megpróbáljuk a pontosan azonos szinten lévő elemet kiválasztani
                     const exact = hits.find(h => getLevelsFromFeature(h).includes(desc.lvl));
-                    return exact || hits[0];
+                    return exact || hits[0]; // Fallback: az első találat
                 }
                 return hits[0];
             };
 
+            // --- ÁLLAPOT VISSZAÁLLÍTÁSA A MÓD ALAPJÁN ---
+
+            // 1. EGYEDI HELYSZÍN MÓD ('loc')
             if (data.mode === 'loc') {
                 const target = findFeat(data.t);
                 if (target) {
-                    // FIX: Kivettük a zoomToFeature-t (az openSheet úgyis hívja).
-                    // Kis késleltetés (300ms) kell, hogy a renderelés után a térkép "magához térjen" és a flyTo működjön.
+                    // Időzített végrehajtás (300ms késleltetés) a térkép renderelési ciklusának 
+                    // lezárására, biztosítva az animáció (flyTo) zavartalan futását.
                     setTimeout(() => {
                         openSheet(target);
                     }, 300);
                 }
-            } else if (data.mode === 'route') {
+            } 
+            // 2. ÚTVONALTERVEZÉSI MÓD ('route')
+            else if (data.mode === 'route') {
                 const endFeature = findFeat(data.e);
-                const startFeature = findFeat(data.s); // Ha null, az a Main Entrance lesz a startNavigation-ben
+                const startFeature = findFeat(data.s); // Null érték esetén a főbejárat lesz a kiindulópont
                 
                 if (endFeature) {
-                    // Sárga keret kirajzolása a célpontra
+                    // A célpont vizuális kiemelése a térképen
                     drawSelectedHighlight(endFeature);
 
-                    // A sheet fejlécének kitöltése a célpont adataival,
-                    // hogy a navigációs "peek" nézetben is a helyes név jelenjen meg.
+                    // --- INFORMÁCIÓS PANEL (UI) ELŐKÉSZÍTÉSE ---
+                    // A panel fejlécének dinamikus kitöltése a célpont adataival, 
+                    // hogy a betekintő (peek) nézet azonnal releváns információt mutasson.
                     const p = endFeature.properties;
                     let typeName = getHungarianType(p);
                     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
                     
+                    // A megjelenítendő név (displayName) prioritásos meghatározása
                     let displayName = p.name || p.ref;
                     if (!displayName) {
                         displayName = typeName;
                     }
             
+                    // A szint (emelet) megjelenítési formátumának összeállítása
                     let displayLevelString = "";
                     if (p['level:ref']) {
                         displayLevelString = p['level:ref'];
@@ -5646,6 +5793,7 @@
                         displayLevelString = mappedLevels.join(', ');
                     }
             
+                    // Az értékek DOM-ba történő beillesztése
                     document.getElementById('sheet-title').innerText = displayName;
                     if (displayName === typeName) {
                         document.getElementById('sheet-sub').innerText = `Szin: ${displayLevelString}`;
@@ -5653,37 +5801,56 @@
                         document.getElementById('sheet-sub').innerText = `Szin: ${displayLevelString} | ${typeName}`;
                     }
 
-                    // Navigáció indítása
+                    // A navigációs motor elindítása a paraméterekből kinyert pontokkal
                     startNavigation(endFeature, startFeature);
                 }
             }
             
-            // URL tisztítása (hogy frissítéskor ne fusson le újra)
+            // --- URL TISZTÍTÁSA ---
+            // A megosztási paraméter eltávolítása a böngésző címsorából a History API segítségével.
+            // Ez megakadályozza az állapot ismételt feldolgozását egy esetleges oldalfrissítés során.
             window.history.replaceState({}, document.title, window.location.pathname);
 
         } catch (e) {
+            // Hibakezelés a dekódolási vagy parsing hibák naplózására
             console.error("Deep Link Error:", e);
         }
     }
 
-    // === GLOBÁLIS ZÁR A GESZTUSOKHOZ ===
-    // Ez akadályozza meg, hogy zoomolás közben kattintsunk
+    // === GLOBÁLIS ÁLLAPOTVÁLTOZÓK A GESZTUSKEZELÉSHEZ ===
+    
+    // Globális állapotjelző, amely megakadályozza a térképi elemekre történő véletlen 
+    // kattintást (kiválasztást) egy komplex gesztus (pl. egyujjas nagyítás) végrehajtása közben.
     window.isMapInteractionLocked = false;
-    window.clickTimeout = null; // ÚJ: A kattintás késleltetéséhez
+    
+    // Időzítő (timeout) referencia a kattintási események szándékos késleltetéséhez vagy megszakításához.
+    window.clickTimeout = null; 
 
-    // === F-014: ONE FINGER ZOOM (Safe Mode) ===
+    /**
+     * Engedélyezi az egyujjas nagyítási (one-finger zoom) funkciót a térképen.
+     * Ez egy fejlett érintésvezérlési gesztus: a felhasználó duplán koppint a képernyőre, 
+     * majd a második érintést lenyomva tartva fel-le húzza az ujját a térkép nagyításához 
+     * vagy kicsinyítéséhez.
+     *
+     * @param {Object} map - A Leaflet térképpéldány, amelyen a gesztuskezelést implementáljuk.
+     */
     function enableOneFingerZoom(map) {
         const container = map.getContainer();
+        
+        // Belső állapotváltozók az érintések időzítéséhez és pozíciójának nyomon követéséhez
         let lastTap = 0;
         let startY = 0;
         let startZoom = 0;
         let isZooming = false;
 
+        // --- ÉRINTÉS KEZDETE (Touch Start) ---
         container.addEventListener('touchstart', (e) => {
+            // A gesztus kizárólag egyetlen ujj használatával érvényes
             if (e.touches.length !== 1) return;
 
-            // ÚJ: Ha bármilyen érintés történik, azonnal töröljük az előző (várakozó) kattintást!
-            // Ez a kulcs: a második ujjlenyomás megöli az első kattintást.
+            // Konfliktuskezelés: Egy újabb érintés detektálásakor azonnal töröljük a várakozó 
+            // (késleltetett) kattintási eseményt. Ez garantálja, hogy a gesztus megkezdése 
+            // felülírja a szimpla kiválasztási szándékot.
             if (window.clickTimeout) {
                 clearTimeout(window.clickTimeout);
                 window.clickTimeout = null;
@@ -5691,44 +5858,66 @@
 
             const now = Date.now();
             
-            // Ha dupla koppintás gyanús (300ms-en belül)
+            // Dupla érintés (koppintás) detektálása egy 300 milliszekundumos időablakon belül
             if (now - lastTap < 300) {
+                // A térképi interakciók (kattintások) zárolása a gesztus idejére
                 window.isMapInteractionLocked = true;
                 isZooming = true;
+                
+                // A kiindulási Y koordináta és az aktuális nagyítási szint rögzítése
                 startY = e.touches[0].clientY;
                 startZoom = map.getZoom();
+                
+                // Az alapértelmezett térképmozgatás (panning) letiltása, hogy ne csússzon el a nézet
                 map.dragging.disable();
             }
+            // Az utolsó érintés idejének frissítése a következő vizsgálathoz
             lastTap = now;
         });
 
+        // --- FOLYAMATOS MOZGÁS (Touch Move) ---
         container.addEventListener('touchmove', (e) => {
+            // Ha nem aktív az egyujjas nagyítási gesztus, a rendszer ignorálja az eseményt
             if (!isZooming) return;
             
-            // Zár megerősítése mozgás közben
+            // A zárolási állapot megerősítése a mozgás teljes időtartama alatt
             window.isMapInteractionLocked = true;
 
             const y = e.touches[0].clientY;
+            // A függőleges elmozdulás kiszámítása a kiindulási ponthoz képest
             const delta = y - startY; 
             
+            // Holtjáték (deadzone) biztosítása: csak a 10 pixelnél nagyobb elmozdulást 
+            // tekintjük szándékos nagyításnak, kiszűrve az ujj apró remegéseit.
             if (Math.abs(delta) > 10) {
-                if(e.cancelable) e.preventDefault();
+                // A böngésző alapértelmezett görgetési viselkedésének megakadályozása
+                if (e.cancelable) e.preventDefault();
                 
+                // A nagyítás mértékének kiszámítása. 
+                // A sensitivity (érzékenység) konstans határozza meg, hogy hány pixel 
+                // elmozdulás eredményez egy teljes nagyítási szint változást.
                 const sensitivity = 250; 
                 const zoomChange = delta / sensitivity;
+                
+                // A térkép nagyítási szintjének azonnali, animáció nélküli frissítése 
+                // a folyamatos (valós idejű) visszajelzés érdekében.
                 map.setZoom(startZoom + zoomChange, { animate: false });
             }
         }, { passive: false });
 
+        // --- ÉRINTÉS VÉGE (Touch End) ---
         container.addEventListener('touchend', (e) => {
-            // Ha vége a gesztusnak (akár zoomoltunk, akár csak dupla kopp volt)
+            // A gesztus vagy a zárolási állapot befejezésének lekezelése
             if (isZooming || window.isMapInteractionLocked) {
                 isZooming = false;
+                
+                // Az alapértelmezett térképmozgatás (panning) ismételt engedélyezése
                 map.dragging.enable();
 
-                // 2. KÉSLELTETETT FELOLDÁS
-                // Fontos: A 'click' esemény a touchend UTÁN sül el pár milliszekundummal.
-                // Ezért várunk 400ms-t, mielőtt visszaengedjük a kattintást.
+                // --- KÉSLELTETETT FELOLDÁS ---
+                // A mobilböngészők gyakran generálnak egy szintetikus 'click' eseményt 
+                // a 'touchend' után. A 400 milliszekundumos késleltetés megakadályozza, 
+                // hogy ez a "szellemkattintás" véletlenül kiválasszon egy térképelemet a gesztus végén.
                 setTimeout(() => {
                     window.isMapInteractionLocked = false;
                 }, 400);
@@ -5736,41 +5925,55 @@
         });
     }
 
+    // A gesztuskezelő modul inicializálása a globális térképpéldányon
     enableOneFingerZoom(map);
 
-    // === INITIALIZATION ===
+
+    // === ALKALMAZÁS INICIALIZÁLÁSA ===
+    
+    // Alapvető konfigurációk és a vizuális téma (UI) előkészítése
     initBuildings();
     renderThemeSelector();
     applyTheme();
 
-    // 1. URL Check: Melyik épületet töltsük be?
+    // --- 1. URL PARAMÉTEREK VIZSGÁLATA (ÉPÜLET AZONOSÍTÁSA) ---
     const params = new URLSearchParams(window.location.search);
     const shareCode = params.get('share');
-    let buildingToLoad = "K"; // Default
+    
+    // Alapértelmezett épület azonosítójának beállítása
+    let buildingToLoad = "K"; 
 
+    // Megosztási kód (deep link) jelenlétének ellenőrzése és előfeldolgozása
     if (shareCode) {
         try {
-            // Csak az épületkódot szedjük ki gyorsan
+            // A kódolt adatcsomag gyors visszafejtése (Base64 -> UTF-8 -> JSON)
+            // Célja kizárólag a célépület azonosítása a teljes adatbetöltés előtt
             const jsonStr = decodeURIComponent(atob(shareCode).split('').map(function(c) {
                 return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
             }).join(''));
+            
             const data = JSON.parse(jsonStr);
+            
+            // Érvényesítés a globális épület-konfiguráció (BUILDINGS) alapján
             if (data.b && BUILDINGS[data.b]) {
                 buildingToLoad = data.b;
                 console.log("Deep Link Building Switch:", buildingToLoad);
             }
-        } catch(e) { console.warn("Invalid Share Code"); }
+        } catch(e) { 
+            // Hibakezelés érvénytelen, sérült vagy manipulált megosztási kód esetén
+            console.warn("Invalid Share Code"); 
+        }
     }
 
-    // 2. Épület beállítása és betöltése
+    // --- 2. ÉPÜLET BEÁLLÍTÁSA ÉS ADATOK BETÖLTÉSE ---
     if (buildingToLoad !== currentBuildingKey) {
+        // Ha a hivatkozás eltérő épületre mutat, a rendszer automatikusan végrehajtja a váltást
         changeBuilding(buildingToLoad); 
     } else {
-        loadOsmData(); // Ha maradt a K, töltsük be kézzel
+        // Alapértelmezett egyezés esetén elindul a térképadatok közvetlen feldolgozása
+        loadOsmData(); 
     }
 
-    // 3. GPS ellenőrzés indítása a háttérben
-    detectClosestBuilding(); 
-
-    // 3. Deep Link feldolgozása (Csak miután az OSM betöltött!)
-    // Ehhez bele kell nyúlni a loadOsmData-ba! (Lásd F pont)
+    // --- 3. GPS ALAPÚ HELYZETMEGHATÁROZÁS ---
+    // Aszinkron háttérfolyamat indítása a felhasználóhoz legközelebbi épület detektálására
+    detectClosestBuilding();
