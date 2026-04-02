@@ -2438,28 +2438,39 @@
         });
     }
 
-    // ---------- ---------- ---------- ----------
-
+    /**
+     * Megjeleníti és rendereli a térképen az adott szinthez tartozó elemeket.
+     * Előzetesen törli az aktuális rétegeket, frissíti az útvonalak és kiemelések láthatóságát,
+     * majd a GeoJSON adatok alapján feldolgozza és stilizálja a megfelelő szint térképi elemeit.
+     * * @param {string} level - A megjelenítendő szint azonosítója (pl. '0', '1', '-1').
+     */
     function renderLevel(level) {
+        // Korábbi rétegek tartalmának törlése az újrarenderelés előtt
         indoorLayerGroup.clearLayers();
         iconLayerGroup.clearLayers();
         highlightLayerGroup.clearLayers();
+        
+        // Útvonalak és kiemelések állapotának frissítése a kiválasztott szintre
         updateRouteVisibility(level);
         updateSelectedHighlight(level); 
 
         L.geoJSON(geoJsonData, {
-            // --- A gyors renderer bekötése ---
+            // A nagy teljesítményű SVG renderelő használata
             renderer: smoothRenderer,
 
+            // Szűrőfüggvény a megfelelő szint elemeinek kiválasztására
             filter: function(feature) {
                 const feats = getLevelsFromFeature(feature);
+                // Bejáratok és ajtók megjelenítése akkor is, ha nincs specifikus szintjük megadva
                 if (feats.length === 0 && (feature.properties.entrance || feature.properties.door)) return true; 
                 return feats.includes(level);
             },
+
+            // Stílusok alkalmazása az egyes térképi elemekre a tulajdonságaik alapján
             style: function(feature) {
                 const p = feature.properties;
-                // ALAPÉRTELMEZETT SZOBA STÍLUS
-                // Most már külön stroke és fill változót használunk!
+                
+                // Alapértelmezett szobastílus meghatározása (külön kitöltés és körvonal színekkel)
                 let style = { 
                     color: "var(--color-room-stroke)", 
                     weight: 1, 
@@ -2468,17 +2479,17 @@
                     pane: 'overlayPane' 
                 };
                 
-                // 1. ÉPÜLET ALAP / FALAK / PADLÓ
+                // 1. Épület alapja, strukturális falak és a padló
                 if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall') {
                     style = { 
                         color: "var(--color-outline)", 
                         weight: 1, 
-                        fillColor: "var(--color-floor-fill)", // ÚJ: Padló szín
-                        fillOpacity: (p.indoor === 'wall') ? 0.0 : 0.1, // Falnak nincs fill, padlónak van
+                        fillColor: "var(--color-floor-fill)",
+                        fillOpacity: (p.indoor === 'wall') ? 0.0 : 0.1, // A falak nem kapnak kitöltést
                         pane: 'floorPane' 
                     };
                 }
-                // 2. FOLYOSÓK
+                // 2. Folyosók és közlekedőterek
                 else if (p.indoor === 'corridor') {
                     style = { 
                         color: "var(--color-corridor)", 
@@ -2491,7 +2502,7 @@
                 else if (p.highway === 'corridor') {
                     style = { color: "var(--color-corridor)", weight: 4, opacity: 0.5 };
                 }
-                // 3. WC
+                // 3. Mosdók és mellékhelyiségek
                 else if (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets') {
                     style = { 
                         fillColor: "var(--color-toilet-fill)", 
@@ -2500,7 +2511,7 @@
                         fillOpacity: 0.9 
                     };
                 }
-                // 4. LÉPCSŐ (Külön stílus)
+                // 4. Lépcsők és lépcsőházak
                 else if (p.room === 'stairs' || p.indoor === 'staircase' || p.highway === 'steps') {
                     style = { 
                         fillColor: "var(--color-stairs)", 
@@ -2509,7 +2520,7 @@
                         weight: 1 
                     };
                 }
-                // 5. LIFT (Most már külön stílus!)
+                // 5. Liftek
                 else if (p.highway === 'elevator' || p.room === 'elevator') {
                     style = { 
                         fillColor: "var(--color-elevator)", 
@@ -2518,12 +2529,12 @@
                         weight: 1 
                     };
                 }
-                // 6. AJTÓK
+                // 6. Ajtók és bejáratok
                 else if (p.entrance || p.door) {
                     style = { color: "var(--color-door)", weight: 3, radius: 2, opacity: 0.8 };
                 }
                 
-                // --- POI STÍLUSOK (Ezek maradnak hardcoded, vagy hozzáadhatsz változót ha kell) ---
+                // 7. Különleges szolgáltatások (POI), mint automaták és büfék
                 else if (p.amenity === 'vending_machine') {
                     style = { color: "var(--color-coffee)", fillColor: "var(--color-coffee)", fillOpacity: 0.8, weight: 1 };
                 }
@@ -2531,7 +2542,7 @@
                     style = { color: "var(--color-buffet)", fillColor: "var(--color-buffet)", fillOpacity: 0.7, weight: 1 };
                 }
 
-                // KEDVENC KIEMELÉS
+                // Kedvencként megjelölt helyszínek egyedi stílusa
                 if (isFavorite(feature)) {
                     style.color = "var(--color-fav)";
                     style.weight = 3;
@@ -2540,6 +2551,8 @@
                 
                 return style;
             },
+
+            // Pont típusú geometriák (pl. ajtók) egyedi renderelése
             pointToLayer: function(feature, latlng) {
                  if (feature.properties.entrance || feature.properties.door) {
                      return L.circleMarker(latlng, { 
@@ -2552,10 +2565,12 @@
                  }
                  return L.marker(latlng);
             },
+
+            // Eseménykezelők és ikonok hozzárendelése az egyes elemekhez
             onEachFeature: function(feature, layer) {
                 const p = feature.properties;
                 
-                // IKONOK LOGIKA
+                // Ikonok kiválasztásának logikája a helyiség típusa alapján
                 let iconName = null;
                 if (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets') iconName = "wc";
                 if (p.room === 'stairs' || p.indoor === 'staircase') iconName = "stairs_2";
@@ -2567,10 +2582,12 @@
                 }
                 if (p.amenity === 'cafe' || p.amenity === 'fast_food') iconName = "restaurant";
                 
+                // Az elem középpontjának meghatározása az ikon elhelyezéséhez
                 const center = (feature.geometry.type === "Point") 
                     ? [feature.geometry.coordinates[1], feature.geometry.coordinates[0]]
                     : [turf.centroid(feature).geometry.coordinates[1], turf.centroid(feature).geometry.coordinates[0]];
 
+                // Kedvenc helyszínek csillag ikonjának elhelyezése
                 if (isFavorite(feature)) {
                     L.marker(center, {
                         icon: L.divIcon({ 
@@ -2582,6 +2599,7 @@
                     }).addTo(iconLayerGroup);
                 }
 
+                // Általános ikonok elhelyezése, amennyiben az elem nem kedvenc
                 if (iconName && !isFavorite(feature)) { 
                      L.marker(center, {
                         icon: L.divIcon({ className: 'map-icon', html: `<span class="material-symbols-outlined">${iconName}</span>` }),
@@ -2589,106 +2607,129 @@
                     }).addTo(iconLayerGroup);
                 }
 
+                // Kattintási eseménykezelő beállítása az információs panel (sheet) megnyitásához
                 layer.on('click', (e) => {
-                    // Ha zárolva van (épp zoomolsz), ignoráljuk
+                    // Térkép interakció zárolásának ellenőrzése (pl. aktív zoomolási gesztus közben)
                     if (window.isMapInteractionLocked) return;
 
                     L.DomEvent.stopPropagation(e);
 
-                    // HA MÁR VOLT EGY VÁRAKOZÓ KLIKK, AZT TÖRÖLJÜK (Biztos ami biztos)
+                    // Korábbi várakozó kattintási események tisztítása
                     if (window.clickTimeout) {
                         clearTimeout(window.clickTimeout);
                         window.clickTimeout = null;
                     }
 
-                    // ÚJ: KÉSLELTETETT VÉGREHAJTÁS
-                    // Várunk 250ms-t. Ha addig nem jön újabb touchstart (ami törölné ezt),
-                    // akkor ez egy sima kattintás volt.
+                    // Késleltetett végrehajtás a nem kívánt interakciók (pl. dupla kattintás zoomoláshoz) szűrésére
                     window.clickTimeout = setTimeout(() => {
+                        // Ha nem az alaprétegre (padlóra) kattintottak, megnyílik az adatlap
                         if (layer.options.pane !== 'floorPane') openSheet(feature);
                         else closeSheet();
                         
-                        window.clickTimeout = null; // Takarítás
+                        window.clickTimeout = null; // Időzítő változó alaphelyzetbe állítása
                     }, 250); 
                 });
             }
         }).addTo(indoorLayerGroup);
 
+        // Szöveges feliratok (címkék) kirajzolása az aktuális szintre
         drawLabels(level);
     }
 
-    // === AGRESSZÍV ADATBÁZIS KERESŐ v3 (WINGMAN SUPPORT) ===
+    /**
+     * Agresszív szobakereső algoritmus külső adatbázis illesztéshez.
+     * Célja, hogy egy OpenStreetMap-ből származó név (name) vagy referencia (ref) alapján
+     * megtalálja a legmegfelelőbb egyezést a külső szoba-adatbázisban (ROOM_DATABASE),
+     * leküzdve a formátumbeli eltéréseket, elírásokat, vagy a hiányzó épület/szárny azonosítókat.
+     * * @param {string} osmName - Az OSM-ből származó 'name' tag értéke.
+     * @param {string} osmRef - Az OSM-ből származó 'ref' tag értéke.
+     * @param {string} osmLevel - Az OSM-ből származó szint adat (lehet többértékű is, pontosvesszővel elválasztva).
+     * @param {string} buildingKey - Az aktuális épület azonosítója (pl. 'K', 'Q').
+     * @returns {Object|null} A megtalált adatbázis rekord, vagy null, ha nincs találat.
+     */
     function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
         if (!osmName && !osmRef) return null;
         
+        // A keresési mag (core) meghatározása, előnyben részesítve a pontosabb referenciaszámot.
         let core = (osmRef || osmName || "").trim();
+        
+        // "Névtelen" vagy üres értékek kiszűrése.
         if (core.toLowerCase().includes("névtelen") || core === "") return null;
+        
+        // A mag normalizálása (kisbetűsítés, szóközök/speciális karakterek eltávolítása).
         core = normalizeRoomId(core); // pl. "107" vagy "b107"
         
         const b = buildingKey.toLowerCase(); 
+        
+        // Csak a legelső szintet vesszük figyelembe többértékű megadás esetén.
         const rawLvl = osmLevel.split(';')[0];
-        const lvlChars = getLevelChars(buildingKey, rawLvl); // pl. ["-1", "p", "0"]
+        
+        // A szint lehetséges betűjeleinek/aliasainak lekérése (pl. -1 -> ["-1", "p", "f"]).
+        const lvlChars = getLevelChars(buildingKey, rawLvl);
 
-        // SZÉTSZEDJÜK A MAGOT (Ha van benne betű, pl "b107")
+        // A keresési mag szétválasztása szárny (wing) és szobaszám (num) részre, ha tartalmaz betűt.
         let wing = "";
         let num = core;
-        // Regex: Elején betűk, utána számok (pl. "b" + "107")
+        // Regex magyarázat: Olyan stringet keresünk, amely betűkkel kezdődik, majd számokkal (és esetleg más karakterekkel) folytatódik.
         const splitMatch = core.match(/^([a-z]+)(\d+.*)$/);
         if (splitMatch) {
-            wing = splitMatch[1]; // "b"
-            num = splitMatch[2];  // "107"
+            wing = splitMatch[1]; // pl. "b"
+            num = splitMatch[2];  // pl. "107"
         }
 
-        // PERMUTÁCIÓK GENERÁLÁSA
+        // Egyedi keresési jelöltek (permutációk) halmazának inicializálása a duplikációk elkerülésére.
         const candidates = new Set();
         
-        // 1. Alapok
-        candidates.add(core); // "b107"
-        if (wing) candidates.add(num); // "107" (szárny nélkül is próbáljuk)
+        // 1. Alapértelmezett jelöltek hozzáadása.
+        candidates.add(core); // Eredeti mag (pl. "b107")
+        if (wing) candidates.add(num); // Ha van szárny, kipróbáljuk csak a számot is (pl. "107")
 
+        // 2. Jelöltek generálása a szintek összes lehetséges aliasával kombinálva.
         lvlChars.forEach(lvl => {
-            // 2. Szint + Mag (pl. "p107", "pb107")
+            // Szint + Mag (pl. "p107", "pb107")
             if (!core.startsWith(lvl)) candidates.add(lvl + core);
             
-            // 3. Épület + Mag (pl. "q107", "qb107")
+            // Épület azonosító + Mag (pl. "q107", "qb107")
             candidates.add(b + core);
 
-            // 4. Épület + Szint + Mag (Standard: "qp107", "qpb107")
+            // Épület azonosító + Szint + Mag (Leggyakoribb formátum: "qp107", "qpb107")
             candidates.add(b + lvl + core); 
             
-            // 5. WINGMAN LOGIKA (A Hiányzó Láncszem!)
-            // Ha van szárny, próbáljuk meg a szintet középre rakni: Épület + Szárny + Szint + Szám
-            // Pl: Q + B + P + 107 -> "qbp107"
+            // Speciális "Wingman" logika a szárnyat tartalmazó épületekhez (pl. Q épület B szárny).
             if (wing) {
-                candidates.add(b + wing + lvl + num); // "qbp107"
-                candidates.add(wing + lvl + num);     // "bp107"
+                // Épület + Szárny + Szint + Szám (pl. Q + B + P + 107 -> "qbp107")
+                candidates.add(b + wing + lvl + num); 
+                // Szárny + Szint + Szám (pl. B + P + 107 -> "bp107")
+                candidates.add(wing + lvl + num);     
             }
-            
-            // K épület fix: "kf83" (Épület + Szint + Szám) - ez a 4-es pontban már benne van (b+lvl+core)
-            // De ha a core "f83", akkor "k"+"f83" = "kf83".
         });
 
+        // Hibakeresési információk naplózása a generált permutációkról.
         console.log(`🔎 DB Keresés: "${core}" (Wing:${wing}, Lvl:${lvlChars}) ->`, Array.from(candidates));
 
+        // Az adatbázisban tárolt összes kulcs lekérése az iterációhoz.
         const dbKeys = Object.keys(ROOM_DATABASE);
         
-        // Pontos egyezés keresése
+        // Elsődleges keresés: Pontos egyezés vizsgálata a normalizált értékek között.
         for (const cand of candidates) {
             for (const dbKey of dbKeys) {
                 const cleanDbKey = normalizeRoomId(dbKey);
                 if (cleanDbKey === cand) {
                     console.log(`   ✅ TALÁLAT (Pontos): ${dbKey}`);
-                    return ROOM_DATABASE[dbKey];
+                    return ROOM_DATABASE[dbKey]; // Azonnali visszatérés sikeres egyezés esetén
                 }
             }
         }
         
-        // Ha nincs pontos, jöhet a részleges (Fuzzy) - csak óvatosan
+        // Másodlagos keresés (Fuzzy fallback): Részleges egyezés vizsgálata.
         for (const cand of candidates) {
-            if (cand.length < 3) continue; // Túl rövidbe nem keresünk
+            // Túl rövid (pl. 1-2 karakteres) jelölteket kihagyjuk a fals pozitív találatok elkerülése végett.
+            if (cand.length < 3) continue; 
+            
             for (const dbKey of dbKeys) {
                 const cleanDbKey = normalizeRoomId(dbKey);
-                // DB tartalmazza a jelöltet (pl. db="qbp107_labor", cand="qbp107")
+                // Ellenőrizzük, hogy az adatbázisbeli kulcs tartalmazza-e a keresett jelöltet 
+                // (pl. adatbázisban: "qbp107_labor", keresett: "qbp107").
                 if (cleanDbKey.includes(cand)) {
                     console.log(`   ✅ TALÁLAT (Fuzzy): ${dbKey}`);
                     return ROOM_DATABASE[dbKey];
@@ -2696,57 +2737,74 @@
             }
         }
         
+        // Ha semmilyen egyezés nem található, null értékkel térünk vissza.
         return null;
     }
 
-    // === MODIFIED OPEN SHEET (DYNAMIC HEIGHT + SMART MATCH) ===
+    /**
+     * Megnyitja az alsó információs panelt (Bottom Sheet) a kiválasztott térképelemhez.
+     * Ez a funkció felelős az elem adatainak (név, típus, szint, férőhely, képek) 
+     * megjelenítéséért, a külső adatbázissal való szinkronizációért, valamint
+     * az intelligens magasságállítós panelvezérlésért. Továbbá kezeli az útvonaltervezésből 
+     * való kilépést új elem kiválasztása esetén.
+     * @param {Object} feature - A felhasználó által kiválasztott GeoJSON térképelem.
+     */
     function openSheet(feature) {
-        // --- NAVIGÁCIÓ MEGSZAKÍTÁSA ---
-        // Ha navigációs módban vagyunk, és a user egy harmadik helyre kattint (nem Start/Cél),
-        // akkor lépjünk ki a navigációból és mutassuk az új hely adatait.
+        // --- NAVIGÁCIÓ KEZELÉSE ÉS MEGSZAKÍTÁSA ---
+        // Ha jelenleg aktív útvonaltervezés (navigáció) fut
         if (activeRouteData) {
+            // Ellenőrizzük, hogy a kattintott elem megegyezik-e a már beállított kezdő- vagy végponttal
             const isStart = activeNavSource && activeNavSource.id === feature.id;
             const isEnd = activeNavTarget && activeNavTarget.id === feature.id;
 
+            // Ha a felhasználó egy teljesen új (harmadik) helyre kattint, megszakítjuk az aktív navigációt
             if (!isStart && !isEnd) {
                 clearRouteAndClose(); 
-                // A clearRouteAndClose bezárja a sheetet és törli a vonalakat.
-                // A függvény további része viszont azonnal újranyitja a sheetet az új hellyel.
+                // A clearRouteAndClose függvény bezárja a panelt és törli az útvonalat a térképről.
+                // A folyamat ezután folytatódik, és a panel újra kinyílik már az újonnan választott elem adataival.
             }
         }
 
+        // Az aktuálisan fókuszban lévő elem globális regisztrálása
         selectedFeature = feature;
         
-        // Navigációs start pont választás kezelése
+        // Csatlakozópontos (hálózat alapú) indulási pont (Pending Nav Source) kezelése
+        // Ha a felhasználó a "Hova mész innen?" gombot nyomta meg korábban, 
+        // az új kattintás automatikusan elindítja a navigációt e két pont között.
         if (pendingNavSource) {
             startNavigation(selectedFeature, pendingNavSource);
             pendingNavSource = null;
+            // Keresőmező vizuális visszaállítása
             document.getElementById('search-input').placeholder = "Keress...";
-            return;
+            return; // Kilépünk a függvényből, mivel a panel megnyitása helyett útvonaltervezés indul
         }
         
         const p = feature.properties;
         
         // --- 1. TÍPUS FORDÍTÁSA ÉS MAGYARÍTÁS ---
+        // A helyiség típusának lekérése és lefordítása magyar nyelvre
         let typeName = getHungarianType(p);
-        // Nagybetűsítés (pl. "mosdó" -> "Mosdó")
+        // Formázás: Az első betű nagybetűsítése a szebb megjelenés érdekében (pl. "mosdó" -> "Mosdó")
         typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
-        // --- 2. NÉV MEGHATÁROZÁSA ---
-        // Ha van neve (K155), az a név. Ha nincs, akkor a Típusa (Mosdó).
+        // --- 2. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
+        // Elsődleges prioritás: Explicit név (name) vagy azonosító (ref), például "K155".
         let displayName = p.name || p.ref;
+        // Ha nincs sem neve, sem referenciája, a típusát használjuk megnevezésként (pl. "Mosdó").
         if (!displayName) {
             displayName = typeName;
         }
 
-        // --- 3. SZINT MEGJELENÍTÉS (Alias Logic) ---
+        // --- 3. SZINT-INFORMÁCIÓK MEGJELENÍTÉSE (Alias Logika bevonásával) ---
         let displayLevelString = "";
         
-        // A) Ha az adott feature-nek van saját szint-neve (pl. "1;2" a "2-3" helyett), azt használjuk
+        // A) Lokális felülírás: Ha a térképelem rendelkezik egyedi szint-megnevezéssel 
+        // (pl. a "2-3" helyett konkrétan "1;2"), akkor azt részesítjük előnyben.
         if (p['level:ref']) {
             displayLevelString = p['level:ref'];
         } 
-        // B) Ha nincs, akkor megnézzük a globális aliasokat (pl "1" -> "MF")
+        // B) Globális alias fordítás: Ha nincs egyedi megnevezés, a nyers szinteket 
+        // lefordítjuk a felhasználóbarát aliasokra (pl. "1" -> "MF" vagy "0" -> "Fsz").
         else {
             const rawLevels = getLevelsFromFeature(feature);
             const mappedLevels = rawLevels.map(lvl => {
@@ -2755,110 +2813,148 @@
             displayLevelString = mappedLevels.join(', ');
         }
 
-        // DOM Update
+        // --- DOM (HTML) ELEMEK FRISSÍTÉSE ---
+        
+        // Főcím (név) beállítása a panel tetején
         document.getElementById('sheet-title').innerText = displayName;
         
-        // Alcím logika: Ne írjuk ki kétszer ugyanazt
+        // Alcím logika: Intelligens információ-megjelenítés a redundancia elkerülésére
         if (displayName === typeName) {
-            // Ha a név a típus (pl "Mosdó"), akkor csak a szintet írjuk mellé
+            // Ha a név megegyezik a típussal (pl. Főcím: "Mosdó"), felesleges az alcímben is 
+            // feltüntetni a típust, elegendő csak a szintet.
             document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString}`;
         } else {
-            // Ha van rendes neve, akkor írjuk ki a típusát is
+            // Ha van egyedi neve (pl. "K155"), az alcímben feltüntetjük a szintet és a típust is (pl. "Szint: 1 | Terem").
             document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${typeName}`;
         }
         
-        // --- ADATBÁZIS KERESÉS ---
+        // --- 4. KÜLSŐ ADATBÁZIS (ROOM_DATABASE) LEKÉRDEZÉSE ---
+        // Kinyerjük a legelső szintet a kereséshez
         const rawLevel = getLevelsFromFeature(feature)[0] || "0";
-        // Itt javítottam a korábbi roomData keresést is, hogy biztos jó legyen
+        // Agresszív (Wingman támogatott) keresés indítása a részletesebb metaadatokért
         const roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey);
         
         const dataContainer = document.getElementById('room-data-container');
         
+        // Ha találtunk részletes adatokat a helyiségről (férőhely, felszereltség, képek)
         if (roomData) {
+            // Az adatokat tartalmazó szekció megjelenítése
             dataContainer.style.display = 'block';
+            
+            // Férőhely (kapacitás) adatának beállítása
             document.getElementById('meta-capacity').innerHTML = `<span class="material-symbols-outlined">group</span> ${roomData.capacity} fő`;
             
+            // Vizuális címkék (badge-ek) dinamikus megjelenítése a felszereltség (projektor, kulcs) alapján
             const projEl = document.getElementById('meta-projector');
             const keyEl = document.getElementById('meta-key');
-            
             projEl.style.display = roomData.projector ? 'flex' : 'none';
             keyEl.style.display = roomData.key ? 'flex' : 'none';
             
+            // Megjegyzés/leírás mező kitöltése (ha van)
             document.getElementById('room-note').innerText = roomData.note || "";
             
+            // --- KÉPGALÉRIA GENERÁLÁSA ---
             const gallery = document.getElementById('room-gallery');
-            gallery.innerHTML = "";
+            gallery.innerHTML = ""; // Előző képek törlése
+            
             if (roomData.images && roomData.images.length > 0) {
+                // Végigiterálunk a kép URL-eken és legeneráljuk az <img> elemeket
                 roomData.images.forEach(url => {
                     const img = document.createElement('img');
                     img.src = url;
                     img.className = 'gallery-img';
+                    // A képre kattintva új fülön nyílik meg az eredeti méretű fotó
                     img.onclick = () => window.open(url, '_blank');
                     gallery.appendChild(img);
                 });
             }
         } else {
+            // Ha nincsenek extra adatok a helyiségről, a konténert teljesen elrejtjük
             dataContainer.style.display = 'none';
         }
 
+        // Az információs panel (Sheet) vizuális megnyitása a CSS animáció aktiválásával
         const sheet = document.getElementById('bottom-sheet');
         sheet.classList.add('open');
 
-        updateFavoriteUI(); //Beállítja, hogy sárga-e a csillag
+        // A kedvenc (csillag) gomb vizuális állapotának frissítése a jelenlegi elem alapján
+        updateFavoriteUI(); 
         
-        // Auto-height logika (pici késleltetéssel, hogy a DOM frissüljön)
+        // --- 5. INTELLIGENS MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
+        // Rövid késleltetés alkalmazása szükséges, hogy a böngésző renderelő motorja 
+        // kiszámíthassa a betöltött tartalom (képek, szövegek) tényleges magasságát a DOM-ban.
         setTimeout(() => {
             const autoH = getAutoHeight();
-            const content = document.getElementById('sheet-scroll-content');
             
-            // Ha van tartalom (adatbázis találat), nyissuk ki nagyra
+            // Ha sikeres adatbázis találat volt (sok adat, képek), a panelt automatikusan nagyobbra nyitjuk
             if (roomData) {
                  sheet.style.height = `${autoH}px`;
             } else {
-                 // Ha nincs tartalom (csak cím), akkor elég a Peek vagy picit nagyobb
-                 // De maradjunk az autoH-nál, mert az igazodik a tartalomhoz
+                 // Ha nincs extra tartalom (csak név és szint), elegendő a minimális 
+                 // betekintő (Peek) magasság, kis ráhagyással a kényelmes olvasáshoz.
                  sheet.style.height = `${getPeekHeight() + 20}px`; 
             }
         }, 50);
 
+        // A kiválasztott elem vizuális kiemelése (sárga keret) a térképen
         drawSelectedHighlight(feature);
+        
+        // A kamera automatikus ráközelítése (zoom & pan) a kiválasztott elemre
         zoomToFeature(feature);
     }
 
-    // ÚJ PARAMÉTER: sourceFeature hozzáadva a végére
+    /**
+     * Frissíti és átalakítja az alsó információs panelt (Bottom Sheet) útvonaltervezési (navigációs) nézetre.
+     * Megjeleníti az útvonal összesített statisztikáit (idő, távolság), valamint egy interaktív,
+     * lépésről lépésre követhető útvonaltervet (itinert).
+     * @param {Object} targetFeature - A célpont GeoJSON térképeleme.
+     * @param {Object} stats - Az útvonal statisztikái, jellemzően { time: szám, dist: szám } formátumban.
+     * @param {Array<Object>} itinerary - Az útvonal lépéseit (szint, ikon, szöveg) tartalmazó tömb.
+     * @param {Object} [sourceFeature] - A kiindulópont GeoJSON térképeleme.
+     */
     function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature) {
         const sheet = document.getElementById('bottom-sheet');
         const header = document.querySelector('.sheet-header');
         
-        // Header mód bekapcs
+        // A panel fejlécének átállítása navigációs vizuális módba
         header.classList.add('nav-mode');
 
         const title = document.getElementById('sheet-title');
         const sub = document.getElementById('sheet-sub');
         const content = document.getElementById('sheet-scroll-content');
         
-        // 1. CÉL NÉV MEGHATÁROZÁSA (Reusable logika)
+        /**
+         * Belső segédfüggvény a térképelemek formázott és egységes megjelenítési nevének előállítására.
+         * @param {Object} feat - A formázandó GeoJSON térképelem.
+         * @returns {string} A formázott név.
+         */
         const formatName = (feat) => {
             if (!feat || !feat.properties) return "Ismeretlen hely";
             const p = feat.properties;
-            // Ha van név/ref, azt használjuk, ha nincs, akkor a típust magyarul
+            
+            // Elsődlegesen a név vagy referencia használata, hiányuk esetén a magyarított típus lekérése
             let name = p.name || p.ref || (typeof getHungarianType === 'function' ? getHungarianType(p) : "Hely");
             
-            // "Terem" utótag okos hozzáadása
+            // Intelligens "terem" utótag hozzáadása a releváns nevekhez
             const lower = name.toLowerCase();
             const hasType = lower.includes('terem') || lower.includes('labor') || 
                             lower.includes('mosdó') || lower.includes('wc') || 
                             lower.includes('lépcső') || lower.includes('bejárat') || 
                             lower.includes('porta') || lower.includes('büfé');
+            
+            // Csak akkor fűzzük hozzá, ha még nem tartalmaz típust és a név hossza megengedi
             if (!hasType && name.length < 20) name += " terem";
             return name;
         };
 
+        // A cél- és kiindulópont megjelenítési nevének meghatározása
         const targetName = formatName(targetFeature);
-        // ÚJ: Start név meghatározása (Null check fontos!)
+        // Biztonsági ellenőrzés a kiindulópontra (null check)
         const sourceName = sourceFeature ? formatName(sourceFeature) : "Kijelölt pont";
 
-        // 2. FEJLÉC (Header)
+        // --- 2. FEJLÉC (Header) TARTALMÁNAK FRISSÍTÉSE ---
+        
+        // Főcím: Az utazás becsült idejének kiemelt megjelenítése
         title.innerHTML = `
             <div style="text-align:center; width:100%;">
                 <span style="color:var(--color-ui-active); font-size:28px; font-weight:800; letter-spacing:-0.5px;">
@@ -2867,15 +2963,19 @@
             </div>
         `;
         
+        // Alcím: Az össztávolság és a célpont nevének megjelenítése
         sub.innerHTML = `
             <div style="text-align:center; width:100%; font-size:15px; opacity:0.8; margin-top:-5px;">
                 ${stats.dist} m <span style="margin:0 6px; opacity:0.4;">&bull;</span> ${targetName}
             </div>
         `;
 
-        // 3. TARTALOM (Itiner)
+        // --- 3. TARTALOM (Itiner) FELÉPÍTÉSE ---
+        
+        // Az általános helyiségadatok (room-data-container) elrejtése navigációs módban
         document.getElementById('room-data-container').style.display = 'none';
         
+        // Az útvonalterv konténerének lekérése vagy dinamikus létrehozása, ha még nem létezik
         let itineraryDiv = document.getElementById('nav-itinerary');
         if (!itineraryDiv) {
             itineraryDiv = document.createElement('div');
@@ -2884,9 +2984,10 @@
         }
         itineraryDiv.style.display = 'block';
         
+        // Az útvonalterv HTML struktúrájának összeállítása
         let html = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;">`;
         
-        // START SOR (Most már névvel és klikkel!)
+        // Indulási pont HTML sorának generálása kattintható (fókuszáló) eseménykezelővel
         html += `
             <div class="itiner-step clickable-step" onclick="focusOnEndpoint('start')">
                 <div class="itiner-icon start"><span class="material-symbols-outlined">trip_origin</span></div>
@@ -2897,7 +2998,7 @@
             </div>
         `;
 
-        // LÉPÉSEK
+        // A navigációs lépések (irányok, szintváltások) iterálása és HTML generálása
         itinerary.forEach(step => {
             html += `
                 <div class="itiner-step clickable-step" onclick="focusOnRouteSegment('${step.level}')">
@@ -2910,7 +3011,7 @@
             `;
         });
 
-        // CÉL SOR (Most már klikkel!)
+        // Érkezési célpont HTML sorának generálása kattintható (fókuszáló) eseménykezelővel
         html += `
             <div class="itiner-step clickable-step" onclick="focusOnEndpoint('end')">
                 <div class="itiner-icon end"><span class="material-symbols-outlined">location_on</span></div>
@@ -2920,213 +3021,355 @@
                 </div>
             </div>
         `;
+        // Térköz hozzáadása a tartalom alján a kényelmes görgetés érdekében
         html += `</div> <div style="height:40px;"></div>`; 
         
         itineraryDiv.innerHTML = html;
 
-        // Footer elrejtés
+        // A lábléc (footer) elrejtése a letisztult navigációs nézet érdekében
         const footer = document.querySelector('.sheet-footer');
         if (footer) footer.style.display = 'none';
         
+        // A panel megjelenítése és részleges ('peek') állapotba történő összecsukása
         sheet.classList.add('open');
         collapseToPeek(); 
     }
 
-    // === OKOS ÚTVONAL FÓKUSZ (Navigációhoz) ===
+    /**
+     * Intelligens kameramozgatás és fókuszálás egy adott útvonalszakaszra navigáció közben.
+     * Átvált a megfelelő szintre, összegyűjti az oda tartozó útvonalpontokat, majd 
+     * kiszámítja azok befoglaló téglalapját (bounds). A térkép nézetét dinamikus 
+     * margókkal (padding) állítja be, garantálva, hogy a lebegő felhasználói felületi 
+     * elemek (például a felső keresősáv vagy az alsó információs panel) ne takarják ki a szakaszt.
+     * @param {string} level - A megtekinteni kívánt szint (emelet) azonosítója.
+     */
     function focusOnRouteSegment(level) {
+        // Biztonsági ellenőrzés: ha nincs aktív útvonal, megszakítjuk a futást
         if (!currentRoutePath || currentRoutePath.length === 0) return;
 
-        // 1. Szintváltás
+        // 1. Átváltás a vizsgálni kívánt szintre a térképen
         switchLevel(level);
 
-        // 2. Pontok összegyűjtése az adott szinten
+        // 2. Az adott szinthez tartozó útvonalpontok koordinátáinak kigyűjtése
         const routePoints = [];
         currentRoutePath.forEach(key => {
-            const parts = key.split(','); // lat, lon, level
+            const parts = key.split(','); // Formátum: lat, lon, level
             if (parts[2] === level) {
                 routePoints.push([parseFloat(parts[0]), parseFloat(parts[1])]);
             }
         });
 
+        // Ha az adott szinten nincs útvonalszakasz, nincs mire fókuszálni
         if (routePoints.length === 0) return;
 
-        // 3. Befoglaló téglalap (Bounds)
+        // 3. A pontokat magába foglaló geometriai határ (befoglaló téglalap) kiszámítása
         const bounds = L.latLngBounds(routePoints);
 
-        // 4. Dinamikus Padding számítás (Hogy ne takarja ki a Sheet)
+        // 4. Dinamikus margó (padding) számítása a felhasználói felülethez igazodva
         const sheet = document.getElementById('bottom-sheet');
-        // Megnézzük, mennyi helyet foglal el alul a sheet (plusz a headerje)
-        // Ha "open" (nagy), akkor sokat, ha "peek", akkor kevesebbet.
+        
+        // Az alsó információs panel (sheet) aktuális magasságának lekérése.
+        // Ez az érték változó attól függően, hogy a panel épp 'peek' vagy 'open' állapotban van.
         const sheetHeight = sheet.getBoundingClientRect().height;
 
-        // EXTRA HELY (Padding)
-        // Fent: 80px (Hogy ne lógjon bele a Keresőbe/Headerbe)
-        // Lent: sheetHeight + 50px (Hogy a Sheet fölött legyen, kis ráhagyással)
-        // Oldalt: 50px (Hogy ne tapadjon a képernyő szélére)
-        
+        // A térkép nézetének beállítása a kiszámított határokra és dinamikus margókra
+        // Top-Left padding: 80px a felső keresőmező és fejléc elkerülésére
+        // Bottom-Right padding: A sheet magassága + 50px ráhagyás, hogy az útvonal a panel felett maradjon
         map.fitBounds(bounds, {
             paddingTopLeft: [50, 80], 
             paddingBottomRight: [50, sheetHeight + 50], 
-            maxZoom: 21, // Ne zoomoljon rá túlságosan, ha csak 1 méteres a szakasz
+            maxZoom: 21,  // Nagyítási limit: ne nagyítson be extrém módon rövid (pl. 1-2 méteres) szakaszoknál
             animate: true,
-            duration: 1.0 // Szép lassú animáció
+            duration: 1.0 // Sima, 1 másodperces animáció a felhasználói élmény javításáért
         });
     }
 
-    function startNavigationToHere() { startNavigation(selectedFeature, null); }
+    /**
+     * Elindítja az útvonaltervezést (navigációt) úgy, hogy a jelenleg 
+     * kiválasztott térképelem (selectedFeature) lesz a célpont.
+     * Mivel az indulási pont (null), a rendszer egy későbbi interakciót vár annak megadására.
+     */
+    function startNavigationToHere() { 
+        startNavigation(selectedFeature, null); 
+    }
+
+    /**
+     * Beállítja a jelenleg kiválasztott térképelemet navigációs indulási pontként (pendingNavSource).
+     * Ezt követően bezárja az információs panelt, és a felhasználó fókuszát a keresőmezőre 
+     * irányítja, amelynek helykitöltő (placeholder) szövegét dinamikusan frissíti, 
+     * hogy egyértelműsítse a célpont megadásának szükségességét.
+     */
     function startNavigationFromHere() {
+        // A kiválasztott elem regisztrálása várakozó indulási pontként
         pendingNavSource = selectedFeature; 
+        
+        // Az információs panel (Bottom Sheet) bezárása
         closeSheet(); 
+        
+        // A keresőmező manipulálása a célpont megadásának ösztönzésére
         const input = document.getElementById('search-input');
         input.value = "";
+        
+        // Dinamikus placeholder szöveg beállítása a kiválasztott elem referenciája alapján
         input.placeholder = `Hova mész innen: ${selectedFeature.properties.ref || "..."}?`;
+        
+        // Fókuszálás a keresőmezőre, hogy azonnal gépelni lehessen
         input.focus();
     }
 
+    /**
+     * Vizuális kiemelést (sárga keretet/aurát) rajzol a kiválasztott térképelem köré.
+     * Először törli a korábbi kiemeléseket, majd egy új GeoJSON réteget hoz létre 
+     * a megadott elem geometriája alapján, alkalmazva a kiemelési stílusokat (szín, vastagság).
+     * @param {Object} feature - A kiemelni kívánt GeoJSON térképelem.
+     */
     function drawSelectedHighlight(feature) {
+        // A korábban kiemelt elemek eltávolítása a dedikált rétegről
         selectedHighlightLayer.clearLayers();
+        
+        // Új GeoJSON réteg létrehozása a kiemelési stílusokkal
         const highlight = L.geoJSON(feature, {
-            style: { color: "var(--color-highlight)", weight: 5, fill: false, opacity: 0.8, pane: 'highlightPane' },
-            pointToLayer: function(f, latlng) { return L.circleMarker(latlng, { radius: 10, color: "var(--color-highlight)", fill: false }); }
+            // Poligonok (szobák) stílusbeállításai
+            style: { 
+                color: "var(--color-highlight)", 
+                weight: 5, 
+                fill: false, 
+                opacity: 0.8, 
+                pane: 'highlightPane' 
+            },
+            // Pont geometriák (pl. ajtók) stílusbeállításai
+            pointToLayer: function(f, latlng) { 
+                return L.circleMarker(latlng, { 
+                    radius: 10, 
+                    color: "var(--color-highlight)", 
+                    fill: false 
+                }); 
+            }
         });
-        highlight.feature = feature; highlight.eachLayer(l => l.feature = feature); 
+        
+        // A térképelem (feature) referenciájának hozzácsatolása a réteghez és a belső elemekhez 
+        // a későbbi szint alapú szűrés és azonosítás érdekében
+        highlight.feature = feature; 
+        highlight.eachLayer(l => l.feature = feature); 
+        
+        // A generált kiemelés hozzáadása a megjelenítési rétegcsoporthoz
         selectedHighlightLayer.addLayer(highlight);
+        
+        // A kiemelés láthatóságának azonnali frissítése az aktuális szintre
         updateSelectedHighlight(currentLevel);
     }
 
+    /**
+     * Frissíti a kiválasztott elemet jelző kiemelés (highlight) láthatóságát az alapján,
+     * hogy az elem megtalálható-e az aktuálisan megjelenített szinten (emeleten).
+     * Megakadályozza, hogy egy másik szinten lévő szoba kiemelése zavaróan "átszűrődjön".
+     * @param {string} level - Az aktuálisan vizsgált és megjelenített szint azonosítója.
+     */
     function updateSelectedHighlight(level) {
+        // Végigiterálunk a kiemelési réteg összes elemén
         selectedHighlightLayer.eachLayer(l => {
+            // Biztonsági ellenőrzés: ha nincs csatolt adat, figyelmen kívül hagyjuk
             if (!l.feature) return;
+            
+            // Az elemhez tartozó szintek lekérése
             const feats = getLevelsFromFeature(l.feature);
-            if(feats.includes(level)) l.setStyle({opacity: 0.8, fillOpacity: 0});
-            else l.setStyle({opacity: 0, fillOpacity: 0});
+            
+            // Láthatóság beállítása a szint egyezése alapján
+            if(feats.includes(level)) {
+                // Ha az elem az aktuális szinten van, a keret látható lesz (opacity: 0.8)
+                l.setStyle({opacity: 0.8, fillOpacity: 0});
+            } else {
+                // Ha az elem egy másik szinten van, a keretet teljesen elrejtjük (opacity: 0)
+                l.setStyle({opacity: 0, fillOpacity: 0});
+            }
         });
     }
 
+    /**
+     * Bezárja az alsó információs panelt (Bottom Sheet) és visszaállítja a 
+     * kiválasztással kapcsolatos térképi állapotokat (kiemelések, globális változók) 
+     * az alaphelyzetükbe.
+     */
     function closeSheet() {
+        // A panel elrejtése a CSS osztály eltávolításával
         document.getElementById('bottom-sheet').classList.remove('open');
+        
+        // A térképi kiemelések (ideiglenes keresési és kiválasztási keretek) törlése
         highlightLayerGroup.clearLayers();
         selectedHighlightLayer.clearLayers();
+        
+        // A globális kiválasztott elem (selectedFeature) nullázása
         selectedFeature = null;
     }
-    // TAKARÍTÁS
+
+    /**
+     * Teljes körű takarítás (cleanup) navigáció vagy keresés befejezésekor.
+     * Eltávolítja az útvonalat jelző vonalakat, nyilakat és markereket a térképről,
+     * visszaállítja a globális állapotváltozókat az alapértelmezett értékükre,
+     * valamint az alsó információs panelt (Bottom Sheet) és a keresősávot is
+     * visszaállítja a normál (nem navigációs) állapotába.
+     */
     function clearRouteAndClose() {
-        routeLayerGroup.clearLayers();
-        routeMarkersLayerGroup.clearLayers(); 
-        routeArrowsLayerGroup.clearLayers();
-        selectedHighlightLayer.clearLayers();
-        pendingNavSource = null;
-        activeRouteData = null;
-        activeNavSource = null; // Takarítjuk ezt is
-        activeNavTarget = null; 
+        // 1. Térképi rétegek (vizuális elemek) tisztítása
+        routeLayerGroup.clearLayers();           // Útvonal vonalának törlése
+        routeMarkersLayerGroup.clearLayers();    // Kezdő/végpont markerek törlése
+        routeArrowsLayerGroup.clearLayers();     // Irányjelző nyilak törlése
+        selectedHighlightLayer.clearLayers();    // Kiválasztott elem kiemelésének törlése
         
+        // 2. Globális útvonal- és navigációs változók alaphelyzetbe állítása (nullázása)
+        pendingNavSource = null;                 // Várakozó kezdőpont törlése
+        activeRouteData = null;                  // Aktuális útvonaladatok törlése
+        activeNavSource = null;                  // Aktuális indulási pont törlése
+        activeNavTarget = null;                  // Aktuális célpont törlése
+        
+        // 3. Felső keresősáv és gombok vizuális visszaállítása
         const input = document.getElementById('search-input');
         input.placeholder = "Keress...";
         input.value = ""; 
-        updateRightButtonState();
+        updateRightButtonState();                // A kereső melletti ikon visszaállítása (pl. X-ből beállítások ikonra)
 
-        // --- KIKAPCSOLJUK A NAVIGÁCIÓS STÍLUST ---
+        // --- 4. NAVIGÁCIÓS STÍLUS KIKAPCSOLÁSA A PANELEN ---
         const header = document.querySelector('.sheet-header');
         if (header) header.classList.remove('nav-mode');
 
-        // --- UI VISSZAÁLLÍTÁS ---
-        const footer = document.querySelector('.sheet-footer');
-        if (footer) footer.style.display = 'flex'; // Footer visszahozása!
+        // --- 5. UI ELEMEK LÁTHATÓSÁGÁNAK VISSZAÁLLÍTÁSA ---
         
-        // Navigációs gombok vissza
+        // A panel láblécének (amely az akciógombokat tartalmazza) ismételt megjelenítése
+        const footer = document.querySelector('.sheet-footer');
+        if (footer) footer.style.display = 'flex'; 
+        
+        // A "Hova mész innen" és "Ide jövök" navigációs gombok ismételt megjelenítése
         const btnTo = document.querySelector('.btn-nav-to');
         const btnFrom = document.querySelector('.btn-nav-from');
         if (btnTo) btnTo.style.display = 'flex';
         if (btnFrom) btnFrom.style.display = 'flex';
         
+        // A navigációs itiner (lépésről lépésre útmutató) div elrejtése
         const itinerDiv = document.getElementById('nav-itinerary');
         if (itinerDiv) itinerDiv.style.display = 'none';
         
+        // A helyiségek általános adatait (férőhely, képek) tartalmazó konténer újbóli megjelenítése
         document.getElementById('room-data-container').style.display = 'block';
 
+        // 6. Az alsó információs panel tényleges bezárása és elrejtése a képernyőről
         closeSheet();
     }
 
+    /**
+     * Központi eseménykezelő a felhasználói keresések feldolgozására.
+     * Két fő funkciót lát el:
+     * 1. Enter billentyű leütése: Azonnali fókuszálás a legjobb találatra, kategória kiemelés,
+     * vagy intelligens javaslat a megfelelő épületre való átváltásra.
+     * 2. Gépelés (Autocomplete): Valós idejű javaslatok listázása a beírt karakterek alapján,
+     * beleértve a helyi térképelemeket és a más épületekre vonatkozó figyelmeztetéseket.
+     * @param {KeyboardEvent|InputEvent} e - A keresőmező (input) által kiváltott DOM esemény.
+     */
     function handleSearch(e) {
+        // A keresett kifejezés kinyerése és a felesleges szóközök eltávolítása
         const term = e.target.value.trim();
         const resultsDiv = document.getElementById('search-results');
         
-        // ENTER LEÜTÉS KEZELÉSE
+        // ==========================================
+        // 1. RÉSZ: ENTER BILLENTYŰ LEÜTÉSÉNEK KEZELÉSE
+        // ==========================================
         if (e.key === 'Enter') {
-            // 1. Prioritás: Ha van PONTOS épület találat (pl. "QBF11" -> Q épület)
+            
+            // --- 1. Prioritás: Intelligens Épületváltás ---
+            // Ha a felhasználó egy másik épület specifikus kódját írta be (pl. "QBF11", miközben a 'K' épület van nyitva)
             for (const [key, data] of Object.entries(BUILDINGS)) {
+                // Ellenőrizzük, hogy más épületről van-e szó, és illeszkedik-e az előre definiált reguláris kifejezésre (regex)
                 if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
-                    // Ha Entert nyomott és egyértelműen más épület, azonnal ajánljuk fel (Modal)
-                    showModal("Épület Váltás", `A keresett hely (${term}) valószínűleg a(z) ${data.name}-ben van. Átváltsunk?`, () => {
-                        changeBuilding(key, term); 
-                    });
-                    return; // Megállunk, nem zoomolunk random helyi találatra
+                    // Modális (felugró) ablak megjelenítése a felhasználói szándék megerősítésére
+                    showModal(
+                        "Épület Váltás", 
+                        `A keresett hely (${term}) valószínűleg a(z) ${data.name}-ben van. Átváltsunk?`, 
+                        () => {
+                            // Megerősítés esetén átváltunk az új épületre, és átadjuk a keresési kifejezést automatikus kereséshez
+                            changeBuilding(key, term); 
+                        }
+                    );
+                    // Megszakítjuk a további keresést, hogy elkerüljük az irreleváns helyi találatokra való fókuszálást
+                    return; 
                 }
             }
 
-            // 2. Prioritás: Helyi találatok
+            // --- 2. Prioritás: Helyi térképelemek keresése ---
+            // Az aktuális épület elemeinek szűrése az egyedi 'smartFilter' algoritmussal
             const hits = smartFilter(term); 
             if (hits.length > 0) {
-                // Ha van helyi találat, oda viszünk (kivéve ha fenti épület check bejelzett volna)
+                // Ha van releváns találat, a térképet az első (legjobb) találatra pozicionáljuk
                 zoomToFeature(hits[0]);
+                // Megnyitjuk a részletes információs panelt a kiválasztott elemhez
                 openSheet(hits[0]);
+                // Elrejtjük az automatikus kiegészítő (autocomplete) listát
                 resultsDiv.style.display = 'none'; 
                 
+                // A keresőmező tartalmának frissítése a pontos formázott névvel
                 const val = hits[0].properties.name || hits[0].properties.ref || term;
                 document.getElementById('search-input').value = val;
 
-                // --- B-003 FIX: Ikon frissítése (Enter után) ---
+                // UI frissítés: A keresőmező melletti ikon (pl. Törlés X) állapotának beállítása (B-003 Fix)
                 updateRightButtonState();
 
-                return;
+                return; // Kilépés a sikeres találat feldolgozása után
             }
 
-            // 3. Kategória highlight (WC, Lépcső...)
+            // --- 3. Prioritás: Generikus kategóriák kiemelése ---
+            // Ha a felhasználó általános kifejezést keres (pl. "mosdó", "lépcső"), 
+            // ahelyett, hogy egy konkrét elemre ugranánk, kiemeljük az összes relevánsat a térképen.
             const genericTerms = ["wc", "vécé", "mosdó", "toalett", "toilet", "lépcső", "lépcsőház", "stairs"];
             if (genericTerms.some(t => term.toLowerCase().includes(t))) { 
                 highlightCategory(term); 
                 resultsDiv.style.display = 'none'; 
 
-                // --- B-003 FIX: Itt is frissítjük, bár a szöveg marad ---
+                // UI frissítés: Ikon állapot beállítása
                 updateRightButtonState();
                 return;
             }
             
-            return; // Semmi nem történt
+            // Ha semmilyen találat vagy felismerhető minta nincs, esemény nélkül kilépünk
+            return; 
         }
 
-        // --- GÉPELÉS KÖZBENI LISTA (AUTOCOMPLETE) ---
+        // ==========================================
+        // 2. RÉSZ: GÉPELÉS KÖZBENI JAVASLATOK (AUTOCOMPLETE)
+        // ==========================================
         
-        // Töröljük az előző listát
+        // Az előző javaslatok törlése a tiszta újrarendereléshez
         resultsDiv.innerHTML = '';
         let hasResults = false;
 
+        // Ha a felhasználó kiürítette a mezőt (pl. Backspace), elrejtjük a listát
         if (term.length < 1) { 
             resultsDiv.style.display = 'none'; 
-            // Ha törölt mindent backspace-szel, frissítsünk
             updateRightButtonState();
             return; 
         }
 
-        // 1. ÉPÜLET JAVASLATOK (Mindig ellenőrizzük!)
-        // Ha a user beírja: "QBF...", akkor itt felajánljuk a Q épületet
+        // --- 1. Automatikus Épület Javaslatok ---
+        // Valós idejű ellenőrzés: figyelmezteti a felhasználót, ha valószínűleg rossz épületben keres
         for (const [key, data] of Object.entries(BUILDINGS)) {
-            // Csak ha NEM a mostani épület, és illeszkedik a regex (pl. /^Q/i)
+            // Illesztés a regex szabályokra (pl. "QBF..." beírása esetén Q épület javaslata)
             if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
                 const div = document.createElement('div');
-                // Sárga/Figyelemfelkeltő stílus
+                // Figyelemfelkeltő vizuális stílus (sárga szöveg) a javaslathoz
                 div.className = 'result-item warning-text';
                 div.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle; margin-right:5px;">travel_explore</span> Talán a ${key} épületben?`;
+                
+                // Kattintás esemény: azonnali épületváltás a beírt keresőszó átadásával
                 div.onclick = () => changeBuilding(key, term);
+                
                 resultsDiv.appendChild(div);
                 hasResults = true;
             }
         }
 
-        // 2. HELYI TALÁLATOK
+        // --- 2. Helyi Autocomplete Találatok ---
+        // Csak akkor indítunk keresést, ha legalább 2 karaktert beírt a felhasználó (teljesítményoptimalizálás)
         if (term.length >= 2) {
             const hits = smartFilter(term);
             if (hits.length > 0) {
+                // A találati listát korlátozzuk az első 5 legrelevánsabb elemre a felület túlcsordulásának elkerülésére
                 hits.slice(0, 5).forEach(hit => {
                     const div = document.createElement('div');
                     div.className = 'result-item';
@@ -3134,16 +3377,17 @@
                     const name = hit.properties.name || hit.properties.ref || "???";
                     const lvl = getLevelsFromFeature(hit)[0] || "?";
                     
-                    // Extra infó a név mellett
+                    // A javaslat összeállítása: Név (kiemelve) és a szint (halványan)
                     div.innerHTML = `${name} <span style="opacity:0.6; font-size:12px; margin-left:5px;">(Szint: ${lvl})</span>`;
                     
+                    // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                     div.onclick = () => { 
                         zoomToFeature(hit); 
                         openSheet(hit); 
                         resultsDiv.style.display = 'none'; 
                         document.getElementById('search-input').value = name; 
 
-                        // --- B-003 FIX: Ikon frissítése (Kattintás után) ---
+                        // UI frissítés a kiválasztás után
                         updateRightButtonState();
                     };
                     resultsDiv.appendChild(div);
@@ -3152,34 +3396,45 @@
             }
         }
 
-        // Megjelenítés
+        // A javaslatokat tartalmazó konténer (div) megjelenítése vagy elrejtése a találatok függvényében
         if (hasResults) {
             resultsDiv.style.display = 'block';
         } else {
             resultsDiv.style.display = 'none';
         }
 
-        // Gépelés közben az oninput intézi, de nem árt
+        // A jobb oldali akciógomb (Törlés X vagy Beállítások) aktuális állapotának szinkronizálása
         updateRightButtonState();
     }
 
-    // === KERESŐSÁV UI LOGIKA (F-006 & F-007) ===
+    // === KERESŐSÁV UI LOGIKA ===
 
-    // 1. BAL IKON (Search / Back)
+    /**
+     * Kezeli a keresőmező fókuszba kerülésének eseményét.
+     * Lecseréli a bal oldali ikont egy vissza nyílra, kattinthatóvá teszi,
+     * és megjeleníti a kedvencek listáját, ha a mező még üres.
+     */
     function handleSearchFocus() {
         const leftIcon = document.getElementById('search-left-icon');
-        // Ikon csere: Nyíl
+        
+        // Bal oldali ikon cseréje nyílra a navigációs visszajelzéshez
         leftIcon.innerText = 'arrow_back';
-        // Klikkelhetővé tesszük
+        
+        // Az ikon interaktívvá (kattinthatóvá) tétele a CSS osztály hozzáadásával
         leftIcon.classList.add('clickable');
         
-        // Ha fókuszba kerül, mutassuk a kedvenceket (ha üres)
+        // Fókuszba kerüléskor a kedvencek listájának automatikus megjelenítése
         showFavoritesInSearch();
     }
 
+    /**
+     * Kezeli a keresőmező fókuszának elvesztését (blur).
+     * Kis késleltetéssel állítja vissza az eredeti kereső ikont, hogy
+     * a vissza nyílra történő kattintás eseménye még sikeresen lefuthessen.
+     */
     function handleSearchBlur() {
-        // Kis késleltetés kell, különben a "click" esemény nem fut le a nyílon,
-        // mert a blur előbb elrejti/átalakítja a gombot.
+        // Időzítés alkalmazása szükséges, különben a DOM azonnali újrarenderelése
+        // megakadályozza a 'click' esemény lefutását az ikonon.
         setTimeout(() => {
             const leftIcon = document.getElementById('search-left-icon');
             leftIcon.innerText = 'search';
@@ -3187,164 +3442,235 @@
         }, 150);
     }
 
+    /**
+     * Kezeli a bal oldali (vissza) ikonra történő kattintást.
+     * Eltávolítja a fókuszt a keresőmezőről, ezáltal bezárja a virtuális
+     * billentyűzetet mobileszközökön és visszaállítja az alapállapotot.
+     */
     function handleSearchLeftClick() {
-        // Ha rányom a nyílra -> Blur (Billentyűzet le, fókusz el)
+        // A fókusz eltávolítása az input mezőről (blur esemény kiváltása)
         document.getElementById('search-input').blur();
     }
 
-    // 2. JOBB GOMB (Settings / Clear)
+    /**
+     * Frissíti a jobb oldali akciógomb állapotát és ikonját a keresőmező
+     * tartalmának függvényében.
+     * Ha van beírt szöveg, törlő (close) gombbá alakul, ha nincs,
+     * akkor a beállítások (tune) gombként funkcionál.
+     */
     function updateRightButtonState() {
         const input = document.getElementById('search-input');
         const btn = document.getElementById('btn-right-action');
         const icon = btn.querySelector('span');
 
         if (input.value.length > 0) {
-            // Törlés mód
+            // Törlés mód aktiválása: a mezőben van tartalom
             icon.innerText = 'close';
-            btn.classList.add('active-mode'); // CSS kezeli a színt
-            // btn.style.color törölve!
+            btn.classList.add('active-mode'); // A vizuális stílust a CSS kezeli
         } else {
-            // Settings mód
+            // Beállítások mód aktiválása: a mező üres
             icon.innerText = 'tune';
             btn.classList.remove('active-mode');
-            // btn.style.color törölve!
         }
     }
 
+    /**
+     * Kezeli a jobb oldali akciógombra történő kattintást vagy érintést.
+     * Törlő módban kiüríti a keresőmezőt a fókusz megtartása mellett,
+     * beállítások módban pedig megnyitja a beállítások modális ablakát.
+     *
+     * @param {Event} e - A kattintást vagy érintést kiváltó DOM esemény.
+     */
     function handleRightAction(e) {
         const input = document.getElementById('search-input');
         
         if (input.value.length > 0) {
-            // TÖRLÉS MÓD
+            // --- TÖRLÉS MÓD ---
             
-            // EZ A KULCS: Megakadályozzuk, hogy a gomb ellopja a fókuszt az inputtól!
-            // Így nem fut le a 'blur', nem tűnik el a 'Back' nyíl, és írhatsz tovább azonnal.
+            // Az alapértelmezett viselkedés megakadályozása garantálja, hogy a gomb
+            // ne vegye el a fókuszt az input mezőtől. Így a billentyűzet nyitva marad.
             e.preventDefault(); 
             
+            // Mező tartalmának törlése
             input.value = '';
-            updateRightButtonState(); // Ikon csere vissza tune-ra
             
-            // Mivel a fókusz megmaradt, manuálisan frissítjük a listát (üres mező -> kedvencek)
+            // A gomb állapotának visszaállítása alapértelmezettre (tune ikon)
+            updateRightButtonState(); 
+            
+            // A találati lista elrejtése és a kedvencek manuális újratöltése az üres állapothoz
             document.getElementById('search-results').style.display = 'none';
             showFavoritesInSearch(); 
             
         } else {
-            // SETTINGS MÓD
-            // Itt nem kell preventDefault, sőt, jobb is ha elveszi a fókuszt, 
-            // mert megnyílik a modal.
+            // --- BEÁLLÍTÁSOK MÓD ---
+            
+            // Ebben az esetben kívánatos a fókusz elvesztése, mivel egy új
+            // modális ablak kerül előtérbe.
             toggleSettings();
         }
     }
 
-    /* ITT VOLT SMARTFILTER
-    function smartFilter(term) {
-        const cleanTerm = term.toLowerCase().trim();
-        let strippedTerm = null;
-        if (currentBuilding.regex.test(cleanTerm)) { strippedTerm = cleanTerm.replace(currentBuilding.regex, ''); }
-        return geoJsonData.features.filter(f => {
-            const p = f.properties; const name = (p.name || "").toLowerCase(); const ref = (p.ref || "").toLowerCase(); const levels = getLevelsFromFeature(f);
-            if (name.includes(cleanTerm) || ref.includes(cleanTerm)) return true;
-            if (strippedTerm && strippedTerm.length > 1) { if (name.includes(strippedTerm) || ref.includes(strippedTerm)) return true; }
-            return false;
-        });
-    }
-    */
-
+    /**
+     * Kiemel egy meghatározott kategóriát (pl. mosdók vagy lépcsők) a térképen 
+     * a felhasználó által beírt keresési kifejezés alapján.
+     * Csak az aktuálisan megjelenített szinten (currentLevel) lévő elemeket emeli ki,
+     * ezzel segítve az általános tájékozódást egy adott szinten.
+     * * @param {string} term - A felhasználó által megadott keresési kifejezés (pl. "wc", "lépcső").
+     */
     function highlightCategory(term) {
+        // A korábban alkalmazott kiemelések törlése a térképi rétegről az új keresés előtt
         highlightLayerGroup.clearLayers();
+        
+        // A keresett kategória logikai azonosítása a kulcsszavak alapján
         const isToilet = ["wc", "vécé", "mosdó", "toalett", "toilet"].some(t => term.includes(t));
         const isStairs = ["lépcső", "lépcsőház", "stairs"].some(t => term.includes(t));
+        
+        // Új GeoJSON réteg létrehozása és szűrése a vizuális kiemeléshez
         L.geoJSON(geoJsonData, {
             filter: function(feature) {
                 const levels = getLevelsFromFeature(feature);
+                
+                // Csak az aktuálisan megtekintett emelet elemeit vizsgáljuk és jelenítjük meg
                 if (!levels.includes(currentLevel)) return false;
+                
                 const p = feature.properties;
+                
+                // Érvényesítés a mosdó (toilet) kategóriára az OSM metaadatok alapján
                 if (isToilet && (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets')) return true;
+                
+                // Érvényesítés a lépcső (stairs) kategóriára az OSM metaadatok alapján
                 if (isStairs && (p.room === 'stairs' || p.indoor === 'staircase')) return true;
+                
                 return false;
             },
+            // A kiemelés vizuális stílusának beállítása (feltűnő sárga körvonal, enyhe kitöltéssel)
             style: { color: "#ffeb3b", weight: 4, fillOpacity: 0.1 } 
         }).addTo(highlightLayerGroup);
+        
+        // Az alsó információs panel (Bottom Sheet) elrejtése, hogy a fókusz 
+        // teljesen a térképen megjelenő kategória-találatokra irányuljon.
         document.getElementById('bottom-sheet').classList.remove('open');
     }
 
+    /**
+     * Felépíti a navigációs gráfot (útvonalhálózatot) az aktuális épület 
+     * térképadatai és a felhasználó hozzáférhetőségi beállításai alapján.
+     * Ez a gráf szolgál az A* vagy Dijkstra útvonalkereső algoritmus alapjául.
+     */
     function buildRoutingGraph() {
         console.log(`Building Graph (${APP_SETTINGS.elevatorMode})...`);
+        
+        // A korábbi gráf teljes ürítése
         navigationGraph.clear();
+        
+        // Főbejárat alaphelyzetbe állítása a legközelebbi bejárat kereséséhez
         mainEntranceNode = null;
         let minEntranceDist = Infinity;
 
-        // SÚLYOZÁS BEÁLLÍTÁSA
-        let stairsPenalty = 5.0; // Alap: Lépcső nehéz
-        let elevatorWeight = 0.5; // Alap: Lift könnyű
-        let elevatorBoardingCost = 20.0; // Alap: 20 méter "várakozási idő" büntetés a liftnek
+        // ==========================================
+        // 1. SÚLYOZÁS ÉS BÜNTETÉSEK BEÁLLÍTÁSA (ACCESSIBILITY)
+        // ==========================================
+        
+        // Alapértelmezett költségek (távolság-szorzók) meghatározása
+        let stairsPenalty = 5.0; // Lépcsőhasználat büntetőszorzója (nehezebb, mint a sík séta)
+        let elevatorWeight = 0.5; // Lifthasználat szorzója (gyorsabb/könnyebb a szintváltás)
+        let elevatorBoardingCost = 20.0; // Extra "várakozási idő" (távolságban mérve) a liftnél
 
+        // Költségek módosítása a felhasználói beállítás (APP_SETTINGS.elevatorMode) alapján
         switch (APP_SETTINGS.elevatorMode) {
             case 'stairs': 
+                // Csak lépcső mód: A lépcsőzés olcsó (szorzó=1), a lift várakozási ideje extrém magas (500)
                 stairsPenalty = 1.0; 
                 elevatorBoardingCost = 500.0; 
                 break;
             case 'balanced':
+                // Kiegyensúlyozott mód: Kisebb lépcső büntetés, átlagos lift várakozás
                 stairsPenalty = 1.5; 
                 elevatorBoardingCost = 30.0; 
                 break;
             case 'elevator':
+                // Preferált lift mód: Lépcsőzés drága (szorzó=10), a lift azonnali (0 várakozás)
                 stairsPenalty = 10.0; 
                 elevatorBoardingCost = 0.0; 
                 break;
             case 'wheelchair':
+                // Kerekesszékes mód: Lépcsőhasználat tiltva (végtelen közeli büntetés), lift azonnali
                 stairsPenalty = 9999.0; 
                 elevatorBoardingCost = 0.0;
                 break;
         }
 
+        // ==========================================
+        // 2. ÉL (EDGE) HOZZÁADÁS LOGIKÁJA A GRÁFHOZ
+        // ==========================================
+        
+        /**
+         * Belső segédfüggvény két csomópont összekötésére a gráfban a megfelelő súllyal.
+         * @param {Object} node1 - Kezdőpont (lat, lon, level).
+         * @param {Object} node2 - Végpont (lat, lon, level).
+         * @param {string} type - A kapcsolat típusa ('walk', 'stairs_inter', 'elevator').
+         */
         const addEdge = (node1, node2, type) => {
+            // Valós földrajzi távolság kiszámítása a két pont között méterben
             let dist = turf.distance(turf.point([node1.lon, node1.lat]), turf.point([node2.lon, node2.lat])) * 1000;
             
+            // Költségmódosítás a kapcsolat típusa alapján
             if (type === 'stairs_inter') {
-                // JAVÍTÁS: 15.0 helyett 4.0 méter. 
-                // Így a virtuális lépcső "olcsó" lesz (kb 20 pont), és nem éri meg elmenni a távoli igazi lépcsőhöz.
-                // Ha van geometry (dist > 0), akkor azt használja, ha nincs (virtuális), akkor a 4.0-t.
+                // A virtuális lépcsőházi bekötések (amikor a szintváltás a poligon közepén történik)
+                // "olcsók" maradnak (min 4.0 méter * büntetés), hogy az algoritmus ne vigyen el 
+                // egy irreálisan messzi, de valós geometriájú lépcsőhöz.
                 dist = Math.max(dist, 4.0) * stairsPenalty;
             }
             else if (type === 'elevator') {
                 dist = Math.max(dist, 1.0) * elevatorWeight; 
             } else {
-                dist = Math.max(dist, 0.1); 
+                dist = Math.max(dist, 0.1); // Nullás távolság elkerülése a hagyományos sétánál
             }
 
+            // Egyedi csomópont-kulcsok generálása
             const k1 = toKey(node1.lat, node1.lon, node1.level);
             const k2 = toKey(node2.lat, node2.lon, node2.level);
             
+            // Önhivatkozások (loop) kiszűrése
             if (k1 === k2) return;
+            
+            // Csomópontok inicializálása a gráfban, ha még nem léteznek
             if (!navigationGraph.has(k1)) navigationGraph.set(k1, []);
             if (!navigationGraph.has(k2)) navigationGraph.set(k2, []);
             
+            // Kétirányú kapcsolat (él) hozzáadása a gráfhoz az adott költséggel (dist)
             navigationGraph.get(k1).push({ key: k2, dist: dist, lat: node2.lat, lon: node2.lon, level: node2.level });
             navigationGraph.get(k2).push({ key: k1, dist: dist, lat: node1.lat, lon: node1.lon, level: node1.level });
         };
 
+        // ==========================================
+        // 3. TÉRKÉPELEMEK (FEATURES) FELDOLGOZÁSA ÉS BEKÖTÉSE
+        // ==========================================
+
+        // Liftek kigyűjtése
         const elevators = geoJsonData.features.filter(f => f.properties.highway === 'elevator' || f.properties.room === 'elevator');
         
-        // Poligon lépcsőházak
+        // Poligon típusú (zárt területű) lépcsőházak kigyűjtése
         const verticalStairs = geoJsonData.features.filter(f => 
             (f.properties.room === 'stairs' || f.properties.indoor === 'staircase' || f.properties.room === 'staircase')
             && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')
         );
 
+        // Általános térképelemek iterációja (folyosók, vonalas lépcsők, bejáratok)
         geoJsonData.features.forEach(f => {
             const p = f.properties;
             
-            // Folyosók
+            // --- FOLYOSÓK (Corridors) ---
             if (p.highway === 'corridor' && f.geometry.type === 'LineString') {
                 const level = getLevelsFromFeature(f)[0] || "0"; 
                 const coords = f.geometry.coordinates; 
+                // A vonal szegmenseinek (töréspontjainak) összekötése lépésről lépésre
                 for (let i = 0; i < coords.length - 1; i++) {
                     addEdge({ lat: coords[i][1], lon: coords[i][0], level }, { lat: coords[i+1][1], lon: coords[i+1][0], level }, 'walk');
                 }
             }
 
-            // Hagyományos Lépcsők (Vonalak)
+            // --- HAGYOMÁNYOS LÉPCSŐK (LineString Steps) ---
             if (p.highway === 'steps' && f.geometry.type === 'LineString') {
                 const levels = getLevelsFromFeature(f);
                 if (levels.length > 0) {
@@ -3353,172 +3679,266 @@
                     const coords = f.geometry.coordinates;
 
                     if (minL === maxL) { 
+                        // Szinten belüli lépcső (pl. pár fok egy küszöbnél) -> normál séta
                         const lvl = minL;
                         for (let i = 0; i < coords.length - 1; i++) {
                             addEdge({ lat: coords[i][1], lon: coords[i][0], level: lvl }, { lat: coords[i+1][1], lon: coords[i+1][0], level: lvl }, 'walk');
                         }
                     } else { 
+                        // Szinteket összekötő lépcső
+                        // Kerekesszékes módban ezeket a kapcsolatokat nem adjuk hozzá a gráfhoz
                         if (APP_SETTINGS.elevatorMode === 'wheelchair') return; 
                         
                         const startP = { lat: coords[0][1], lon: coords[0][0] };
                         const endP = { lat: coords[coords.length-1][1], lon: coords[coords.length-1][0] };
+                        
+                        // Kétirányú kapcsolat a szintek között
                         addEdge({ ...startP, level: minL }, { ...endP, level: maxL }, 'stairs_inter');
                         addEdge({ ...startP, level: maxL }, { ...endP, level: minL }, 'stairs_inter');
                     }
                 }
             }
             
+            // --- FŐBEJÁRAT KERESÉSE ---
             if (p.entrance === 'main' || p.entrance === 'yes') {
                  const lvl = getLevelsFromFeature(f)[0] || "0";
                  const coords = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
+                 
+                 // Kiszámoljuk a bejárat távolságát az épület geometriai középpontjától.
+                 // A legközelebbi bejáratot tekintjük főbejáratnak.
                  const dist = turf.distance(turf.point([coords[1], coords[0]]), turf.point([currentBuilding.center[1], currentBuilding.center[0]]));
-                 if (dist < minEntranceDist) { minEntranceDist = dist; mainEntranceNode = { lat: coords[0], lon: coords[1], level: lvl }; }
+                 if (dist < minEntranceDist) { 
+                     minEntranceDist = dist; 
+                     mainEntranceNode = { lat: coords[0], lon: coords[1], level: lvl }; 
+                 }
             }
         });
 
-        // Liftek Bekötése
+        // ==========================================
+        // 4. VERTIKÁLIS KAPCSOLATOK (LIFTEK ÉS POLIGON LÉPCSŐK)
+        // ==========================================
+
+        // --- LIFTEK BEKÖTÉSE ---
         elevators.forEach(f => {
             const levels = getLevelsFromFeature(f);
-            if (levels.length < 2) return;
+            if (levels.length < 2) return; // Ha csak 1 szintje van, nem lift
+            
+            // A lift geometriai középpontjának (aknájának) meghatározása
             const center = turf.centroid(f);
             const liftLon = center.geometry.coordinates[0];
             const liftLat = center.geometry.coordinates[1];
 
+            // A szintek függőleges összekötése az aknán belül
             for (let i = 0; i < levels.length - 1; i++) {
                 addEdge({ lat: liftLat, lon: liftLon, level: levels[i] }, { lat: liftLat, lon: liftLon, level: levels[i+1] }, 'elevator');
             }
 
-            // Lift: Van beszállási költség, és a távolságot (dist) hozzáadjuk
+            // A liftakna rákötése az épület folyosóhálózatára minden érintett szinten.
+            // Alkalmazza a beállított beszállási költséget (várakozási időt).
             connectVerticalShaftToCorridor(f, levels, liftLat, liftLon, elevatorBoardingCost, false, addEdge);
         });
 
-        // Poligon Lépcsőházak Bekötése
+        // --- POLIGON LÉPCSŐHÁZAK BEKÖTÉSE ---
         verticalStairs.forEach(f => {
+            // Kerekesszékes módban a lépcsőházak teljes mértékben kimaradnak a gráfból
             if (APP_SETTINGS.elevatorMode === 'wheelchair') return;
 
             const levels = getLevelsFromFeature(f);
             if (levels.length < 2) return;
+            
+            // A lépcsőház geometriai középpontjának meghatározása
             const center = turf.centroid(f);
             const stairLon = center.geometry.coordinates[0];
             const stairLat = center.geometry.coordinates[1];
 
+            // A szintek függőleges összekötése a lépcsőházon belül
             for (let i = 0; i < levels.length - 1; i++) {
                 addEdge({ lat: stairLat, lon: stairLon, level: levels[i] }, { lat: stairLat, lon: stairLon, level: levels[i+1] }, 'stairs_inter');
             }
 
-            // Lépcsőház: 0 beszállási költség, és "ingyen" behúzás (isVirtualStair = true)
+            // A lépcsőház rákötése a folyosóhálózatra.
+            // 'isVirtualStair = true' paraméterrel a csatlakozási távolság nem kap extra büntetést,
+            // így az algoritmus hajlandó lesz "bemenni" a poligon közepére a szintváltáshoz.
             connectVerticalShaftToCorridor(f, levels, stairLat, stairLon, 0, true, addEdge);
         });
     }
 
-    // Segédfüggvény frissítve (isVirtualStair paraméterrel)
+    /**
+     * Összeköti egy vertikális akna (lift vagy lépcsőház) középpontját a legközelebbi 
+     * folyosóval az összes érintett szinten a navigációs gráfban.
+     * Kiszámítja a legközelebbi pontot a folyosó geometriáján, és létrehozza a kétirányú 
+     * kapcsolatot a megadott felszállási költség (boardingCost) és távolság alapján.
+     * * @param {Object} shaftFeature - A vertikális aknát reprezentáló GeoJSON térképelem.
+     * @param {Array<string>} levels - A vertikális akna által érintett szintek tömbje.
+     * @param {number} lat - Az akna középpontjának földrajzi szélessége.
+     * @param {number} lon - Az akna középpontjának földrajzi hosszúsága.
+     * @param {number} boardingCost - A beszállási/várakozási költség (büntetés) méterben kifejezve.
+     * @param {boolean} isVirtualStair - Jelzi, ha poligon alapú lépcsőházról van szó, 
+     * ahol a geometriai középpont és a folyosó távolságát minimalizálni kell.
+     * @param {Function} addEdgeFn - A gráf élét hozzáadó segédfüggvény.
+     */
     function connectVerticalShaftToCorridor(shaftFeature, levels, lat, lon, boardingCost, isVirtualStair, addEdgeFn) {
         levels.forEach(lvl => {
-            let bestDist = Infinity; let bestPoint = null;
+            let bestDist = Infinity; 
+            let bestPoint = null;
             
-            // JAVÍTÁS: Megnöveltük a keresési sugarat 30m -> 50m-re.
-            // Nagy lépcsőházaknál a centroid messze lehet a folyosótól.
+            // Keresési sugár meghatározása méterben.
+            // Nagyobb kiterjedésű lépcsőházak esetén a geometriai középpont (centroid) 
+            // távolabb eshet a folyosótól, ezért 50 méteres sugarat alkalmazunk.
             const SNAP_RADIUS = 50.0; 
 
+            // Végigiterálunk az összes térképelemen a legközelebbi folyosó megtalálásához
             geoJsonData.features.forEach(corr => {
                 if (corr.properties.highway === 'corridor' && corr.geometry.type === 'LineString') {
                     const cLvls = getLevelsFromFeature(corr);
+                    
+                    // Csak az azonos szinten lévő folyosókat vizsgáljuk
                     if (cLvls.includes(lvl)) {
                         const line = turf.lineString(corr.geometry.coordinates);
                         const pt = turf.point([lon, lat]);
+                        
+                        // A folyosó vonalának az aknához legközelebbi pontjának meghatározása
                         const snapped = turf.nearestPointOnLine(line, pt);
-                        const d = snapped.properties.dist * 1000;
-                        if (d < bestDist && d < SNAP_RADIUS) { bestDist = d; bestPoint = snapped; }
+                        const d = snapped.properties.dist * 1000; // Távolság átváltása méterre
+                        
+                        // Ha a pont közelebb van az eddigi legjobbnál és a maximális sugáron belül esik
+                        if (d < bestDist && d < SNAP_RADIUS) { 
+                            bestDist = d; 
+                            bestPoint = snapped; 
+                        }
                     }
                 }
             });
 
+            // Ha sikeresen találtunk csatlakozási pontot a folyosón
             if (bestPoint) {
                 const corrLat = bestPoint.geometry.coordinates[1];
                 const corrLon = bestPoint.geometry.coordinates[0];
+                
+                // Valós távolság kiszámítása az akna középpontja és a folyosói csatlakozópont között
                 let dist = turf.distance(turf.point([lon, lat]), turf.point([corrLon, corrLat])) * 1000;
                 
-                // JAVÍTÁS: Ha ez egy virtuális lépcsőház, akkor a centroid-folyosó távolságot
-                // gyakorlatilag lenullázzuk (legyen 1 méter).
-                // Így nem büntetjük azt, hogy a szoba nagy, és a közepe messze van az ajtótól.
+                // Virtuális lépcsőházak esetén a belső távolságot minimalizáljuk.
+                // Ezzel elkerülhető, hogy a nagy alapterületű lépcsőházak geometriai középpontja 
+                // miatti távolság aránytalanul megnövelje az útvonal költségét.
                 if (isVirtualStair) {
                     dist = 1.0; 
                 }
 
+                // A végső költség (súly) kiszámítása a távolság és a várakozási idő (boardingCost) összeadásával
                 const finalDist = dist + boardingCost;
                 
+                // Egyedi csomópont-kulcsok generálása a gráfhoz az összekötendő koordináták alapján
                 const k1 = toKey(lat, lon, lvl);
                 const k2 = toKey(corrLat, corrLon, lvl);
                 
-                // Ha még nincs ilyen node, létrehozzuk
+                // Csomópontok inicializálása a gráfban, ha korábban nem léteztek
                 if (!navigationGraph.has(k1)) navigationGraph.set(k1, []);
                 if (!navigationGraph.has(k2)) navigationGraph.set(k2, []);
                 
+                // A kétirányú kapcsolat (él) hozzáadása a navigációs gráfhoz
                 navigationGraph.get(k1).push({ key: k2, dist: finalDist, lat: corrLat, lon: corrLon, level: lvl });
                 navigationGraph.get(k2).push({ key: k1, dist: finalDist, lat: lat, lon: lon, level: lvl });
             }
         });
     }
 
-    // === ÚJ: AJTÓKERESŐ LOGIKA ===
+    /**
+     * Megkeresi és összegyűjti egy adott helyiséghez (szobához) tartozó ajtókat és bejáratokat.
+     * Az azonosítás térbeli elemzésen (távolságmérésen) és szint-egyezésen alapul.
+     * Az algoritmus azokat a pontokat tekinti a szoba ajtajának, amelyek megegyező szinten 
+     * találhatóak, és a távolságuk a szoba falától (körvonalától) nem haladja meg az 1.2 métert.
+     * * @param {Object} roomFeature - A vizsgált helyiséget reprezentáló GeoJSON térképelem (jellemzően Polygon).
+     * @returns {Array<Object>} Az azonosított ajtókat tartalmazó GeoJSON elemek tömbje. 
+     * Hiba vagy találat hiánya esetén üres tömbbel tér vissza.
+     */
     function getDoorsForRoom(roomFeature) {
+        // Biztonsági ellenőrzés: ha az elem érvénytelen, vagy pont típusú (tehát nem szoba alapterület), megszakítjuk a futást
         if (!roomFeature || roomFeature.geometry.type === 'Point') return [];
         
+        // A szoba geometriájának (poligon) és szintadatainak inicializálása a Turf.js segítségével
         const roomPoly = turf.polygon(roomFeature.geometry.coordinates);
         const roomLevels = getLevelsFromFeature(roomFeature);
         const doors = [];
 
-        // Átalakítjuk a poligont vonallá a távolságméréshez
+        // A szoba poligonjának átalakítása vonal-geometriává (LineString) a peremvonal menti pontos távolságméréshez
         const roomLine = turf.polygonToLine(roomPoly);
-        if (!roomLine) return []; // Hiba esetén
+        if (!roomLine) return []; // Hibakezelés sikertelen konverzió esetén
 
+        // Iteráció a globális térképadatok összes elemén az ajtók felkutatására
         geoJsonData.features.forEach(f => {
-            // Csak pont típusú ajtókat keresünk
+            // A geometriai típus szűrése: a vizsgálatot kizárólag pont (Point) típusú elemekre korlátozzuk
             if (f.geometry.type !== 'Point') return;
+            
             const p = f.properties;
+            
+            // Logikai szűrés: csak azokat a pontokat vizsgáljuk, amelyek bejárat (entrance) vagy ajtó (door) tulajdonságúak
             if (!p.entrance && !p.door) return;
 
-            // Szint ellenőrzés: Az ajtónak ugyanazon a szinten kell lennie
+            // Szint alapú érvényesítés: megvizsgáljuk, hogy az ajtó és a szoba rendelkezik-e közös szinttel (metszet)
             const doorLevels = getLevelsFromFeature(f);
-            // Metszet keresése a szintek között (ha van közös szint)
             const commonLevel = roomLevels.some(l => doorLevels.includes(l));
-            if (!commonLevel) return;
+            if (!commonLevel) return; // Ha nincs közös szint, a pont nem tartozhat ehhez a szobához
 
-            // Távolság ellenőrzés: Rajta van-e a falon? (Max 1.2 méter tűréssel)
+            // Térbeli távolságmérés: az ajtó koordinátája és a szoba körvonala (fala) közötti legrövidebb távolság kiszámítása
             const pt = turf.point(f.geometry.coordinates);
             const dist = turf.pointToLineDistance(pt, roomLine, {units: 'meters'});
             
+            // Tolerancia vizsgálat: ha az ajtó legfeljebb 1.2 méterre van a faltól, a szobához tartozónak tekintjük
             if (dist < 1.2) {
                 doors.push(f);
             }
         });
 
+        // Az érvényes, szobához társított ajtó-elemek listájának visszaadása
         return doors;
     }
 
+    /**
+     * Dinamikusan beilleszt egy új csomópontot a meglévő navigációs gráfba.
+     * Elsődlegesen arra szolgál, hogy egy útvonaltervezési végpontot (például egy szoba középpontját)
+     * rácsatlakoztassa a legközelebbi folyosóhálózatra (snapping). Ha a pont már létezik,
+     * vagy a csatlakozás sikeres, visszatér az új vagy meglévő csomópont adataival.
+     * * @param {number} targetLat - A beillesztendő pont földrajzi szélessége.
+     * @param {number} targetLon - A beillesztendő pont földrajzi hosszúsága.
+     * @param {string} targetLevel - A beillesztendő pont szintje (emelet azonosító).
+     * @param {number} [maxDistanceMeters=5.0] - A maximális keresési sugár méterben a folyosóra illesztéshez.
+     * @param {Object|null} [sourceFeature=null] - Opcionális térképelem referencia (a specifikus ajtókeresés külső logikába van kiszervezve).
+     * @returns {Object|null} Az illesztett csomópont objektuma ({key, lat, lon, level}), vagy null, ha a beillesztés sikertelen.
+     */
     function injectNodeIntoGraph(targetLat, targetLon, targetLevel, maxDistanceMeters = 5.0, sourceFeature = null) {
-        // A "sourceFeature" alapú ajtókeresést KIVETTÜK, mert a startNavigation már megcsinálta!
         
-        // 1. MEGLÉVŐ CSOMÓPONT KERESÉSE (Pontos egyezés)
+        // --- 1. MEGLÉVŐ CSOMÓPONT KERESÉSE ---
+        // Generálunk egy egyedi azonosítót a célpont koordinátái alapján.
+        // Ha ezen a pontos helyen már létezik csomópont a gráfban, azonnal visszatérünk az adataival.
         const exactKey = toKey(targetLat, targetLon, targetLevel);
         if (navigationGraph.has(exactKey)) {
             return { key: exactKey, lat: targetLat, lon: targetLon, level: targetLevel };
         }
 
-        // 2. KORRIDOR VETÍTÉS (Snapping)
+        // --- 2. FOLYOSÓRA TÖRTÉNŐ ILLESZTÉS (SNAPPING) ---
         let bestConnection = null;
         let minConnDist = Infinity;
 
+        // Végigiterálunk a térképelemeken a legmegfelelőbb csatlakozási pont megtalálásához.
         geoJsonData.features.forEach(f => {
+            // Csak a vonal típusú (LineString) folyosókat (corridor) vizsgáljuk.
             if (f.properties.highway !== 'corridor' || f.geometry.type !== 'LineString') return;
+            
+            // Szűrés a megfelelő szintre: csak az azonos emeleten lévő folyosókat vesszük figyelembe.
             const levels = getLevelsFromFeature(f);
             if (!levels.includes(targetLevel)) return;
 
+            // A legközelebbi pont kiszámítása a folyosó vonalán a Turf.js segítségével.
             const line = turf.lineString(f.geometry.coordinates);
             const pt = turf.point([targetLon, targetLat]);
             const snapped = turf.nearestPointOnLine(line, pt);
+            
+            // A távolság átváltása kilométerből méterbe az összehasonlításhoz.
             const dist = snapped.properties.dist * 1000;
 
+            // Ha a talált pont közelebb van az eddigi legjobbnál, és a megengedett maximális távolságon belül esik,
+            // rögzítjük a csatlakozási pont adatait.
             if (dist < minConnDist && dist < maxDistanceMeters) {
                 minConnDist = dist;
                 bestConnection = {
@@ -3531,164 +3951,242 @@
             }
         });
 
-        // 3. VÉGREHAJTÁS
+        // --- 3. A CSATLAKOZÁSI PONT BEILLESZTÉSE A GRÁFBA ---
         if (bestConnection) {
             const newLat = bestConnection.newLat;
             const newLon = bestConnection.newLon;
             const newKey = toKey(newLat, newLon, targetLevel);
             
-            // Ha ez a pont már létezik a gráfon (véletlenül pont oda esett), használjuk
+            // Ellenőrizzük, hogy a kiszámított új csatlakozási pont egybeesik-e egy már meglévő csomóponttal a gráfban.
             if (navigationGraph.has(newKey)) return { key: newKey, lat: newLat, lon: newLon, level: targetLevel };
 
+            // Új csomópont inicializálása a navigációs gráf adatszerkezetében.
             if (!navigationGraph.has(newKey)) navigationGraph.set(newKey, []);
 
+            // A folyosó vonalszakaszának és az illesztett pont indexének kinyerése.
             const coords = bestConnection.segment.geometry.coordinates;
             const idx = bestConnection.snappedPoint.properties.index;
             
+            // Ha az index érvényes, beillesztjük a pontot a szegmens két eredeti végpontja (p1 és p2) közé.
             if (idx !== undefined && idx < coords.length - 1) {
                 const p1 = { lat: coords[idx][1], lon: coords[idx][0], level: targetLevel };
                 const p2 = { lat: coords[idx+1][1], lon: coords[idx+1][0], level: targetLevel };
+                
                 const k1 = toKey(p1.lat, p1.lon, p1.level);
                 const k2 = toKey(p2.lat, p2.lon, p2.level);
                 
+                // Távolságok kiszámítása az új pont és az eredeti végpontok között.
                 let d1 = turf.distance(turf.point([newLon, newLat]), turf.point([p1.lon, p1.lat])) * 1000;
                 let d2 = turf.distance(turf.point([newLon, newLat]), turf.point([p2.lon, p2.lat])) * 1000;
-                d1 = Math.max(d1, 0.1); d2 = Math.max(d2, 0.1);
                 
-                // Milyen típusú út volt ez? (alap: walk)
-                // Egyszerűsítés: feltételezzük, hogy séta.
+                // Biztosítjuk, hogy ne jöjjön létre zérus hosszúságú él (minimum 10 cm).
+                d1 = Math.max(d1, 0.1); 
+                d2 = Math.max(d2, 0.1);
+                
+                // A kapcsolat típusa alapértelmezetten gyalogos séta.
                 const type = 'walk'; 
 
+                // A kétirányú élek (kapcsolatok) felépítése az új pont és a folyosó megszakított szakaszai között.
                 if (navigationGraph.has(k1)) {
                     navigationGraph.get(newKey).push({ key: k1, dist: d1, lat: p1.lat, lon: p1.lon, level: targetLevel });
                     navigationGraph.get(k1).push({ key: newKey, dist: d1, lat: newLat, lon: newLon, level: targetLevel });
                 }
+                
                 if (navigationGraph.has(k2)) {
                     navigationGraph.get(newKey).push({ key: k2, dist: d2, lat: p2.lat, lon: p2.lon, level: targetLevel });
                     navigationGraph.get(k2).push({ key: newKey, dist: d2, lat: newLat, lon: newLon, level: targetLevel });
                 }
+                
+                // Visszatérünk a sikeresen beillesztett csomópont adataival.
                 return { key: newKey, lat: newLat, lon: newLon, level: targetLevel };
             }
         }
+        
+        // Ha semmilyen módon nem sikerült a beillesztés (pl. nincs folyosó a közelben), null értékkel térünk vissza.
         return null;
     }
 
+    /**
+     * Megkeresi a navigációs gráf egy adott szintjéhez tartozó legközelebbi csomópontot 
+     * a megadott koordinátákhoz képest, egy előre definiált tűréshatáron belül.
+     * Ez a segédfüggvény kritikus szerepet játszik abban, hogy a felhasználói 
+     * kattintásokat vagy térképi elemeket meglévő hálózati pontokhoz lehessen kötni.
+     *
+     * @param {number} targetLat - A célpont földrajzi szélessége.
+     * @param {number} targetLon - A célpont földrajzi hosszúsága.
+     * @param {string} targetLevel - A vizsgálandó szint (emelet) azonosítója.
+     * @param {number} [toleranceMeters=5.0] - A keresési sugár (tűréshatár) méterben kifejezve.
+     * @returns {Object|null} A legközelebbi csomópont objektuma ({key, lat, lon, level}), 
+     * vagy null, ha nincs találat a tűréshatáron belül.
+     */
     function findNearestNodeInGraph(targetLat, targetLon, targetLevel, toleranceMeters = 5.0) {
-        let minDist = Infinity; let bestNode = null;
+        let minDist = Infinity; 
+        let bestNode = null;
         const searchLevel = targetLevel || "0";
+        
+        // Iteráció a globális navigációs gráf összes csomópontján
         for (const [key, neighbors] of navigationGraph.entries()) {
+            // A csomópont kulcsának (formátum: lat,lon,level) felbontása alkatrészeire
             const parts = key.split(',');
-            const lat = parseFloat(parts[0]); const lon = parseFloat(parts[1]); const lvl = parts[2];
+            const lat = parseFloat(parts[0]); 
+            const lon = parseFloat(parts[1]); 
+            const lvl = parts[2];
+            
+            // Szint alapú szűrés: csak az azonos emeleten lévő pontokat vizsgáljuk
             if (lvl !== searchLevel) continue;
+            
+            // A geometriai távolság kiszámítása a keresett koordináta és a csomópont között (kilométerről méterre váltva)
             const d = turf.distance(turf.point([targetLon, targetLat]), turf.point([lon, lat])) * 1000;
-            if (d < toleranceMeters && d < minDist) { minDist = d; bestNode = { key: key, lat: lat, lon: lon, level: lvl }; }
+            
+            // Legjobb találat frissítése, ha a távolság a tűréshatáron belül van és kisebb az eddigi minimumnál
+            if (d < toleranceMeters && d < minDist) { 
+                minDist = d; 
+                bestNode = { key: key, lat: lat, lon: lon, level: lvl }; 
+            }
         }
+        
         return bestNode;
     }
 
+    /**
+     * Intelligens, kontextusfüggő mosdókereső algoritmus.
+     * A jelenleg fókuszban lévő (kiválasztott) térképelemtől kiindulva megkeresi
+     * a legoptimálisabb (legközelebbi, saját szinten lévő) mosdót, figyelembe véve
+     * a felhasználó által beállított preferenciákat (pl. csak férfi vagy női mosdók).
+     * Sikeres találat esetén automatikusan elindítja az útvonaltervezést.
+     */
     function findSmartToilet() {
-        // 1. START ELLENŐRZÉS
+        // --- 1. KIINDULÓPONT (START) ELLENŐRZÉSE ---
         if (!selectedFeature) { 
+            // Visszajelzés a felhasználónak, ha nincs honnan indítani a keresést
             alert("Válassz ki egy helyet (Start), ahonnan WC-t keresel!"); 
             return; 
         }
 
+        // A kiválasztott elem (indulási pont) geometriai középpontjának és szintjének meghatározása
         const c = turf.centroid(selectedFeature);
         const startLvl = getLevelsFromFeature(selectedFeature)[0] || "0";
         
-        // 2. SZŰRÉS (Settings alapján)
+        // --- 2. ADATOK SZŰRÉSE (Preferenciák és metaadatok alapján) ---
+        // A felhasználói beállítás (APP_SETTINGS.toiletMode) lekérése, alapértelmezettként minden mosdót keres (all)
         const mode = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.toiletMode) ? APP_SETTINGS.toiletMode : 'all';
         
+        // Biztonsági ellenőrzés a térképadatok elérhetőségére
         if (!geoJsonData || !geoJsonData.features) return;
 
+        // A potenciális mosdók kigyűjtése a GeoJSON adathalmazból
         const toilets = geoJsonData.features.filter(f => {
             const p = f.properties; 
             if (!p) return false;
             
-            // WC definíciók
+            // Logikai azonosítás az OpenStreetMap tag-ek alapján
             const isToilet = (p.room === 'toilet' || p.room === 'toilets' || p.room === 'wc' || p.amenity === 'toilets' || p.amenity === 'toilet');
             
             if (!isToilet) return false;
 
-            // Nemek szűrése
+            // Nemek szerinti (férfi/női) szűrés a felhasználói preferenciák alapján
             if (mode === 'all') return true;
+            // Ha férfi mosdót keres, de az elem specifikusan csak női, kizárjuk
             if (mode === 'male' && p.female === 'yes' && p.male !== 'yes') return false; 
+            // Ha női mosdót keres, de az elem specifikusan csak férfi, kizárjuk
             if (mode === 'female' && p.male === 'yes' && p.female !== 'yes') return false;
+            
             return true;
         });
 
+        // Hibakezelés, ha az épületben egyáltalán nincs (vagy a szűrőknek megfelelő) mosdó
         if (toilets.length === 0) { 
             alert("Nem találtam WC-t az adatokban!"); 
             return; 
         }
 
-        // 3. PONTOZÁS (Csak távolság és szint alapján)
-        // Nem futtatunk Dijkstrát, bízunk a geometriában.
+        // --- 3. PONTOZÁS (Heurisztikus értékelés) ---
+        // A teljes navigációs gráf lekérdezése (Dijkstra) helyett egy gyors geometriai 
+        // és szinteken alapuló becslést (heurisztikát) alkalmazunk a teljesítmény érdekében.
         toilets.forEach(t => {
             const tc = turf.centroid(t); 
-            const distAir = turf.distance(c, tc) * 1000; // méter
+            // Légvonalbeli távolság számítása méterben a kezdőpont és a vizsgált mosdó között
+            const distAir = turf.distance(c, tc) * 1000; 
+            
             const tLvl = getLevelsFromFeature(t)[0] || "0";
+            // A szintek (emeletek) közötti különbség abszolút értéke
             const levelDiff = Math.abs(parseFloat(startLvl) - parseFloat(tLvl));
             
-            // Brutális büntetés az emeletre (hogy a saját szinten maradjon)
-            // + Ha a "start" és a "cél" nagyon közel van (pl. szomszéd szoba), az a nyerő.
+            // A pontszám (score) kiszámítása: 
+            // Az alacsonyabb pontszám jelenti a jobb (közelebbi) találatot.
+            // Egy jelentős (2000-es) szorzóval büntetjük a szintváltást, 
+            // erősen preferálva az indulási szinten lévő mosdókat.
             t._score = distAir + (levelDiff * 2000); 
         });
 
-        // 4. KIVÁLASZTÁS
-        // A legkisebb pontszámú (legközelebbi) nyer
+        // --- 4. A LEGJOBB JELÖLT KIVÁLASZTÁSA ---
+        // A mosdók rendezése a kiszámított pontszámok alapján növekvő sorrendbe,
+        // majd a legkisebb pontszámú elem (első helyezett) kiválasztása.
         const bestToilet = toilets.sort((a,b) => a._score - b._score)[0];
 
+        // --- 5. NAVIGÁCIÓ INDÍTÁSA ---
         if (bestToilet) {
-            // 5. INDÍTÁS
-            // Átadjuk a munkát a jól működő startNavigation-nek!
-            // Ő majd elintézi a gráfépítést, ajtókeresést és a többit.
-
             console.log(`Navigálás ide: ${bestToilet.properties.name || "WC"} (Score: ${Math.round(bestToilet._score)})`);
             
-            // Fontos: beállítjuk a Start pontot globálisan, hogy a navigáció tudja, honnan indulunk
+            // A kezdőpont regisztrálása a globális állapotba a navigációs motor számára
             pendingNavSource = selectedFeature; 
             
-            // JAVÍTÁS: Átadjuk a start pontot (selectedFeature) második paraméterként!
+            // Az útvonaltervezés delegálása a fő navigációs függvénynek
+            // Első paraméter: A célpont (mosdó)
+            // Második paraméter: Az indulási pont (selectedFeature)
             startNavigation(bestToilet, selectedFeature); 
         } else {
+            // Hibakezelés nem várt kivétel (pl. rendezési hiba) esetén
             alert("Hiba: Nem sikerült kiválasztani a WC-t.");
         }
     }
 
+    /**
+     * Elindítja az útvonaltervezést (navigációt) a gráf alapján két térképelem között.
+     * Ha a kezdőpont (fromFeature) nincs megadva, az épület főbejáratától indítja a tervezést.
+     * Kezeli a többajtós (multi-door) szobákat is: minden lehetséges ajtót beilleszt a gráfba,
+     * és Dijkstra algoritmusával megkeresi a globálisan legrövidebb útvonalat.
+     *
+     * @param {Object|null} [targetFeature=null] - A célállomást reprezentáló GeoJSON elem. Ha null, az aktuálisan kiválasztott elemet használja.
+     * @param {Object|null} [fromFeature=null] - A kiindulópontot reprezentáló GeoJSON elem. Ha null, a főbejárat lesz a kezdőpont.
+     */
     function startNavigation(targetFeature = null, fromFeature = null) {
         console.clear();
+        
+        // A navigációs gráf frissítése az útvonaltervezés előtt (pl. beállítások változása miatt)
         buildRoutingGraph(); 
         
+        // A célpont meghatározása (prioritás: paraméter > globális kiválasztás)
         const target = targetFeature || selectedFeature;
         if (!target) return;
 
-        // --- STATE MENTÉSE (MEGOSZTÁSHOZ) ---
+        // --- ÁLLAPOT MENTÉSE ---
+        // Az aktív navigációs adatok eltárolása a globális objektumban (pl. URL megosztáshoz)
         activeRouteData = {
-            start: fromFeature, // Lehet null (ha Main Entrance)
+            start: fromFeature, // Értéke null maradhat a főbejárat használata esetén
             end: target
         };
 
-        // --- 1. START PONTOK BEKÖTÉSE (LISTA) ---
+        // --- 1. KEZDŐPONTOK (START NODES) MEGHATÁROZÁSA ÉS GRÁFBA ILLESZTÉSE ---
         let startNodes = [];
         
         if (fromFeature) {
             // A) PREFERÁLT SZINT KIVÁLASZTÁSA (Start)
             const fLevels = getLevelsFromFeature(fromFeature);
-            // Ha a feature létezik az aktuális nézeten, akkor KÉNYSZERÍTJÜK azt a szintet.
-            // Ha nem (pl. másik emeleten van), akkor marad az első elérhető szintje.
+            // Intelligens szintválasztás: Ha az elem elérhető az aktuális térképnézeten,
+            // azt a szintet kényszerítjük. Egyéb esetben az elem első elérhető szintjét használjuk.
             const preferredStartLevel = fLevels.includes(currentLevel) ? currentLevel : fLevels[0];
 
+            // A kiinduló helyiséghez tartozó összes azonosítható ajtó kigyűjtése
             const doors = getDoorsForRoom(fromFeature);
             
             if (doors.length > 0) {
                 doors.forEach(door => {
                     const doorLevels = getLevelsFromFeature(door);
-                    // Csak akkor vesszük fel az ajtót, ha passzol a preferált szinthez!
-                    // (Vagy ha az ajtónak nincs szintje, akkor a szobáét örökli)
+                    // Az ajtó szintjének meghatározása (fallback a preferált szintre, ha nincs megadva)
                     const finalLvl = doorLevels.length > 0 ? doorLevels[0] : preferredStartLevel;
                     
-                    // Ha az ajtó szintjei között, VAGY a kényszerített szinten van
+                    // Szűrés: Csak azokat az ajtókat illesztjük a gráfba, amelyek a preferált szinten találhatóak
                     if (doorLevels.includes(preferredStartLevel) || finalLvl === preferredStartLevel) {
                         const coords = door.geometry.coordinates;
                         const node = injectNodeIntoGraph(coords[1], coords[0], preferredStartLevel, 5.0);
@@ -3697,52 +4195,56 @@
                 });
             }
             
-            // Ha nincs ajtó (vagy nem a mi szintünkön van), marad a Centroid a preferált szinten
+            // Fallback: Ha nem találtunk megfelelő ajtót a szinten, a helyiség geometriai középpontját (centroid) használjuk
             if (startNodes.length === 0) {
                 let c = turf.centroid(fromFeature);
                 const node = injectNodeIntoGraph(c.geometry.coordinates[1], c.geometry.coordinates[0], preferredStartLevel, 20.0, fromFeature);
                 if (node) startNodes.push(node);
             }
         } else {
-            // Főbejárat (Main Entrance)
-            if (!mainEntranceNode) { alert("Nincs bejárat definiálva!"); return; }
+            // B) FŐBEJÁRAT HASZNÁLATA
+            if (!mainEntranceNode) { 
+                alert("Nincs bejárat definiálva!"); 
+                return; 
+            }
+            // A főbejárat csomópontjának beillesztése a hálózatba
             const node = injectNodeIntoGraph(mainEntranceNode.lat, mainEntranceNode.lon, mainEntranceNode.level, 5.0);
-            if (node) startNodes.push(node);
-            else startNodes.push({ key: toKey(mainEntranceNode.lat, mainEntranceNode.lon, mainEntranceNode.level), ...mainEntranceNode });
+            if (node) {
+                startNodes.push(node);
+            } else {
+                startNodes.push({ key: toKey(mainEntranceNode.lat, mainEntranceNode.lon, mainEntranceNode.level), ...mainEntranceNode });
+            }
         }
 
-        if (startNodes.length === 0) { alert("Nem található start útvonalpont!"); return; }
+        // Biztonsági megszakítás, ha egyáltalán nem sikerült kezdőpontot generálni
+        if (startNodes.length === 0) { 
+            alert("Nem található start útvonalpont!"); 
+            return; 
+        }
 
-        // --- 2. CÉL PONTOK BEKÖTÉSE (LISTA) ---
+        // --- 2. CÉLPONTOK (END NODES) MEGHATÁROZÁSA ÉS GRÁFBA ILLESZTÉSE ---
         let endNodes = [];
         
-        // B) PREFERÁLT SZINT KIVÁLASZTÁSA (Cél)
+        // C) PREFERÁLT SZINT KIVÁLASZTÁSA (Cél)
         const tLevels = getLevelsFromFeature(target);
-        // Ugyanaz a logika: ha a cél látható a mostani szinten, oda vigyen.
-        // (Bár célnál ez ritkább, de pl. lépcsőnél hasznos: "ehhez a lépcsőhöz ezen a szinten")
+        // A célpont preferált szintjének meghatározása az aktuális nézet alapján
         const preferredEndLevel = tLevels.includes(currentLevel) ? currentLevel : tLevels[0];
 
+        // A cél helyiséghez tartozó ajtók kigyűjtése
         const targetDoors = getDoorsForRoom(target);
         if (targetDoors.length > 0) {
             targetDoors.forEach(door => {
                 const doorLevels = getLevelsFromFeature(door);
-                // Itt megengedőbbek vagyunk: a cél bármelyik ajtaja jó lehet, DE
-                // ha van preferált szint, próbáljuk azt előnyben részesíteni?
-                // A Multi-Door logika miatt inkább felvesszük az összeset, és a Dijkstra dönt.
-                // DE: Ha ez egy lift/lépcső, akkor csak a preferált szintre kéne navigálni.
-                
-                // Módosítás: Ha a feature több szintes (pl lépcső), akkor CSAK a preferált szintre teszünk pontot.
-                // Ha szoba (általában 1 szintes), akkor mindegy.
                 
                 if (tLevels.length > 1) {
-                    // Többszintes objektum (Lépcső/Lift): Csak az aktuális szintre navigáljon
+                    // Többszintes célpont (pl. Lépcső/Lift): Csak a preferált (aktuálisan nézett) szintre navigálunk
                     if (doorLevels.includes(preferredEndLevel)) {
                          const coords = door.geometry.coordinates;
                          const node = injectNodeIntoGraph(coords[1], coords[0], preferredEndLevel, 5.0);
                          if (node) endNodes.push(node);
                     }
                 } else {
-                    // Egyszintes (Szoba): Jöhet bármelyik ajtó
+                    // Egyszintes célpont (pl. Szoba): Bármelyik megtalált ajtó alkalmas célpont lehet
                     const dl = doorLevels[0] || preferredEndLevel;
                     const coords = door.geometry.coordinates;
                     const node = injectNodeIntoGraph(coords[1], coords[0], dl, 5.0);
@@ -3751,25 +4253,38 @@
             });
         }
         
+        // Fallback megoldások, ha nem sikerült ajtót találni a célponthoz
         if (endNodes.length === 0) {
-            // Centroid fallback
             let tLat, tLon;
-            if (target.geometry.type === "Point") { tLat = target.geometry.coordinates[1]; tLon = target.geometry.coordinates[0]; } 
-            else { const c = turf.centroid(target); tLat = c.geometry.coordinates[1]; tLon = c.geometry.coordinates[0]; }
             
+            // A célpont geometriai középpontjának (centroid) kiszámítása
+            if (target.geometry.type === "Point") { 
+                tLat = target.geometry.coordinates[1]; 
+                tLon = target.geometry.coordinates[0]; 
+            } else { 
+                const c = turf.centroid(target); 
+                tLat = c.geometry.coordinates[1]; 
+                tLon = c.geometry.coordinates[0]; 
+            }
+            
+            // Megkíséreljük a középpontot a gráfhoz illeszteni egy nagyobb keresési sugárral (20m)
             const node = injectNodeIntoGraph(tLat, tLon, preferredEndLevel, 20.0, target);
             if (node) endNodes.push(node);
             
-            // Végső fallback
+            // Végső fallback: a gráf legközelebbi meglévő csomópontjának megkeresése (40m sugárban)
             if (endNodes.length === 0) {
                 const near = findNearestNodeInGraph(tLat, tLon, preferredEndLevel, 40.0);
                 if (near) endNodes.push(near);
             }
         }
 
-        if (endNodes.length === 0) { alert("Nem található cél útvonalpont!"); return; }
+        // Biztonsági megszakítás, ha nem sikerült érvényes célpontot generálni
+        if (endNodes.length === 0) { 
+            alert("Nem található cél útvonalpont!"); 
+            return; 
+        }
 
-        // --- 3. VERSENYFUTÁS ---
+        // --- 3. ÚTVONALKERESÉS (DIJKSTRA ALGORITMUS) ---
         let bestPath = null;
         let minDistance = Infinity; 
         let bestStartNode = null;
@@ -3777,11 +4292,13 @@
 
         console.log(`Routing: ${startNodes.length} start (Lvl: ${startNodes[0]?.level}) x ${endNodes.length} end (Lvl: ${endNodes[0]?.level})`);
 
+        // A legrövidebb útvonal meghatározása az összes lehetséges kezdő- és végpont kombináció vizsgálatával
         startNodes.forEach(sNode => {
             endNodes.forEach(eNode => {
                 try {
                     const result = runDijkstra(sNode.key, eNode.key);
                     if (result) {
+                        // Ha a talált útvonal rövidebb az eddigi minimumnál, frissítjük a legjobb eredményt
                         if (result.distance < minDistance) {
                             minDistance = result.distance;
                             bestPath = result.path;
@@ -3789,16 +4306,24 @@
                             bestEndNode = eNode;
                         }
                     }
-                } catch (e) { /* no path */ }
+                } catch (e) { 
+                    // Nincs elérhető útvonal ezen két pont között
+                }
             });
         });
 
-        if (!bestPath) { alert("Nincs útvonal!"); return; }
+        // Megszakítás, ha a teljes gráfban nem található összefüggő útvonal
+        if (!bestPath) { 
+            alert("Nincs útvonal!"); 
+            return; 
+        }
 
-        // --- 4. RAJZOLÁS ---
+        // --- 4. VIZUÁLIS MEGJELENÍTÉS ÉS UI FRISSÍTÉS ---
         try {
+            // A kiszámított hálózati útvonal kirajzolása a térképre
             drawRoute(bestPath);
             
+            // "Last Mile" gyalogos vonalak rajzolása a középpontok és az útvonal kezdő/végpontjai között
             if(fromFeature) {
                  const c = turf.centroid(fromFeature);
                  drawWalkLine(c.geometry.coordinates[1], c.geometry.coordinates[0], bestStartNode.lat, bestStartNode.lon, bestStartNode.level);
@@ -3813,215 +4338,267 @@
                  drawWalkLine(target.geometry.coordinates[1], target.geometry.coordinates[0], bestEndNode.lat, bestEndNode.lon, bestEndNode.level);
             }
 
-            // --- F-013 & F-009: STATISZTIKA ÉS UI UPDATE ---
+            // A teljes útvonal mentése globális változóba a szint-fókuszáló algoritmus (focusOnRouteSegment) számára
+            currentRoutePath = bestPath; 
 
-            currentRoutePath = bestPath; // Elmentjük a teljes útvonalat globálisan, hogy a focusOnRouteSegment lássa
-
-            // --- JAVÍTÁS: Főbejárat kezelése ---
+            // --- KIINDULÁSI PONT (activeNavSource) VIZUÁLIS KEZELÉSE ---
             if (pendingNavSource) {
                 activeNavSource = pendingNavSource;
             } else {
-                // Ha nincs kijelölt forrás, akkor a Főbejárattól indulunk (útvonal 0. pontja)
+                // Ha a navigáció a Főbejárattól indult, létrehozunk egy virtuális GeoJSON elemet a megjelenítéshez
                 const startParts = bestPath[0].split(',');
                 activeNavSource = {
                     type: "Feature",
                     id: "main_entrance_virtual",
                     geometry: {
                         type: "Point",
-                        // Figyelem: A kulcsban lat,lon van, a GeoJSON-ban lon,lat kell!
+                        // Megjegyzés: A GeoJSON szabvány longitude, latitude (lon, lat) sorrendet követ
                         coordinates: [parseFloat(startParts[1]), parseFloat(startParts[0])]
                     },
                     properties: {
-                        name: "Főbejárat", // Ezt fogja kiírni!
+                        name: "Főbejárat",
                         level: startParts[2],
                         indoor: "entrance"
                     }
                 };
             }
             
-            activeNavTarget = target; // Ez az "Ide" feature (a cél)
+            // A célpont regisztrálása globálisan
+            activeNavTarget = target; 
 
+            // Az útvonal statisztikáinak és az instrukciók (itiner) generálása
             const stats = calculateRouteStats(bestPath);
             const itinerary = generateItinerary(bestPath);
             
-            // ÚJ: Átadjuk a start feature-t is a függvénynek!
+            // Az információs panel (Bottom Sheet) frissítése a navigációs adatokkal
             updateSheetForNavigation(target, stats, itinerary, activeNavSource);
 
+            // A panel összecsukása "peek" (részleges betekintő) állapotba
             collapseToPeek();
 
-        } catch (err) { console.error(err); alert("Hiba: " + err.message); }
+        } catch (err) { 
+            console.error(err); 
+            alert("Hiba: " + err.message); 
+        }
     }
 
-    // === F-013 & F-009: NAVIGÁCIÓS ADATOK ÉS ITINER ===
+    // === NAVIGÁCIÓS ADATOK ÉS ITINER ===
 
+    /**
+     * Kiszámítja egy megadott útvonal összesített statisztikáit (távolság és becsült utazási idő).
+     * Az algoritmus figyelembe veszi az átlagos gyaloglási sebességet, valamint 
+     * a szintváltásokból (lépcsőzés, liftezés) eredő fizikai és időbeli sajátosságokat 
+     * (például a liftre való várakozási időt).
+     * * @param {Array<string>} pathKeys - Az útvonalat alkotó csomópontok kulcsainak tömbje (formátum: 'lat,lon,level').
+     * @returns {Object} Az útvonal statisztikáit tartalmazó objektum, amely tartalmazza az össztávolságot méterben (dist) és a becsült időt percben (time).
+     */
     function calculateRouteStats(pathKeys) {
         let totalDist = 0;
         let totalTime = 0;
-        const WALK_SPEED = 1.3; // m/s (séta tempó)
         
-        // Büntetések (másodpercben)
-        const STAIRS_PENALTY = 15; // Emeletenként
-        const ELEVATOR_WAIT = 45;  // Fix várakozás + beszállás
+        // FIZIKAI ÉS IDŐBELI ÁLLANDÓK
+        const WALK_SPEED = 1.3; // Átlagos gyaloglási sebesség (méter/másodperc)
         
-        // Előző pont adatai
-        let prev = null;
-        let activeElevator = false;
+        // Szintváltásokból eredő időbeli büntetések (másodpercben kifejezve)
+        const STAIRS_PENALTY = 15; // Lépcsőhasználat ideje emeletenként
+        const ELEVATOR_WAIT = 45;  // A lift megérkezésére és a beszállásra fordított fix várakozási idő
+        
+        // CIKLUSVÁLTOZÓK
+        let prev = null;           // Az előzőleg vizsgált csomópont adatai a távolságméréshez
+        let activeElevator = false; // Állapotjelző a folyamatos lifthasználat (több emelet megtétele) nyomon követésére
 
         pathKeys.forEach(key => {
+            // A csomópont kulcsának felbontása földrajzi koordinátákra és emeletszintre
             const parts = key.split(',');
             const current = { lat: parseFloat(parts[0]), lon: parseFloat(parts[1]), level: parts[2] };
             
             if (prev) {
-                // 1. Távolság (Vízszintes)
-                // Ha szintváltás van, a vízszintes távolság elhanyagolható (vagy 0),
-                // de a turf.distance kiszámolja.
+                // --- 1. TÁVOLSÁG KISZÁMÍTÁSA ---
+                // A vízszintes (légvonalbeli) távolság kiszámítása a Turf.js segítségével (méterben).
+                // Szintváltás esetén a vertikális elmozdulás vízszintes vetülete minimális, 
+                // de a matematikai pontosság érdekében a függvény ezt is feldolgozza.
                 const d = turf.distance([prev.lon, prev.lat], [current.lon, current.lat]) * 1000;
                 totalDist += d;
                 
-                // 2. Idő
+                // --- 2. IDŐSZÜKSÉGLET KISZÁMÍTÁSA ---
                 if (prev.level === current.level) {
-                    // Sima séta
+                    // Azonos szinten történő haladás (séta)
                     totalTime += (d / WALK_SPEED);
-                    activeElevator = false;
+                    activeElevator = false; // A lifthasználat megszakadt
                 } else {
-                    // Szintváltás
-                    // Detektáljuk, hogy ez lift vagy lépcső
-                    // (Egyszerűsítés: Ha nagyot ugrik koordinátában, az nem lift. De a gráfban a lift egy helyben áll.)
+                    // Szintváltás esete
+                    // Detektáljuk, hogy a szintváltás lifttel vagy lépcsővel történik-e.
+                    // Heurisztika: Mivel a liftakna geometriailag egy pontban helyezkedik el a térképen,
+                    // a minimális vízszintes elmozdulás lifthasználatra utal.
                     const hDist = turf.distance([prev.lon, prev.lat], [current.lon, current.lat]) * 1000;
                     
-                    if (hDist < 5.0) { // Ez valószínűleg lift (vagy csigalépcső)
-                         // Ha már "liftben vagyunk" (több emeletet megyünk), nem adunk hozzá újabb várakozást
-                         if (!activeElevator) {
+                    if (hDist < 5.0) { 
+                        // Lift (vagy csigalépcső) detektálása
+                        // A várakozási és beszállási időt csak a beszálláskor (egyszer) adjuk hozzá
+                        if (!activeElevator) {
                              totalTime += ELEVATOR_WAIT;
                              activeElevator = true;
-                         }
-                         // Maga az utazás ideje (pl. 10mp / emelet)
-                         totalTime += 10; 
+                        }
+                        // Maga az utazási idő a lifttel (emeletenként hozzávetőlegesen 10 másodperc)
+                        totalTime += 10; 
                     } else {
-                        // Lépcső (messzebb vannak a fokok)
+                        // Lépcső detektálása (a lépcsőfokok miatti jelentősebb vízszintes elmozdulás alapján)
                         activeElevator = false;
                         totalTime += STAIRS_PENALTY;
                     }
                 }
             }
+            // Az aktuális csomópont mentése a következő iterációhoz
             prev = current;
         });
 
+        // Visszatérés a kerekített statisztikai adatokkal az UI számára
         return {
             dist: Math.round(totalDist),
-            time: Math.ceil(totalTime / 60) // Percben
+            time: Math.ceil(totalTime / 60) // A másodpercek átváltása percre (felfelé kerekítve)
         };
     }
 
+    /**
+     * Generál egy lépésről lépésre követhető útvonaltervet (itinert) a navigációs útvonal alapján.
+     * Célja, hogy emberi fogyasztásra alkalmas formában jelenítse meg a szintváltásokat,
+     * intelligensen felismerve, hogy az adott váltás lifttel vagy lépcsővel történik-e,
+     * és a folyamatos váltásokat (pl. fel a lépcsőn a földszintről a 2. emeletre) 
+     * egyetlen logikai lépéssé vonja össze.
+     * * @param {Array<string>} pathKeys - Az útvonalat alkotó csomópontok azonosítóinak (kulcsainak) tömbje.
+     * @returns {Array<Object>} Az itiner lépéseit tartalmazó objektumok tömbje.
+     */
     function generateItinerary(pathKeys) {
         const steps = [];
+        // Biztonsági ellenőrzés: üres útvonal esetén üres tömböt adunk vissza
         if (!pathKeys || pathKeys.length === 0) return steps;
 
+        // Az indulási szint inicializálása az első csomópont adatai alapján
         let lastLevel = pathKeys[0].split(',')[2];
 
-        // --- ÚJ: ADAT ALAPÚ DETEKTÁLÁS ---
+        /**
+         * Belső segédfüggvény: Térbeli (geometriai) adatalapú elemzés a vertikális közlekedő
+         * (lift vagy lépcső) pontos típusának meghatározására.
+         * * @param {string|number} lat - Földrajzi szélesség.
+         * @param {string|number} lon - Földrajzi hosszúság.
+         * @param {string} level - A vizsgált emeletszint.
+         * @returns {string|null} 'Lift', 'Lépcső' vagy null, ha nincs egyértelmű térképi adat a közelben.
+         */
         const detectVerticalType = (lat, lon, level) => {
-            // 1. Átalakítás számokká a pontosság kedvéért
+            // A koordináták számmá konvertálása a matematikai műveletekhez
             const targetLat = parseFloat(lat);
             const targetLon = parseFloat(lon);
-            const threshold = 0.00005; // Kb 5 méter sugarú körben keresünk feature-t
+            
+            // Keresési tolerancia: kb. 5 méteres sugár a koordináta pontossági hibáinak kiküszöbölésére
+            const threshold = 0.00005; 
 
-            // 2. Keresés a GeoJSON adatokban
-            // Csak akkor keresünk, ha van adat. Ez egy gyors szűrés.
+            // Vizsgálat megkezdése, ha rendelkezésre állnak az épület térképi adatai
             if (geoJsonData && geoJsonData.features) {
                 for (const f of geoJsonData.features) {
                     const p = f.properties;
                     
-                    // Csak a releváns típusokat nézzük
+                    // A vizsgált térképelem OSM tulajdonságainak ellenőrzése
                     const isElevator = p.highway === 'elevator' || p.amenity === 'elevator' || p.room === 'elevator' || p.lift_gate;
                     const isStairs = p.highway === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase';
 
+                    // Csak a releváns (vertikális) elemeket vizsgáljuk tovább
                     if (!isElevator && !isStairs) continue;
 
-                    // Geometria ellenőrzése: Benne van-e a pont?
-                    // (Egyszerűsítve: megnézzük a bounding boxot vagy a távolságot)
                     try {
+                        // A vertikális elem geometriai középpontjának (centroid) meghatározása
                         const center = turf.center(f);
-                        const c = center.geometry.coordinates;
-                        // Turf koordináta: [lon, lat] !!!
+                        const c = center.geometry.coordinates; // Formátum: [lon, lat]
+                        
+                        // Távolság (Euklideszi) számítása a vizsgált csomópont és a vertikális elem között
                         const dist = Math.sqrt(Math.pow(c[1] - targetLat, 2) + Math.pow(c[0] - targetLon, 2));
                         
-                        // Ha nagyon közel van a ponthoz (egyezés)
+                        // Ha a pont a tűréshatáron belülre esik, sikeres a detektálás
                         if (dist < threshold) {
                             return isElevator ? 'Lift' : 'Lépcső';
                         }
-                    } catch(e) {}
+                    } catch(e) {
+                        // Hibakezelés a hibás/hiányos geometriájú elemeknél
+                    }
                 }
             }
-            return null; // Nem találtunk konkrét adatot
+            // Nincs megfelelő találat a térképi adatok alapján
+            return null; 
         };
 
+        // Iteráció a teljes útvonalon, a szintváltások (transition) keresésére
         for (let i = 1; i < pathKeys.length; i++) {
             const currKey = pathKeys[i];
             const prevKey = pathKeys[i-1];
+            
             const currParts = currKey.split(',');
             const currLevel = currParts[2];
             
-            // Ha SZINTVÁLTÁS történt
+            // Ha a jelenlegi csomópont szintje eltér az előzőtől, szintváltást detektáltunk
             if (currLevel !== lastLevel) {
+                // Az irány meghatározása a szintek numerikus összehasonlításával
                 const direction = parseFloat(currLevel) > parseFloat(lastLevel) ? 'FEL' : 'LE';
+                
+                // A célzott szint felhasználóbarát (magyarított/alias) megnevezése
                 const label = levelAliases[currLevel] || currLevel;
                 
-                // 1. Próbáljuk meg adatból kitalálni (a kezdőpont vagy a végpont alapján)
-                // Megnézzük az előző pontot (ahonnan indultunk) és a mostanit (ahova érkeztünk)
+                // 1. STRATÉGIA: Adatalapú detektálás (Keresés a térképelemek között)
+                // Megvizsgáljuk az érkezési pont környezetét
                 let type = detectVerticalType(currParts[0], currParts[1], currLevel);
                 
-                // Ha az érkezési ponton nem találtunk, megnézzük az indulásit
+                // Ha nincs találat, megvizsgáljuk az indulási pont környezetét
                 if (!type) {
                      const prevParts = prevKey.split(',');
                      type = detectVerticalType(prevParts[0], prevParts[1], prevParts[2]);
                 }
 
-                // 2. Ha adatból sincs meg, jön a MATEMATIKA (Fallback)
+                // 2. STRATÉGIA: Matematikai/Geometriai heurisztika (Fallback)
+                // Ha az adat alapú keresés sikertelen, a vertikális és horizontális elmozdulás arányából következtetünk
                 if (!type) {
                     const p = prevKey.split(',');
                     const c = currKey.split(',');
-                    // Távolság méterben
+                    // Vízszintes távolság kiszámítása a szintváltás két pontja között méterben
                     const dist = turf.distance([p[1], p[0]], [c[1], c[0]]) * 1000;
                     
-                    // SZIGORÚBB KÜSZÖB: 
-                    // A lift szinte mindig függőleges (< 2m elcsúszás).
-                    // A lépcsőnek van hossza (> 2m).
+                    // Szigorú heurisztika: A lift mozgása jellemzően teljesen függőleges (minimális, < 2m elmozdulás),
+                    // míg a lépcső geometriája jelentős vízszintes elmozdulást eredményez
                     type = (dist < 2.0) ? 'Lift' : 'Lépcső';
                 }
 
-                // Ikon kiválasztása
-                // Ha van 'stairs' ikon a fontkészletben, használjuk azt, ha nincs, marad a nyíl
-                let icon = 'north_east'; // Default FEL
-                if (type === 'Lift') icon = 'elevator';
-                else if (direction === 'LE') icon = 'south_east'; // Lépcső LE
-                else icon = 'north_east'; // Lépcső FEL
+                // --- Vizuális reprezentáció (Ikon) meghatározása ---
+                let icon = 'north_east'; // Alapértelmezett, általános felfelé mutató nyíl
                 
-                // Próbáljuk meg a specifikus lépcső ikont, ha lépcső
-                // (Megjegyzés: a Material Symbols-ban van 'stairs' ikon, ha betöltötted)
-                if (type === 'Lépcső') icon = 'stairs'; // Ha ez nem jelenik meg jól, cseréld vissza a nyilakra!
+                if (type === 'Lift') {
+                    icon = 'elevator';
+                } else if (type === 'Lépcső') {
+                    // Dedikált lépcső ikon használata a Material Symbols készletből
+                    icon = 'stairs'; 
+                }
 
-                // --- OKOS ÖSSZEVONÁS ---
+                // --- INTELLIGENS ÖSSZEVONÁS (Smart Aggregation) ---
+                // Ha a felhasználó folyamatosan több szintet megy fel/le ugyanazon a lépcsőn/liften,
+                // ezeket nem külön lépésekként ("Fel az 1-re", "Fel a 2-re"), hanem egyetlen végső
+                // instrukcióként jelenítjük meg ("Fel a 2. szintre").
                 const lastStep = steps[steps.length - 1];
                 
                 if (lastStep && lastStep.type === 'transition' && 
                     lastStep.moveType === type && lastStep.direction === direction) {
                     
-                    // FRISSÍTÉS
+                    // A meglévő lépés frissítése a legújabb célszinttel
                     lastStep.text = `${type} ${direction} a(z) ${label}. szintre`;
                     lastStep.level = currLevel; 
                 } else {
-                    // ÚJ LÉPÉS
+                    // Új, önálló instrukció rögzítése az itinerben
                     steps.push({
                         type: 'transition',
-                        moveType: type,
-                        direction: direction,
+                        moveType: type,          // Pl. 'Lift' vagy 'Lépcső'
+                        direction: direction,    // 'FEL' vagy 'LE'
                         text: `${type} ${direction} a(z) ${label}. szintre`,
-                        icon: icon,
-                        level: currLevel
+                        icon: icon,              // Material ikon azonosító
+                        level: currLevel         // Emelet azonosítója (későbbi fókuszáláshoz)
                     });
                 }
 
+                // Állapot frissítése a következő iterációhoz
                 lastLevel = currLevel;
             }
         }
@@ -4029,49 +4606,91 @@
         return steps;
     }
 
+    /**
+     * Kiszámítja a legrövidebb útvonalat két csomópont között a navigációs gráfban 
+     * a Dijkstra-algoritmus segítségével.
+     * Az algoritmus figyelembe veszi az élek súlyozását, valamint extra költséget (büntetést)
+     * számít fel az idegen szobák ajtajain való áthaladásra, hogy a tervezés során
+     * a folyosókat részesítse előnyben a szobákon keresztüli "levágásokkal" szemben.
+     *
+     * @param {string} startKey - A kiindulási csomópont egyedi azonosítója (kulcsa).
+     * @param {string} endKey - A célcsomópont egyedi azonosítója (kulcsa).
+     * @returns {Object|null} Egy objektum, amely tartalmazza a kiszámított útvonalat (path)
+     * és a teljes távolságot/költséget (distance). Ha nincs elérhető útvonal, null értékkel tér vissza.
+     * @throws {Error} Hibát dob, ha az iterációk száma meghaladja a biztonsági korlátot.
+     */
     function runDijkstra(startKey, endKey) {
-        const distances = new Map(); 
-        const prev = new Map(); 
-        const queue = [];
+        // Az algoritmushoz szükséges alapvető adatszerkezetek inicializálása
+        const distances = new Map(); // A csomópontokhoz vezető eddigi legrövidebb távolságok
+        const prev = new Map();      // A legrövidebb útvonal fája (az előző csomópontok tárolására)
+        const queue = [];            // Prioritási sorként funkcionáló tömb a feldolgozandó pontokhoz
         
+        // A kezdőpont beállítása nulla távolsággal a sorba
         distances.set(startKey, 0); 
         queue.push({ key: startKey, dist: 0 });
         
+        // A már véglegesített (feldolgozott) csomópontok halmaza
         const visited = new Set();
-        let loopCounter = 0; const SAFETY_LIMIT = 15000; // Kicsit emeltem a limiten
+        
+        // Végtelen ciklus elleni védelem inicializálása
+        let loopCounter = 0; 
+        const SAFETY_LIMIT = 15000; 
 
+        // Fő iterációs ciklus, amíg van feldolgozatlan csomópont a sorban
         while (queue.length > 0) {
-            loopCounter++; if (loopCounter > SAFETY_LIMIT) throw new Error("Végtelen ciklus!");
+            // Biztonsági ellenőrzés a túlcsordulás vagy elakadás elkerülésére
+            loopCounter++; 
+            if (loopCounter > SAFETY_LIMIT) throw new Error("Végtelen ciklus!");
             
+            // A sor rendezése távolság szerint (egyszerű prioritási sor implementáció)
+            // A legkisebb távolságú (legközelebbi) csomópont kiválasztása
             queue.sort((a, b) => a.dist - b.dist);
             const { key: u, dist } = queue.shift();
             
+            // Ha elértük a célcsomópontot, visszafejtjük az útvonalat
             if (u === endKey) {
-                const path = []; let curr = endKey;
-                while (curr) { path.push(curr); curr = prev.get(curr); }
-                // ITT A LÉNYEG: Visszaadjuk a távolságot is!
+                const path = []; 
+                let curr = endKey;
+                
+                // Visszafelé haladva felépítjük a teljes útvonalat a kezdőpontig
+                while (curr) { 
+                    path.push(curr); 
+                    curr = prev.get(curr); 
+                }
+                
+                // Visszatérés a helyes sorrendbe fordított útvonallal és a végső költséggel
                 return { path: path.reverse(), distance: dist };
             }
             
+            // Ha a csomópontot már korábban feldolgoztuk egy rövidebb útvonalon, átugorjuk
             if (visited.has(u)) continue; 
             visited.add(u);
             
+            // A jelenlegi csomópont szomszédainak lekérése a globális navigációs gráfból
             const neighbors = navigationGraph.get(u) || [];
+            
             for (const n of neighbors) {
+                // Biztonsági ellenőrzés az érvénytelen távolságok kiszűrésére
                 if (!n.dist || isNaN(n.dist)) continue;
                 
-                // Door Penalty (Ajtón átmenés büntetése)
+                // --- AJTÓ BÜNTETÉS (Door Penalty) LOGIKA ---
                 let penalty = 0;
-                // Csak akkor büntetünk, ha NEM a start vagy cél konkrét ajtaja
+                
+                // Ellenőrizzük, hogy a vizsgált csomópont egy ajtó-e
                 if (doorNodes.has(n.key)) {
+                    // Ha az ajtó nem az indulási és nem is az érkezési helyiséghez tartozik,
+                    // jelentős költségbüntetést (50.0) alkalmazunk, hogy az algoritmus
+                    // inkább a folyosón haladjon, és ne vágjon át idegen szobákon.
                     if (n.key !== startKey && n.key !== endKey) { 
                         penalty = 50.0; 
                     }
                 }
 
+                // Az új alternatív távolság/költség kiszámítása a szomszédhoz
                 const alt = dist + n.dist + penalty;
                 const currentDist = distances.get(n.key) !== undefined ? distances.get(n.key) : Infinity;
                 
+                // Ha a most talált útvonal rövidebb az eddig ismertnél, frissítjük az értékeket
                 if (alt < currentDist) { 
                     distances.set(n.key, alt); 
                     prev.set(n.key, u); 
@@ -4079,59 +4698,81 @@
                 }
             }
         }
+        
+        // Ha a sor kiürült, de nem értük el a célt, nem létezik összefüggő útvonal
         return null;
     }
 
     // === ÚTVONAL ELEMZŐ (Lépcső/Lift Ikonokhoz) ===
+
+    /**
+     * Elemzi a navigációs útvonalat, és azonosítja azokat a pontokat (markereket),
+     * ahol szintváltás történik. Intelligensen meghatározza, hogy a szintváltás
+     * lifttel vagy lépcsővel valósul-e meg, és a folyamatos (többemeletes) 
+     * haladást egyetlen vizuális markerbe vonja össze.
+     *
+     * @param {Array<Object>} path - Az útvonal csomópontjait tartalmazó tömb (minden elem: {lat, lon, level}).
+     * @returns {Array<Object>} A térképi markerek adatait tartalmazó tömb (koordináta, típus, célszint, ikon).
+     */
     function getVerticalMarkers(path) {
         const markers = [];
+        // Biztonsági ellenőrzés: ha az útvonal hiányzik, vagy túl rövid a szintváltáshoz
         if (!path || path.length < 2) return markers;
 
-        // SEGÉDFÜGGVÉNY: Eldönti egy szintről-szintre ugrásról, hogy Lift vagy Lépcső-e
+        /**
+         * Belső segédfüggvény: Meghatározza egy konkrét szintváltó szegmens típusát (lift vagy lépcső).
+         * @param {Object} pStart - A szintváltás induló csomópontja.
+         * @param {Object} pEnd - A szintváltás érkezési csomópontja.
+         * @returns {string} A vertikális elem típusa: 'elevator' vagy 'stairs'.
+         */
         const detectSegmentType = (pStart, pEnd) => {
-            // 1. Matematikai becslés (Horizontális távolság)
+            // 1. STRATÉGIA: Matematikai/Geometriai heurisztika
+            // Kiszámítjuk a horizontális elmozdulást a két pont között (méterben)
             const hDist = turf.distance([pStart.lon, pStart.lat], [pEnd.lon, pEnd.lat]) * 1000;
             
-            // Alapértelmezés: Ha kicsi a távolság, gyanúsan lift...
+            // Heurisztika: A minimális horizontális elmozdulás (< 2.0 méter) liftre utal,
+            // az ennél nagyobb elmozdulás jellemzően a lépcső geometriájából adódik.
             let type = (hDist < 2.0) ? 'elevator' : 'stairs';
 
-            // 2. Adatbázis/GeoJSON ellenőrzés (Pontosítás)
-            // Megnézzük, van-e a közelben lift VAGY lépcsőház feature
+            // 2. STRATÉGIA: Adatbázis/GeoJSON alapú megerősítés és pontosítás
+            // Ellenőrizzük a térképadatokat a pont környezetében
             if (typeof geoJsonData !== 'undefined' && geoJsonData.features) {
                 const pt = turf.point([pStart.lon, pStart.lat]);
                 
-                // Keressünk liftet vagy lépcsőházat a közelben (5 méter)
+                // Keressünk releváns (vertikális) térképelemet egy megadott tűréshatáron belül
                 const nearFeature = geoJsonData.features.find(f => {
                     const p = f.properties;
-                    // LIFT CHECK
+                    
+                    // Ellenőrizzük a lift tulajdonságokat (highway, room vagy amenity alapú jelölések)
                     const isElevator = p.highway === 'elevator' || p.room === 'elevator' || p.amenity === 'elevator';
-                    // STAIRS CHECK (Poligonok is!)
+                    // Ellenőrizzük a lépcső tulajdonságokat (vonalas és poligonális jelölések egyaránt)
                     const isStairs = p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase' || p.highway === 'steps';
                     
                     if (!isElevator && !isStairs) return false;
 
-                    // Geometriai távolság
+                    // Távolság kiszámítása a csomópont és a vizsgált térképelem között
                     let dist;
                     if (f.geometry.type === 'Point') {
                         dist = turf.distance(pt, f) * 1000;
                     } else {
-                        // Poligonnál/Vonalnál a centroidot vagy a legközelebbi pontot nézzük
-                        // Egyszerűsítés: Centroid
+                        // Poligonok vagy vonalak esetén az egyszerűség kedvéért a geometriai
+                        // középpontot (centroid) használjuk a távolságbecsléshez.
                         const c = turf.centroid(f);
                         dist = turf.distance(pt, c) * 1000;
                     }
                     
-                    // Ha 5 méteren belül van, akkor ez az!
+                    // Ha a talált elem a 6 méteres keresési sugáron belül esik, elfogadjuk egyezésként
                     if (dist < 6.0) return true;
                     return false;
                 });
                 
+                // Ha találtunk megerősítő térképelemet, a metaadatai alapján felülírjuk a matematikai becslést
                 if (nearFeature) {
                     const p = nearFeature.properties;
                     if (p.highway === 'elevator' || p.room === 'elevator' || p.amenity === 'elevator') {
                         type = 'elevator';
                     } else {
-                        // Minden más esetben (highway=steps VAGY room=stairs poligon) LÉPCSŐ
+                        // Minden egyéb vertikális elem (pl. highway=steps, room=stairs) lépcsőként lesz azonosítva
                         type = 'stairs';
                     }
                 }
@@ -4140,89 +4781,123 @@
             return type;
         };
 
+        // Fő iterációs ciklus az útvonal szegmensein
         for (let i = 0; i < path.length - 1; i++) {
             const curr = path[i];
             const next = path[i+1];
 
-            // 1. START: Itt kezdődik a szintváltás
+            // Szintváltás detektálása az aktuális és a következő csomópont között
             if (curr.level !== next.level) {
                 
-                // Meghatározzuk a KEZDŐ típust (pl. "stairs")
+                // Meghatározzuk a szintváltás kiinduló típusát (lift vagy lépcső)
                 const currentType = detectSegmentType(curr, next);
                 
                 const startLevel = curr.level;
                 let finalLevel = next.level;
                 
-                // j: A felfedező index
+                // Előretekintő index a folyamatos vertikális haladás azonosításához
                 let j = i + 1;
                 let floorEntryPoint = next; 
 
+                // Addig vizsgáljuk az elkövetkező pontokat, amíg ugyanazon a vertikális vonalon haladunk
                 while (j < path.length - 1) {
                     const p1 = path[j];
                     const p2 = path[j+1];
                     
-                    // A) Sétálunk a köztes emeleten (nincs szintváltás)
                     if (p1.level === p2.level) {
+                        // A) Horizontális mozgás az adott (köztes) szinten
+                        // Kiszámítjuk a távolságot attól a ponttól, ahol felértünk erre a szintre
                         const distOnFloor = turf.distance([floorEntryPoint.lon, floorEntryPoint.lat], [p2.lon, p2.lat]) * 1000;
+                        
+                        // Ha több mint 15 métert haladunk vízszintesen, megszakítjuk az összevonást
+                        // (pl. átsétálunk a folyosó másik végén lévő lépcsőhöz)
                         if (distOnFloor > 15.0) break; 
-                    } 
-                    // B) Újabb szintváltás történik (p1 -> p2)
-                    else {
+                    } else {
+                        // B) Újabb vertikális szintváltás detektálása (p1 -> p2)
                         const nextSegmentType = detectSegmentType(p1, p2);
-                        // Ha a típus megváltozik (lépcső -> lift), megszakítjuk
+                        
+                        // Ha a közlekedő típusa megváltozik (pl. lépcsőről átszállunk egy liftbe), 
+                        // az összevonást megszakítjuk
                         if (nextSegmentType !== currentType) break;
 
+                        // A vertikális haladás folytatódik: frissítjük az érkezési pontot és a célszintet
                         floorEntryPoint = p2;
                         finalLevel = p2.level; 
                     }
-                    j++;
+                    j++; // Lépés a következő szegmensre
                 }
 
+                // Ha tényleges (legalább 1 emeletnyi) elmozdulás történt, rögzítjük a markert
                 if (startLevel !== finalLevel) {
+                    // Irány és vizuális jelölések (ikon, felirat) meghatározása
                     const direction = parseFloat(finalLevel) > parseFloat(startLevel) ? 'up' : 'down';
                     const iconArrow = direction === 'up' ? 'arrow_upward' : 'arrow_downward';
+                    
+                    // A célszint felhasználóbarát nevének lekérése (pl. "Fsz." a "0" helyett)
                     const displayLevel = (typeof levelAliases !== 'undefined' && levelAliases[finalLevel]) ? levelAliases[finalLevel] : finalLevel;
 
+                    // Marker objektum hozzáadása a megjelenítendő elemek listájához
                     markers.push({
                         lat: curr.lat,
                         lon: curr.lon,
                         level: curr.level,
-                        type: currentType, 
-                        targetLabel: displayLevel,
-                        icon: iconArrow
+                        type: currentType,        // 'elevator' vagy 'stairs' (meghatározza a marker alapikonját)
+                        targetLabel: displayLevel, // A megcélzott emelet (pl. "2.")
+                        icon: iconArrow           // Az irányt jelző (fel/le) kiegészítő ikon
                     });
                 }
+                
+                // Az iterátor frissítése az átugrott (összevont) szegmensek számával,
+                // hogy ne vizsgáljuk újra a már lefedett útvonalrészt
                 i = j - 1; 
             }
         }
+        
         return markers;
     }
 
     // === IRÁNYJELZŐ NYILAK GENERÁLÁSA ===
+
+    /**
+     * Létrehozza és megjeleníti az útvonalat mutató irányjelző nyilakat a térképen.
+     * Az algoritmus csak a megfelelő hosszúságú (4 méternél hosszabb), azonos szinten lévő
+     * vízszintes szakaszok felezőpontjába helyez el egy SVG alapú, a haladási iránynak
+     * megfelelően dinamikusan elforgatott nyilat.
+     *
+     * @param {Array<string>} pathKeys - Az útvonal csomópontjait tartalmazó kulcsok tömbje (formátum: 'lat,lon,level').
+     */
     function drawDirectionArrows(pathKeys) {
+        // A korábban kirajzolt nyilak eltávolítása a dedikált rétegről az útvonal frissítésekor
         routeArrowsLayerGroup.clearLayers();
 
+        // A nyers sztring kulcsok átalakítása feldolgozható koordináta és szint (level) objektumokká
         const points = pathKeys.map(k => {
             const p = k.split(',');
             return { lat: parseFloat(p[0]), lon: parseFloat(p[1]), level: p[2] };
         });
 
+        // Iteráció az útvonal egymást követő pontjain a szegmensek elemzéséhez
         for (let i = 0; i < points.length - 1; i++) {
             const p1 = points[i];
             const p2 = points[i+1];
 
-            // Csak vízszintes szakaszon
+            // Szűrés: Az irányjelző nyilakat kizárólag azonos szinten történő (horizontális) haladás esetén rajzoljuk ki
             if (p1.level === p2.level) {
                 const pt1 = turf.point([p1.lon, p1.lat]);
                 const pt2 = turf.point([p2.lon, p2.lat]);
+                
+                // A két pont közötti távolság kiszámítása méterben a Turf.js segítségével
                 const dist = turf.distance(pt1, pt2) * 1000;
 
-                // Csak ha elég hosszú a szakasz (> 4m)
+                // Szűrés: Csak a 4 méternél hosszabb szakaszokon helyezünk el nyilat a vizuális zsúfoltság elkerülése végett
                 if (dist > 4.0) {
+                    // Az irányszög (bearing) kiszámítása a nyíl megfelelő elforgatásához
                     const bearing = turf.bearing(pt1, pt2);
+                    
+                    // A szegmens felezőpontjának (midpoint) meghatározása, ide kerül majd a marker
                     const mid = turf.midpoint(pt1, pt2);
                     
-                    // --- ITT A MÓDOSÍTOTT SVG ---
+                    // A nyilat reprezentáló SVG grafika dinamikus generálása a kiszámított irányszög alapján
                     const arrowSvg = `
                         <svg viewBox="0 0 24 24" 
                              style="width: 100%; height: 100%; transform: rotate(${bearing}deg) scale(0.7); overflow: visible; opacity: 1.0;"> <line x1="12" y1="22" x2="12" y2="8" 
@@ -4238,48 +4913,68 @@
                         </svg>
                     `;
 
+                    // A Leaflet DivIcon objektum létrehozása a formázott SVG tartalommal
                     const arrowIcon = L.divIcon({
                         className: 'arrow-svg-icon',
                         html: arrowSvg,
                         iconSize: [24, 24], 
-                        iconAnchor: [12, 12] 
+                        iconAnchor: [12, 12] // A nyíl geometriai középpontjának illesztése a koordinátára
                     });
 
+                    // A térképi marker inicializálása a felezőpont koordinátáin, kikapcsolt interakcióval
                     const marker = L.marker([mid.geometry.coordinates[1], mid.geometry.coordinates[0]], {
                         icon: arrowIcon,
                         interactive: false,
                         pane: 'arrowPane'
                     });
                     
+                    // A szint adat (level) hozzácsatolása a markerhez a térképi rétegek közötti szűréshez
                     marker.feature = { properties: { level: p1.level } };
+                    
+                    // A generált marker hozzáadása a megjelenítendő rétegcsoporthoz
                     routeArrowsLayerGroup.addLayer(marker);
                 }
             }
         }
     }
 
+    /**
+     * Megjeleníti a kiszámított útvonalat a térképen.
+     * Kirajzolja a vízszintes és függőleges szakaszokat, elhelyezi a szintváltásokat
+     * jelző vizuális markereket (lift, lépcső), felrajzolja az irányjelző nyilakat,
+     * majd a kamerát az útvonalat befoglaló téglalapra (bounds) igazítja.
+     *
+     * @param {Array<string>} pathKeys - Az útvonal csomópontjait tartalmazó kulcsok tömbje (formátum: 'lat,lon,level').
+     */
     function drawRoute(pathKeys) {
+        // A korábbi útvonalhoz tartozó vizuális rétegek (vonalak, markerek, nyilak) törlése az újrarenderelés előtt
         routeLayerGroup.clearLayers();
-        routeMarkersLayerGroup.clearLayers(); // Töröljük a régi markereket
+        routeMarkersLayerGroup.clearLayers(); 
         routeArrowsLayerGroup.clearLayers();
         
         const latlngs = [];
         const boundsPoints = [];
 
+        // A nyers azonosító kulcsok feldolgozása és átalakítása koordináta-objektumokká
         pathKeys.forEach(k => {
             const parts = k.split(',');
             const lat = parseFloat(parts[0]);
             const lon = parseFloat(parts[1]);
             latlngs.push({ lat: lat, lon: lon, level: parts[2] });
+            
+            // A kamera fókuszálásához (bounding box) szükséges pontok gyűjtése
             boundsPoints.push([lat, lon]); 
         });
 
-        // 1. VONALAK RAJZOLÁSA (Régi logika)
+        // --- 1. ÚTVONAL VONALAINAK KIRAJZOLÁSA ---
         for (let i = 0; i < latlngs.length - 1; i++) {
             const p1 = latlngs[i]; 
             const p2 = latlngs[i+1];
+            
+            // Szintváltás (lépcső/lift) detektálása a vonal stílusának meghatározásához
             const isStairs = p1.level !== p2.level;
             
+            // A vonalszakasz vizuális stílusának beállítása (szín, vastagság, szaggatás)
             const style = { 
                 color: isStairs ? 'var(--color-route-secondary)' : 'var(--color-route-primary)', 
                 weight: 5, 
@@ -4287,16 +4982,24 @@
                 pane: 'routePane' 
             };
             
+            // A Leaflet polyline (törtvonal) objektum létrehozása
             const polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], style);
+            
+            // A szint(ek) adatának hozzácsatolása a vonalhoz a szintfüggő láthatóság kezeléséhez
             polyline.feature = { properties: { level: p1.level, levels: isStairs ? [p1.level, p2.level] : null } };
+            
+            // A vonalszakasz hozzáadása a megjelenítési rétegcsoporthoz
             routeLayerGroup.addLayer(polyline);
         }
 
-        // 2. VERTIKÁLIS MARKEREK GENERÁLÁSA (ÚJ!)
+        // --- 2. VERTIKÁLIS MARKEREK (LIFT/LÉPCSŐ) GENERÁLÁSA ---
+        // A szintváltásokat jelző pontok kigyűjtése a megfelelő ikonok és feliratok megjelenítéséhez
         const vMarkers = getVerticalMarkers(latlngs);
         
         vMarkers.forEach(vm => {
             let html = '';
+            
+            // A marker HTML struktúrájának összeállítása a vertikális elem típusa alapján
             if (vm.type === 'elevator') {
                 html = `<div class="nav-marker-container">
                             <div class="nav-badge-elevator">
@@ -4312,87 +5015,143 @@
                         </div>`;
             }
 
+            // A Leaflet DivIcon objektum létrehozása az egyedi HTML tartalommal
             const icon = L.divIcon({
-                className: 'custom-div-icon', // Üres class, hogy ne legyen default háttér
+                className: 'custom-div-icon', // Alapértelmezett háttér nélküli osztály
                 html: html,
                 iconSize: [40, 40],
-                iconAnchor: [20, 20] 
+                iconAnchor: [20, 20] // A marker geometriai középpontjának illesztése a vizsgált koordinátára
             });
 
+            // A térképi marker inicializálása kikapcsolt interakcióval a dedikált navigációs marker rétegen
             const marker = L.marker([vm.lat, vm.lon], { 
                 icon: icon, 
                 interactive: false, 
                 pane: 'navMarkerPane'
             });
-            // Fontos: Elmentjük a szintet a markerbe, hogy szűrhető legyen!
+            
+            // A szint adat (level) hozzácsatolása a markerhez a térképi rétegek közötti szűrés biztosítására
             marker.feature = { properties: { level: vm.level } };
+            
+            // A marker hozzáadása a megjelenítendő réteghez
             routeMarkersLayerGroup.addLayer(marker);
         });
 
-        // 3. IRÁNYJELZŐ NYILAK
+        // --- 3. IRÁNYJELZŐ NYILAK KIRAJZOLÁSA ---
+        // Külön függvény meghívása a haladási irányt jelző grafikák elhelyezésére
         drawDirectionArrows(pathKeys);
 
-        // 4. ZOOM ÉS START
+        // --- 4. KAMERA POZICIONÁLÁSA ÉS AUTOMATIKUS SZINTVÁLTÁS ---
         if (boundsPoints.length > 0) {
+            // A teljes útvonalat magába foglaló geometriai határ (bounding box) létrehozása
             const bounds = L.latLngBounds(boundsPoints);
+            
+            // A térkép nézetének beállítása dinamikus margókkal (padding) a felületi elemek (UI) elkerülésére
             map.fitBounds(bounds, {
                 paddingTopLeft: [50, 50],
-                paddingBottomRight: [50, 150],
-                animate: true, duration: 1.0
+                paddingBottomRight: [50, 150], // Nagyobb alsó margó az információs panel (bottom sheet) helyigénye miatt
+                animate: true, 
+                duration: 1.0
             });
         }
+        
+        // A térkép automatikus átváltása az útvonal kezdő szintjére a logikus vizuális kiindulópontért
         switchLevel(latlngs[0].level);
     }
+
+    /**
+     * Kirajzol egy gyalogos összekötő vonalat (szaggatott vonal) két földrajzi pont között.
+     * Jellemzően a térképelemek geometriai középpontja (centroid) és az útvonalhálózat 
+     * legközelebbi csatlakozási pontja közötti (ún. "last mile") szakasz vizualizálására szolgál.
+     *
+     * @param {number} lat1 - Az indulási pont földrajzi szélessége.
+     * @param {number} lon1 - Az indulási pont földrajzi hosszúsága.
+     * @param {number} lat2 - Az érkezési pont földrajzi szélessége.
+     * @param {number} lon2 - Az érkezési pont földrajzi hosszúsága.
+     * @param {string} level - A szint (emelet) azonosítója, amelyhez a vonal tartozik.
+     */
     function drawWalkLine(lat1, lon1, lat2, lon2, level) {
-        const polyline = L.polyline([[lat1, lon1], [lat2, lon2]], { color: 'white', weight: 2, dashArray: '5, 5', opacity: 0.7, pane: 'routePane' });
-        polyline.feature = { properties: { level: level } };
-        routeLayerGroup.addLayer(polyline);
-    }
-    // LÁTHATÓSÁG KEZELÉSE (Markerek is!)
-    function updateRouteVisibility(level) {
-        // Vonalak
-        routeLayerGroup.eachLayer(layer => {
-            const p = layer.feature.properties;
-            if ((p.levels && p.levels.includes(level)) || p.level === level) layer.setStyle({ opacity: 1 });
-            else layer.setStyle({ opacity: 0.1 });
+        // A szaggatott vonal (polyline) inicializálása a megfelelő stílusjegyekkel
+        const polyline = L.polyline([[lat1, lon1], [lat2, lon2]], { 
+            color: 'white', 
+            weight: 2, 
+            dashArray: '5, 5', 
+            opacity: 0.7, 
+            pane: 'routePane' 
         });
         
-        // Markerek
+        // A szintinformáció hozzácsatolása az elemhez a láthatóság későbbi kezeléséhez
+        polyline.feature = { properties: { level: level } };
+        
+        // A vonalszakasz hozzáadása a megjelenítési rétegcsoporthoz
+        routeLayerGroup.addLayer(polyline);
+    }
+    
+    /**
+     * Frissíti a navigációs elemek (útvonalak, markerek, irányjelző nyilak) láthatóságát
+     * a paraméterben átadott aktuális szint alapján. A más szinteken lévő elemeket
+     * elrejti vagy vizuálisan halványítja a térkép áttekinthetősége érdekében.
+     *
+     * @param {string} level - Az aktuálisan megjelenítendő szint (emelet) azonosítója.
+     */
+    function updateRouteVisibility(level) {
+        // --- 1. ÚTVONALAK (Vonalak) LÁTHATÓSÁGA ---
+        routeLayerGroup.eachLayer(layer => {
+            const p = layer.feature.properties;
+            // Ha a vonal része az adott szintnek (vagy átível rajta), teljes opacitással jelenik meg,
+            // ellenkező esetben erősen áttetszővé (opacity: 0.1) válik.
+            if ((p.levels && p.levels.includes(level)) || p.level === level) {
+                layer.setStyle({ opacity: 1 });
+            } else {
+                layer.setStyle({ opacity: 0.1 });
+            }
+        });
+        
+        // --- 2. VERTIKÁLIS MARKEREK (Lift/Lépcső) LÁTHATÓSÁGA ---
         routeMarkersLayerGroup.eachLayer(layer => {
             const p = layer.feature.properties;
             if (p.level === level) {
                 layer.setOpacity(1);
-                // Biztos ami biztos, tegyük a DOM-ban is láthatóvá (Leaflet néha csak opacityt állít)
-                if(layer._icon) layer._icon.style.display = 'block';
+                // A DOM elem manuális megjelenítése, mivel a Leaflet opacity állítása 
+                // bizonyos esetekben nem elegendő a teljesen megbízható elrejtéshez.
+                if (layer._icon) layer._icon.style.display = 'block';
             } else {
                 layer.setOpacity(0);
-                if(layer._icon) layer._icon.style.display = 'none';
+                if (layer._icon) layer._icon.style.display = 'none';
             }
         });
 
-        // NYILAK - Ugyanaz a logika, mint a markereknél
+        // --- 3. IRÁNYJELZŐ NYILAK LÁTHATÓSÁGA ---
         routeArrowsLayerGroup.eachLayer(layer => {
             const p = layer.feature.properties;
             if (p.level === level) {
                 layer.setOpacity(1);
-                if(layer._icon) layer._icon.style.display = 'block';
+                if (layer._icon) layer._icon.style.display = 'block';
             } else {
                 layer.setOpacity(0);
-                if(layer._icon) layer._icon.style.display = 'none';
+                if (layer._icon) layer._icon.style.display = 'none';
             }
         });
     }
 
+    /**
+     * Elemzi a betöltött GeoJSON térképadatokat, és kinyeri az épületben elérhető 
+     * összes szint (emelet) azonosítóját. Emellett összegyűjti a szintekhez tartozó 
+     * felhasználóbarát megnevezéseket (aliasokat), majd inicializálja az alapértelmezett nézetet.
+     */
     function processLevels() {
         const levels = new Set();
-        levelAliases = {}; // Reset
+        // A globális alias szótár ürítése az újratöltés előtt
+        levelAliases = {}; 
         
+        // Biztonsági ellenőrzés a térképadatok meglétére
         if (!geoJsonData) return;
         
         geoJsonData.features.forEach(feature => { 
             const p = feature.properties;
             
-            // Relevancia szűrés
+            // Szűrés a releváns térképelemekre: csak a tényleges navigációs vagy 
+            // infrastrukturális elemek szintadatait vesszük figyelembe.
             const isRelevant = (
                 p.highway === 'corridor' || p.highway === 'steps' || p.room || 
                 p.amenity === 'toilets' || p.entrance || p.door ||
@@ -4402,67 +5161,98 @@
             if (isRelevant) {
                 const feats = getLevelsFromFeature(feature); 
                 
-                // Szintek gyűjtése
+                // Az elem által érintett összes szint hozzáadása a halmazhoz (Set), 
+                // amely automatikusan kiszűri a duplikátumokat.
                 feats.forEach(l => levels.add(l));
 
-                // ALIAS GYŰJTÉS (JAVÍTVA)
-                // Csak akkor mentsük el globális aliasként (a gombokhoz),
-                // ha a feature KIZÁRÓLAG EGY szinten van!
-                // Így a "level=2-3, level:ref=1;2" nem cseszi el a gombokat.
+                // --- ALIASOK (Megnevezések) GYŰJTÉSE ---
+                // Szigorú logika: Az alternatív szintmegnevezéseket (pl. 'level:ref') 
+                // kizárólag olyan elemekből nyerjük ki, amelyek pontosan egy szinten helyezkednek el.
+                // Ezzel elkerülhető, hogy a többszintes elemek (pl. lépcsőházak, 'level=2-3') 
+                // hibás adatokat generáljanak a szintválasztó gombok számára.
                 if (p['level:ref'] && feats.length === 1) {
                     levelAliases[feats[0]] = p['level:ref'];
                 }
             }
         });
         
+        // A halmaz szabványos tömbbé alakítása és numerikus értékeik alapján növekvő sorrendbe rendezése
         availableLevels = Array.from(levels).sort((a, b) => parseFloat(a) - parseFloat(b));
         
-        if (availableLevels.includes("0")) currentLevel = "0";
-        else if (availableLevels.length > 0) currentLevel = availableLevels[0];
-        else currentLevel = "0";
+        // Az alapértelmezett (indulási) szint meghatározása.
+        // Prioritás: Földszint ("0"), ha létezik, egyébként a legalacsonyabb elérhető szint.
+        if (availableLevels.includes("0")) {
+            currentLevel = "0";
+        } else if (availableLevels.length > 0) {
+            currentLevel = availableLevels[0];
+        } else {
+            currentLevel = "0"; // Biztonsági alapértelmezés (Fallback)
+        }
     }
 
+    /**
+     * Létrehozza és a térképhez adja a szintválasztó (emeletváltó) vezérlőelemeket.
+     * A funkció először eltávolítja a korábbi vezérlőket, majd az elérhető szintek
+     * (availableLevels) alapján generálja a gombokat. Kezeli az események (kattintás,
+     * görgetés, érintés) továbbterjedésének megakadályozását a térkép felé.
+     */
     function createLevelControls() {
+        // A korábban létrehozott szintválasztó UI elemek törlése a duplikációk elkerülése végett
         document.querySelectorAll('.level-control').forEach(e => e.remove());
+        
+        // Új Leaflet vezérlőelem példányosítása a jobb felső sarokba
         const control = L.control({ position: 'topright' });
         
         control.onAdd = function(map) {
+            // A vezérlő fő konténerének létrehozása a megfelelő CSS osztállyal
             const div = L.DomUtil.create('div', 'level-control');
             
+            // A térképi interakciók (görgetés, kattintás, érintés) letiltása a vezérlő felett
             L.DomEvent.disableScrollPropagation(div);
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.on(div, 'touchstart', L.DomEvent.stopPropagation);
             L.DomEvent.on(div, 'touchmove', L.DomEvent.stopPropagation);
 
-            // Gombok generálása
+            // Gombok generálása az elérhető szintekből, fordított sorrendben (legfelső szint felül)
             availableLevels.slice().reverse().forEach(lvl => {
                 const btn = document.createElement('button');
                 
-                // ITT A LÉNYEG: Elmentjük a technikai szintet (pl. "1")
+                // A technikai szint azonosítójának tárolása adattribútumként (pl. "1", "-1")
                 btn.dataset.level = lvl; 
                 
-                // A felirat jöhet az aliasból (pl. "MF")
+                // A gomb feliratának meghatározása: ha van alias (pl. "MF"), azt használja, különben a nyers azonosítót
                 const label = levelAliases[lvl] || lvl;
                 btn.innerText = label;
                 
-                // Kezdő állapot beállítása
+                // Az alapértelmezett CSS osztályok beállítása, és az aktív állapot kijelölése
                 btn.className = 'level-btn ' + (lvl === currentLevel ? 'active' : '');
                 
+                // Kattintási eseménykezelő hozzárendelése a szintváltáshoz
                 btn.onclick = (e) => { 
+                    // Megakadályozzuk, hogy a kattintás a térképre is hasson
                     L.DomEvent.stopPropagation(e); 
                     switchLevel(lvl); 
                 };
+                
                 div.appendChild(btn);
             });
+            
             return div;
         };
+        
+        // A vezérlő hozzáadása a Leaflet térképpéldányhoz
         control.addTo(map);
     }
 
+    /**
+     * Frissíti a szintválasztó gombok vizuális állapotát a felhasználói felületen.
+     * Végigiterál az összes szintválasztó gombon, és az aktuális szintnek (currentLevel)
+     * megfelelő gombhoz hozzáadja az 'active' CSS osztályt, a többitől pedig eltávolítja.
+     */
     function updateLevelUI() {
-        // Végigmegyünk az összes gombon
+        // Végigiterálunk a DOM-ban található összes szintválasztó gombon
         document.querySelectorAll('.level-btn').forEach(btn => {
-            // Összehasonlítjuk a gomb rejtett adatát a jelenlegi szinttel
+            // A gomb adattribútumának összehasonlítása az aktuális szint azonosítójával
             if (btn.dataset.level === currentLevel.toString()) {
                 btn.classList.add('active');
             } else {
@@ -4471,30 +5261,28 @@
         });
     }
 
+    /**
+     * Végrehajtja a térkép szintjének (emeletének) megváltoztatását.
+     * Frissíti a globális állapottároló változót, újrarendereli a térkép vizuális elemeit
+     * az új szintnek megfelelően, és szinkronizálja a felhasználói felületet (UI).
+     *
+     * @param {string|number} level - A megjeleníteni kívánt szint azonosítója.
+     */
     function switchLevel(level) {
-        currentLevel = level.toString(); // Biztos ami biztos, legyen string
+        // A globális változó frissítése, biztosítva a sztring típusú tárolást
+        currentLevel = level.toString(); 
         
-        // 1. Térkép frissítése
+        // 1. A térkép vizuális elemeinek újrarenderelése az új szint adatainak megfelelően
         renderLevel(currentLevel);
         
-        // 2. UI Gombok frissítése (EZT ADTUK HOZZÁ)
+        // 2. A szintválasztó gombok állapotának (aktív kijelölés) frissítése a felületen
         updateLevelUI();
         
+        // A szintváltás tényének és paramétereinek naplózása hibakeresési célból
         console.log("Switched to level:", currentLevel, "(Alias:", levelAliases[currentLevel] || "N/A", ")");
     }
-    /* ITT VOLT SMARTFILTER
-    function smartFilter(term) {
-        const cleanTerm = term.toLowerCase().trim();
-        let strippedTerm = null;
-        if (currentBuilding.regex.test(cleanTerm)) { strippedTerm = cleanTerm.replace(currentBuilding.regex, ''); }
-        return geoJsonData.features.filter(f => {
-            const p = f.properties; const name = (p.name || "").toLowerCase(); const ref = (p.ref || "").toLowerCase(); const levels = getLevelsFromFeature(f);
-            if (name.includes(cleanTerm) || ref.includes(cleanTerm)) return true;
-            if (strippedTerm && strippedTerm.length > 1) { if (name.includes(strippedTerm) || ref.includes(strippedTerm)) return true; }
-            return false;
-        });
-    }
-    */
+
+    // ---------- ---------- ---------- ---------- ----------
 
     // === OKOS KAMERA MOZGATÁS (OFFSET LOGIKA) ===
     function smartFlyTo(feature) {
