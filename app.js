@@ -994,7 +994,7 @@ const POI_TYPES = {
         name: 'WC',
         icon: 'wc',
         color: 'var(--color-toilet-fill)',
-        filter: (p) => p.amenity === 'toilets' || p.room === 'toilet' || (p.name && p.name.toLowerCase().includes('wc'))
+        filter: (p) => p.amenity === 'toilets' || p.amenity === 'toilet' || p.room === 'toilet' || p.room === 'toilets' || (p.name && p.name.toLowerCase().includes('wc'))
     }
 };
 
@@ -4323,95 +4323,117 @@ function findNearestNodeInGraph(targetLat, targetLon, targetLevel, toleranceMete
 }
 
 /**
- * Intelligens, kontextusfüggő mosdókereső algoritmus.
- * A jelenleg fókuszban lévő (kiválasztott) térképelemtől kiindulva megkeresi
- * a legoptimálisabb (legközelebbi, saját szinten lévő) mosdót, figyelembe véve
- * a felhasználó által beállított preferenciákat (pl. csak férfi vagy női mosdók).
- * Sikeres találat esetén automatikusan elindítja az útvonaltervezést.
+ * Megjeleníti vagy elrejti a "Közelben" POI rácsot a Bottom Sheet-en belül.
  */
-function findSmartToilet() {
-    // --- 1. KIINDULÓPONT (START) ELLENŐRZÉSE ---
+function toggleNearbyMenu() {
+    const btn = document.querySelector('.btn-nearby');
+    let container = document.getElementById('nearby-menu-container');
+    
+    // Ha már nyitva van, bezárjuk és visszaállítjuk az eredeti adatokat
+    if (container) {
+        container.remove();
+        document.getElementById('room-data-container').style.display = 'block';
+        if (btn) btn.classList.remove('active');
+        
+        // Visszaanimáljuk az eredeti magasságra
+        setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+        return;
+    }
+
+    // Ha nincs nyitva, létrehozzuk
+    if (btn) btn.classList.add('active');
+    document.getElementById('room-data-container').style.display = 'none'; // Eredeti tartalom elrejtése
+    
+    container = document.createElement('div');
+    container.id = 'nearby-menu-container';
+    container.innerHTML = `<h4 style="margin: 15px 0 5px 0; text-align: center; font-size: 13px; opacity: 0.6; text-transform: uppercase;">Mit keresel a közelben?</h4>`;
+    
+    const grid = document.createElement('div');
+    grid.className = 'poi-grid-container';
+    grid.style.border = 'none'; // Itt nem kell elválasztó vonal
+    grid.style.background = 'transparent';
+
+    for (const [key, config] of Object.entries(POI_TYPES)) {
+        const item = document.createElement('div');
+        item.className = 'poi-grid-item';
+        item.innerHTML = `
+            <div class="poi-grid-icon" style="background-color: ${config.color}">
+                <span class="material-symbols-outlined">${config.icon}</span>
+            </div>
+            <span class="poi-grid-label">${config.name}</span>
+        `;
+        
+        item.onclick = () => {
+            // Kattintás után bezárjuk a menüt és elindítjuk a keresést
+            container.remove();
+            document.getElementById('room-data-container').style.display = 'block';
+            if (btn) btn.classList.remove('active');
+            findNearestPOI(key);
+        };
+        grid.appendChild(item);
+    }
+    
+    container.appendChild(grid);
+    document.getElementById('sheet-scroll-content').insertBefore(container, document.getElementById('room-data-container'));
+    
+    // A sheet magasságának újrakalkulálása a POI rács méretéhez
+    setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+}
+
+/**
+ * Univerzális kereső algoritmus: Megkeresi a legközelebbi adott típusú POI-t.
+ * @param {string} typeKey - A keresett POI típusa (pl. 'toilet', 'coffee')
+ */
+function findNearestPOI(typeKey) {
     if (!selectedFeature) { 
-        // Visszajelzés a felhasználónak, ha nincs honnan indítani a keresést
-        alert("Válassz ki egy helyet (Start), ahonnan WC-t keresel!"); 
+        alert("Először válassz ki egy kiindulópontot a térképen!"); 
         return; 
     }
 
-    // A kiválasztott elem (indulási pont) geometriai középpontjának és szintjének meghatározása
+    const config = POI_TYPES[typeKey];
     const c = turf.centroid(selectedFeature);
     const startLvl = getLevelsFromFeature(selectedFeature)[0] || "0";
     
-    // --- 2. ADATOK SZŰRÉSE (Preferenciák és metaadatok alapján) ---
-    // A felhasználói beállítás (APP_SETTINGS.toiletMode) lekérése, alapértelmezettként minden mosdót keres (all)
-    const mode = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.toiletMode) ? APP_SETTINGS.toiletMode : 'all';
-    
-    // Biztonsági ellenőrzés a térképadatok elérhetőségére
     if (!geoJsonData || !geoJsonData.features) return;
 
-    // A potenciális mosdók kigyűjtése a GeoJSON adathalmazból
-    const toilets = geoJsonData.features.filter(f => {
-        const p = f.properties; 
-        if (!p) return false;
-        
-        // Logikai azonosítás az OpenStreetMap tag-ek alapján
-        const isToilet = (p.room === 'toilet' || p.room === 'toilets' || p.room === 'wc' || p.amenity === 'toilets' || p.amenity === 'toilet');
-        
-        if (!isToilet) return false;
+    // Alap szűrés a konfiguráció alapján
+    let targets = geoJsonData.features.filter(f => config.filter(f.properties));
 
-        // Nemek szerinti (férfi/női) szűrés a felhasználói preferenciák alapján
-        if (mode === 'all') return true;
-        // Ha férfi mosdót keres, de az elem specifikusan csak női, kizárjuk
-        if (mode === 'male' && p.female === 'yes' && p.male !== 'yes') return false; 
-        // Ha női mosdót keres, de az elem specifikusan csak férfi, kizárjuk
-        if (mode === 'female' && p.male === 'yes' && p.female !== 'yes') return false;
-        
-        return true;
-    });
+    // Specifikus beállítások alkalmazása (pl. női/férfi WC)
+    if (typeKey === 'toilet') {
+        const mode = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.toiletMode) ? APP_SETTINGS.toiletMode : 'all';
+        targets = targets.filter(f => {
+            const p = f.properties;
+            if (mode === 'male' && p.female === 'yes' && p.male !== 'yes') return false; 
+            if (mode === 'female' && p.male === 'yes' && p.female !== 'yes') return false;
+            return true;
+        });
+    }
 
-    // Hibakezelés, ha az épületben egyáltalán nincs (vagy a szűrőknek megfelelő) mosdó
-    if (toilets.length === 0) { 
-        alert("Nem találtam WC-t az adatokban!"); 
+    if (targets.length === 0) { 
+        alert(`Nem találtam ${config.name.toLowerCase()}t ezen a térképen!`); 
         return; 
     }
 
-    // --- 3. PONTOZÁS (Heurisztikus értékelés) ---
-    // A teljes navigációs gráf lekérdezése (Dijkstra) helyett egy gyors geometriai 
-    // és szinteken alapuló becslést (heurisztikát) alkalmazunk a teljesítmény érdekében.
-    toilets.forEach(t => {
+    // Heurisztikus pontozás (távolság + szintváltás büntetése)
+    targets.forEach(t => {
         const tc = turf.centroid(t); 
-        // Légvonalbeli távolság számítása méterben a kezdőpont és a vizsgált mosdó között
         const distAir = turf.distance(c, tc) * 1000; 
-        
         const tLvl = getLevelsFromFeature(t)[0] || "0";
-        // A szintek (emeletek) közötti különbség abszolút értéke
         const levelDiff = Math.abs(parseFloat(startLvl) - parseFloat(tLvl));
         
-        // A pontszám (score) kiszámítása: 
-        // Az alacsonyabb pontszám jelenti a jobb (közelebbi) találatot.
-        // Egy jelentős (2000-es) szorzóval büntetjük a szintváltást, 
-        // erősen preferálva az indulási szinten lévő mosdókat.
         t._score = distAir + (levelDiff * 2000); 
     });
 
-    // --- 4. A LEGJOBB JELÖLT KIVÁLASZTÁSA ---
-    // A mosdók rendezése a kiszámított pontszámok alapján növekvő sorrendbe,
-    // majd a legkisebb pontszámú elem (első helyezett) kiválasztása.
-    const bestToilet = toilets.sort((a,b) => a._score - b._score)[0];
+    // A legalacsonyabb pontszámú (legjobb) jelölt kiválasztása
+    const bestTarget = targets.sort((a,b) => a._score - b._score)[0];
 
-    // --- 5. NAVIGÁCIÓ INDÍTÁSA ---
-    if (bestToilet) {
-        console.log(`Navigálás ide: ${bestToilet.properties.name || "WC"} (Score: ${Math.round(bestToilet._score)})`);
-        
-        // A kezdőpont regisztrálása a globális állapotba a navigációs motor számára
+    if (bestTarget) {
+        console.log(`Navigálás ide: ${config.name} (Score: ${Math.round(bestTarget._score)})`);
         pendingNavSource = selectedFeature; 
-        
-        // Az útvonaltervezés delegálása a fő navigációs függvénynek
-        // Első paraméter: A célpont (mosdó)
-        // Második paraméter: Az indulási pont (selectedFeature)
-        startNavigation(bestToilet, selectedFeature); 
+        startNavigation(bestTarget, selectedFeature); 
     } else {
-        // Hibakezelés nem várt kivétel (pl. rendezési hiba) esetén
-        alert("Hiba: Nem sikerült kiválasztani a WC-t.");
+        alert("Hiba a keresés során.");
     }
 }
 

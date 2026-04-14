@@ -480,20 +480,27 @@
             color: var(--text-nav-from); 
         }
 
-        /* A WC gomb fix méretű kör */
-        .btn-toilet { 
+        /* A "Közelben" gomb fix méretű kör, semleges színnel */
+        .btn-nearby { 
             width: 50px; 
-            height: 50px; /* Fontos a körhöz! */
-            flex-shrink: 0; /* Tilos összenyomni! */
-            background: var(--color-toilet-fill); 
-            color: white; 
-            border: 2px solid var(--color-toilet-stroke); 
+            height: 50px; 
+            flex-shrink: 0; 
+            background: var(--bg-element); 
+            color: var(--text-main); 
+            border: 1px solid var(--border-color); 
             border-radius: 50%; 
             padding: 0; 
-            /* Icon középre igazítása */
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        /* Hover és aktív állapotra felveszi a téma fő színét */
+        .btn-nearby:hover, .btn-nearby.active {
+            background: var(--color-ui-active);
+            color: var(--color-ui-active-text);
+            border-color: var(--color-ui-active);
         }
         
         /* ROOM DETAILS */
