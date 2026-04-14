@@ -63,7 +63,27 @@ async function updateMaps() {
     // Végigmegyünk az összes épületen
     for (const [key, center] of Object.entries(BUILDINGS)) {
         console.log(`\n🏢 --- ${key.toUpperCase()} ÉPÜLET FRISSÍTÉSE ---`);
-        const query = `[out:json][timeout:25];(way(around:20, ${center[0]}, ${center[1]})["building"];relation(around:20, ${center[0]}, ${center[1]})["building"];)->.targetBuilding;.targetBuilding map_to_area -> .searchArea;(way["indoor"](area.searchArea);relation["indoor"](area.searchArea);way["highway"="corridor"](area.searchArea);way["highway"="steps"](area.searchArea);node["entrance"](area.searchArea);node["door"](area.searchArea);way["building:part"](area.searchArea);way["room"~"stairs|toilet|toilets"](area.searchArea);way(around:20, ${center[0]}, ${center[1]})["building"];);out body;>;out skel qt;`;
+        const query = `[out:json][timeout:120];
+                        (area(around:20, ${center[0]}, ${center[1]})["building"];)->.targetBuilding;
+                        .targetBuilding map_to_area -> .searchArea;
+                        (
+                        way["indoor"](area.searchArea);
+                        relation["indoor"](area.searchArea);
+                        way["highway"~"corridor|steps"](area.searchArea);
+                        node["entrance"](area.searchArea);
+                        node["door"](area.searchArea);
+                        way["building:part"](area.searchArea);
+                        way["room"~"stairs|toilet|toilets"](area.searchArea);
+                        way(around:20, ${center[0]}, ${center[1]})["building"];
+                        
+                        node["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
+                        way["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
+                        node["shop"="kiosk"](area.searchArea);
+                        way["shop"="kiosk"](area.searchArea);
+                        );
+                        out body;
+                        >;
+                        out skel qt;`;
 
         try {
             const osmData = await fetchWithFallback(query);
