@@ -2,8 +2,9 @@ name: Térképek Frissítése
 
 on:
   schedule:
-    - cron: '0 3 * * *' # Minden éjjel 3:00-kor lefut
-  workflow_dispatch: # Emiatt lesz egy manuális "Run" gombod a weben!
+    # Minden vasárnap (0) éjjel 3:00-kor lefut
+    - cron: '0 3 * * 0'
+  workflow_dispatch: # Emiatt lesz egy manuális "Run" gomb
 
 permissions:
   contents: write # Engedélyezzük, hogy a robot fájlokat módosítson a repóban
@@ -29,5 +30,5 @@ jobs:
       - name: Új térképek mentése a GitHubra
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 [Auto] Térképek napi frissítése"
+          commit_message: "[Auto] Térképek heti frissítése"
           file_pattern: "data/*.json"

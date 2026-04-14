@@ -25,24 +25,27 @@ async function fetchWithFallback(query) {
     for (let i = 0; i < OVERPASS_SERVERS.length; i++) {
         const server = OVERPASS_SERVERS[i];
         console.log(`\n📡 Próbálkozás a(z) ${server} szerverrel...`);
-
+        
         try {
             const response = await fetch(server, {
                 method: "POST",
-                body: query, // Nincs header, csak nyersen beküldjük a query-t, ahogy a HTML-ben is volt
+                body: query,
+                headers: {
+                    // EZ A VARÁZSSZÓ: Bemutatkozunk, így nem bannolnak ki a szerverek!
+                    'User-Agent': 'BMEmap-Updater/1.0'
+                },
                 signal: AbortSignal.timeout(25000)
             });
 
             if (!response.ok) {
-                // Ha nem 200 OK a válasz, kiíratjuk a pontos okot!
                 const errorText = await response.text();
-                console.log(`❌ Hiba a szerveren (HTTP ${response.status}): ${errorText.substring(0, 100)}... Ugrás a következőre...`);
-                continue;
+                console.log(`❌ Hiba a szerveren (HTTP ${response.status}): ${errorText.substring(0, 100).replace(/\n/g, " ")}... Ugrás a következőre...`);
+                continue; 
             }
 
             const data = await response.json();
             console.log(`✅ Sikeres letöltés innen: ${server}`);
-            return data;
+            return data; 
         } catch (error) {
             console.log(`⚠️ Hálózati hiba vagy időtúllépés: ${error.message}`);
         }
