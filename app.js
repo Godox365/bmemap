@@ -931,7 +931,7 @@ const POI_TYPES = {
     coffee: {
         id: 'coffee',
         name: 'Kávéautomata',
-        icon: 'coffee_maker',
+        icon: 'local_cafe',
         color: 'var(--poi-coffee)',
         filter: (p) => p.amenity === 'vending_machine' && p.vending === 'coffee'
     },
@@ -945,7 +945,7 @@ const POI_TYPES = {
     vending: {
         id: 'vending',
         name: 'Automata',
-        icon: 'vending_machine',
+        icon: 'water_bottle',
         color: 'var(--poi-vending)',
         filter: (p) => p.amenity === 'vending_machine' && (p.vending === 'drinks' || p.vending === 'sweets' || p.vending === 'snack' || p.vending === 'food')
     },
@@ -2446,14 +2446,15 @@ function drawLabels(level) {
         const p = feature.properties;
 
         // --- Szűrési logika (Blacklist) ---
-        // Meghatározzuk, hogy az adott elem technikai vagy közlekedő funkciót tölt-e be
+        // Meghatározzuk, hogy az adott elem technikai, közlekedő, vagy specifikus POI funkciót tölt-e be
         const isCorridor = p.indoor === 'corridor' || p.highway === 'corridor';
         const isToilet = p.amenity === 'toilets' || p.room === 'toilet' || p.room === 'toilets' || p.room === 'wc';
         const isStairs = p.highway === 'steps' || p.room === 'stairs' || p.indoor === 'staircase';
         const isElevator = p.highway === 'elevator' || p.room === 'elevator';
+        const isPoi = p.amenity === 'vending_machine' || p.amenity === 'microwave' || p.amenity === 'atm' || p.amenity === 'cafe' || p.amenity === 'fast_food' || p.shop === 'kiosk';
 
-        // Ha az elem az előbbi kategóriák bármelyikébe esik, nem kap szöveges címkét
-        if (isCorridor || isToilet || isStairs || isElevator) return;
+        // Ha az elem az előbbi kategóriák bármelyikébe esik, nem kap szöveges címkét a térképen
+        if (isCorridor || isToilet || isStairs || isElevator || isPoi) return;
         
         // A felirat szövegének meghatározása: elsődlegesen a referenciaszámot (ref) használjuk
         let labelText = p.ref;
@@ -2625,7 +2626,9 @@ function renderLevel(level) {
                         className: 'door-marker' 
                     });
                 }
-                return L.marker(latlng);
+                // Kék alapértelmezett Leaflet pin (L.marker) letiltása.
+                // Helyette egy láthatatlan (opacity: 0) kört teszünk le, amely fenntartja a kattinthatóságot.
+                return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
         },
 
         // Eseménykezelők és ikonok hozzárendelése az egyes elemekhez
@@ -2638,11 +2641,14 @@ function renderLevel(level) {
             if (p.room === 'stairs' || p.indoor === 'staircase') iconName = "stairs_2";
             if (p.highway === 'elevator' || p.room === 'elevator') iconName = "elevator"; 
             
+            // Új POI kategóriák dinamikus ikonjainak beállítása
             if (p.amenity === 'vending_machine') {
-                if (p.vending === 'coffee') iconName = "coffee_maker";
-                else iconName = "fastfood"; 
+                if (p.vending === 'coffee') iconName = "local_cafe";
+                else iconName = "water_bottle"; 
             }
-            if (p.amenity === 'cafe' || p.amenity === 'fast_food') iconName = "restaurant";
+            if (p.amenity === 'cafe' || p.amenity === 'fast_food' || p.amenity === 'restaurant' || p.shop === 'kiosk') iconName = "fastfood";
+            if (p.amenity === 'microwave') iconName = "microwave";
+            if (p.amenity === 'atm') iconName = "local_atm";
             
             // Az elem középpontjának meghatározása az ikon elhelyezéséhez
             const center = (feature.geometry.type === "Point") 
