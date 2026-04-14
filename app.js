@@ -3570,10 +3570,13 @@ function handleSearchBlur() {
 
 /**
  * Kezeli a bal oldali (vissza) ikonra történő kattintást.
- * Eltávolítja a fókuszt a keresőmezőről, ezáltal bezárja a virtuális
- * billentyűzetet mobileszközökön és visszaállítja az alapállapotot.
+ * Eltávolítja a fókuszt a keresőmezőről, elrejti a találati/POI listát, 
+ * és bezárja a virtuális billentyűzetet mobileszközökön.
  */
 function handleSearchLeftClick() {
+    // A találati lista és a POI grid azonnali elrejtése
+    document.getElementById('search-results').style.display = 'none';
+    
     // A fókusz eltávolítása az input mezőről (blur esemény kiváltása)
     document.getElementById('search-input').blur();
 }

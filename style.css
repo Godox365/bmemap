@@ -191,7 +191,7 @@
         .level-btn.active { background: var(--md-primary); color: var(--md-on-primary); }
         
         #top-bar {
-            position: absolute; top: 16px; left: 16px; right: 16px; z-index: 1000;
+            position: absolute; top: 16px; left: 16px; right: 16px; z-index: 4000; /* Magasabb, mint a Leaflet UI */
             display: flex; flex-direction: row; gap: 10px; max-width: 600px; margin: 0 auto; pointer-events: none;
             align-items: center;
         }
