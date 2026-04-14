@@ -3296,6 +3296,7 @@ function closeSheet() {
                 layer._icon.style.opacity = '1';
                 layer._icon.style.filter = 'none';
                 layer._icon.style.transform = 'rotate(-45deg)'; // Eredeti CSS állapot
+                layer._icon.style.pointerEvents = 'auto'; // Kattinthatóság visszaállítása
                 layer.setZIndexOffset(0);
             }
         });
@@ -3778,22 +3779,19 @@ function renderPoiMarker(poi) {
         openSheet(feature);
         smartFlyTo(feature);
 
-        // --- VIZUÁLIS KIEMELÉS ÉS ELHALVÁNYÍTÁS ---
-        // A DOM elemek közvetlen manipulálása a gyors vizuális visszajelzésért
+        // --- VIZUÁLIS KIEMELÉS ÉS ELREJTÉS ---
         poiMarkersGroup.eachLayer(layer => {
             if (layer._icon) {
                 if (layer === marker) {
-                    // A kiválasztott marker vizuális kiemelése
-                    layer._icon.style.opacity = '1';
-                    layer._icon.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.8))';
-                    // Fontos: a forgatást meg kell tartani, mert a CSS-ből jön!
-                    layer._icon.style.transform = 'rotate(-45deg) scale(1.1)';
-                    layer.setZIndexOffset(1000); // Legfelülre hozás
+                    // A kiválasztott marker (csepp) elrejtése, mivel az alap ikon és a sárga kiemelés átveszi a szerepét
+                    layer._icon.style.opacity = '0';
+                    layer._icon.style.pointerEvents = 'none'; // Megakadályozza a fantom kattintásokat a rejtett elemen
                 } else {
-                    // A háttérbe szoruló markerek elhalványítása
+                    // A háttérbe szoruló többi marker elhalványítása
                     layer._icon.style.opacity = '0.4';
                     layer._icon.style.filter = 'grayscale(50%)';
                     layer._icon.style.transform = 'rotate(-45deg) scale(0.85)';
+                    layer._icon.style.pointerEvents = 'auto'; // Ezek továbbra is kattinthatóak maradnak
                     layer.setZIndexOffset(0);
                 }
             }
@@ -4407,6 +4405,11 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     
     // A navigációs gráf frissítése az útvonaltervezés előtt (pl. beállítások változása miatt)
     buildRoutingGraph(); 
+
+    // Útvonaltervezés megkezdésekor eltávolítjuk a keresett POI pineket a vizuális tisztaság érdekében
+    if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
+        poiMarkersGroup.clearLayers();
+    }
     
     // A célpont meghatározása (prioritás: paraméter > globális kiválasztás)
     const target = targetFeature || selectedFeature;
