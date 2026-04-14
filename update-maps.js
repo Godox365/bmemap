@@ -63,32 +63,29 @@ async function updateMaps() {
     // Végigmegyünk az összes épületen
     for (const [key, center] of Object.entries(BUILDINGS)) {
         console.log(`\n🏢 --- ${key.toUpperCase()} ÉPÜLET FRISSÍTÉSE ---`);
-
-        // A te eredeti Overpass lekérdezésed a center változókkal
         const query = `[out:json][timeout:25];(way(around:20, ${center[0]}, ${center[1]})["building"];relation(around:20, ${center[0]}, ${center[1]})["building"];)->.targetBuilding;.targetBuilding map_to_area -> .searchArea;(way["indoor"](area.searchArea);relation["indoor"](area.searchArea);way["highway"="corridor"](area.searchArea);way["highway"="steps"](area.searchArea);node["entrance"](area.searchArea);node["door"](area.searchArea);way["building:part"](area.searchArea);way["room"~"stairs|toilet|toilets"](area.searchArea);way(around:20, ${center[0]}, ${center[1]})["building"];);out body;>;out skel qt;`;
 
         try {
-            // 1. Letöltjük az OSM adatot (próbálgatva a szervereket)
             const osmData = await fetchWithFallback(query);
-
-            // 2. Egyből konvertáljuk GeoJSON-ba!
+            
             console.log(`⚙️  Konvertálás GeoJSON formátumba...`);
             const geoJson = osmtogeojson(osmData);
 
-            // 3. Lementjük fájlba
             const filename = `./data/${key}_epulet.json`;
             fs.writeFileSync(filename, JSON.stringify(geoJson));
             console.log(`💾 Mentve: ${filename} (${(JSON.stringify(geoJson).length / 1024).toFixed(2)} KB)`);
 
-            // Pihenünk 3 másodpercet a következő épület előtt, hogy ne kapjunk Rate Limitet a szervertől
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Pihenünk 5 másodpercet (3 helyett), hogy véletlenül se kapjunk rate limitet
+            await new Promise(resolve => setTimeout(resolve, 5000));
 
         } catch (err) {
-            console.error(`💥 Végzetes hiba a(z) ${key.toUpperCase()} épületnél: ${err.message}`);
-            process.exit(1); // Ezzel jelezzük a GitHubnak, hogy leállt a script, így kapunk hibaüzenetet!
+            // ITT A LÉNYEG: Nincs process.exit(1)! 
+            // Csak kiírjuk a hibát, és a ciklus megy tovább a következő épületre.
+            console.error(`💥 Hiba a(z) ${key.toUpperCase()} épületnél: ${err.message}`);
+            console.log(`⏭️ Sebaj, megtartjuk a régit, ugrás a következő épületre...`);
         }
     }
-    console.log("\n🎉 MINDEN ÉPÜLET SIKERESEN FRISSÍTVE ÉS KONVERTÁLVA!");
+    console.log("\n🎉 A FRISSÍTÉSI CIKLUS LEFUTOTT!");
 }
 
 updateMaps();
