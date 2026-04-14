@@ -1031,3 +1031,61 @@
         transform: translateY(0) rotate(-45deg);
     }
 }
+
+/* =========================================
+   SEARCH BAR POI GRID (Google Maps stílus)
+========================================= */
+
+.poi-grid-container {
+    display: grid;
+    /* Automatikusan alkalmazkodó oszlopok, min 70px szélességgel */
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 12px 8px;
+    padding: 16px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface);
+}
+
+.poi-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+
+.poi-grid-item:active {
+    transform: scale(0.9);
+}
+
+.poi-grid-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition: filter 0.2s;
+}
+
+.poi-grid-item:hover .poi-grid-icon {
+    filter: brightness(1.1);
+}
+
+/* Az ikon mérete a körön belül */
+.poi-grid-icon .material-symbols-outlined {
+    font-size: 22px;
+    font-variation-settings: 'FILL' 1, 'wght' 400;
+}
+
+.poi-grid-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-main);
+    text-align: center;
+    line-height: 1.1;
+    word-break: break-word;
+}

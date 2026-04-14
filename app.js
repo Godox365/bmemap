@@ -809,10 +809,8 @@ function updateFavoriteUI() {
 }
 
 /**
- * Megjeleníti a mentett kedvencek listáját a keresőmező lenyíló találati listájában.
- * Csak akkor aktiválódik, ha a keresőmező teljesen üres. Lehetőséget biztosít a 
- * kedvencekre való kattintásra, amely automatikusan a megfelelő épületre és 
- * térképelemre navigál.
+ * Megjeleníti a POI rácsot és a mentett kedvencek listáját a keresőmező lenyíló találati listájában.
+ * Csak akkor aktiválódik, ha a keresőmező teljesen üres.
  */
 function showFavoritesInSearch() {
     const input = document.getElementById('search-input');
@@ -823,61 +821,84 @@ function showFavoritesInSearch() {
     const resultsDiv = document.getElementById('search-results');
     resultsDiv.innerHTML = ''; // A találati lista előzetes ürítése
     
-    // Ha a felhasználónak nincsenek elmentett kedvencei, megszakítjuk a megjelenítést.
-    if (userFavorites.length === 0) return; 
-
-    // Fejléc (szekció cím) létrehozása és formázása a kedvencek listájához.
-    const header = document.createElement('div');
-    header.className = 'result-item';
-    header.style.color = '#aaa'; 
-    header.style.cursor = 'default';
-    header.style.fontSize = '12px';
-    header.innerText = "KEDVENCEK";
-    resultsDiv.appendChild(header);
-
-    // Végigiterálunk a felhasználó kedvencein, és mindegyikhez létrehozunk egy listaelemet.
-    userFavorites.forEach(fav => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${fav.name} <span style="color:#888; font-size:12px">(${fav.building} épület, ${fav.level}. szint)</span>`;
+    // --- 1. POI GRID (Gyorskeresés) LÉTREHOZÁSA ---
+    if (typeof POI_TYPES !== 'undefined') {
+        const poiGrid = document.createElement('div');
+        poiGrid.className = 'poi-grid-container';
         
-        // Kattintás eseménykezelője az adott kedvenc kiválasztásához.
-        div.onclick = () => {
-            // Épületváltás logikája: ha a kiválasztott kedvenc egy másik épületben található.
-            if (fav.building !== currentBuildingKey) {
-                changeBuilding(fav.building);
-                // Aszinkron betöltés miatti késleltetés: várni kell a GeoJSON adatok letöltésére,
-                // mielőtt az azonosító (ID) alapján rákeresnénk a konkrét térképelemre.
-                // (A jelenlegi implementációban ez még további fejlesztést igényel a Deep Link logika alapján).
-                setTimeout(() => {
-                        // Itt kéne megkeresni az ID-t az új tömbben...
-                        // Ez aszinkron pokol lehet, egyelőre maradjunk azonos épületnél vagy figyelmeztessünk.
-                }, 1000);
-            }
+        // Végigiterálunk a POI kategóriákon és legeneráljuk a gombokat
+        for (const [key, config] of Object.entries(POI_TYPES)) {
+            const btn = document.createElement('div');
+            btn.className = 'poi-grid-item';
+            btn.innerHTML = `
+                <div class="poi-grid-icon" style="background-color: ${config.color}">
+                    <span class="material-symbols-outlined">${config.icon}</span>
+                </div>
+                <span class="poi-grid-label">${config.name}</span>
+            `;
             
-            // Keresés a már betöltött térképelemek között a kedvenc azonosítója (ID) alapján.
-            const target = geoJsonData.features.find(f => f.id === fav.id);
-            if (target) {
-                // Sikeres találat esetén a kamerát az elemre fókuszáljuk és megnyitjuk az adatlapját.
-                zoomToFeature(target);
-                openSheet(target);
+            // Kattintás esemény a kategóriára
+            btn.onclick = () => {
+                // Eltüntetjük a lenyíló menüt
                 resultsDiv.style.display = 'none';
+                
+                // Beírjuk a keresőbe a kategória nevét (pl. "Büfé / Kaja"), hogy egyértelmű legyen, mit nézünk
+                input.value = config.name;
+                updateRightButtonState(); // X gomb megjelenítése
+                
+                // Mobilon levesszük a fókuszt a keresőről, hogy eltűnjön a billentyűzet
+                input.blur(); 
+                
+                // Elindítjuk a térképi POI keresést és a kameramozgást
+                showPoiCategory(key);
+            };
+            
+            poiGrid.appendChild(btn);
+        }
+        resultsDiv.appendChild(poiGrid);
+    }
 
-                // A keresőmező értékének frissítése a kiválasztott kedvenc nevével.
-                document.getElementById('search-input').value = fav.name;
+    // --- 2. KEDVENCEK LISTÁJÁNAK HOZZÁADÁSA ---
+    if (userFavorites.length > 0) {
+        // Fejléc (szekció cím) létrehozása a kedvencekhez
+        const header = document.createElement('div');
+        header.className = 'result-item';
+        header.style.color = '#aaa'; 
+        header.style.cursor = 'default';
+        header.style.fontSize = '12px';
+        header.style.paddingTop = '12px'; // Kicsi extra hely a rács alatt
+        header.innerText = "KEDVENCEK";
+        resultsDiv.appendChild(header);
 
-                // --- B-003 FIX: A keresőmező melletti gomb ikonjának frissítése ---
-                updateRightButtonState();
-
-            } else {
-                // Hibakezelés: ha az elem az azonos épületben sem található meg.
-                alert("Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
-            }
-        };
-        resultsDiv.appendChild(div);
-    });
+        // Végigiterálunk a felhasználó kedvencein
+        userFavorites.forEach(fav => {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${fav.name} <span style="color:#888; font-size:12px">(${fav.building} épület, ${fav.level}. szint)</span>`;
+            
+            // Kattintás eseménykezelője az adott kedvenc kiválasztásához
+            div.onclick = () => {
+                if (fav.building !== currentBuildingKey) {
+                    changeBuilding(fav.building);
+                }
+                
+                // Megkeressük az elemet
+                const target = geoJsonData.features.find(f => f.id === fav.id);
+                if (target) {
+                    zoomToFeature(target);
+                    openSheet(target);
+                    resultsDiv.style.display = 'none';
+                    document.getElementById('search-input').value = fav.name;
+                    updateRightButtonState();
+                } else {
+                    alert("Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
+                }
+            };
+            resultsDiv.appendChild(div);
+        });
+    }
     
-    // A teljes találati lista megjelenítése a felhasználó számára.
+    // A teljes találati lista megjelenítése
     resultsDiv.style.display = 'block';
 }
 
