@@ -2844,6 +2844,9 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
  * @param {Object} feature - A felhasználó által kiválasztott GeoJSON térképelem.
  */
 function openSheet(feature) {
+    // Alaphelyzetbe állítjuk a közeli kereső menüt, ha esetleg nyitva maradt volna egy előző keresésből
+    if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
+
     // --- NAVIGÁCIÓ KEZELÉSE ÉS MEGSZAKÍTÁSA ---
     // Ha jelenleg aktív útvonaltervezés (navigáció) fut
     if (activeRouteData) {
@@ -3041,18 +3044,36 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         if (!feat || !feat.properties) return "Ismeretlen hely";
         const p = feat.properties;
         
-        // Elsődlegesen a név vagy referencia használata, hiányuk esetén a magyarított típus lekérése
-        let name = p.name || p.ref || (typeof getHungarianType === 'function' ? getHungarianType(p) : "Hely");
-        
-        // Intelligens "terem" utótag hozzáadása a releváns nevekhez
+        let name = p.name || p.ref;
+        let isPoi = false;
+
+        // Ha nincs neve, vagy csak egy értelmetlen OSM azonosító szám
+        if (!name || (!isNaN(name) && name.toString().length > 5)) {
+            let matchedPoiName = null;
+            if (typeof POI_TYPES !== 'undefined') {
+                for (const key in POI_TYPES) {
+                    if (POI_TYPES[key].filter(p)) { 
+                        matchedPoiName = POI_TYPES[key].name; 
+                        isPoi = true; // Megjegyezzük, hogy ez egy POI
+                        break; 
+                    }
+                }
+            }
+            name = matchedPoiName || (typeof getHungarianType === 'function' ? getHungarianType(p) : "Hely");
+        }
+
         const lower = name.toLowerCase();
-        const hasType = lower.includes('terem') || lower.includes('labor') || 
+        // Kibővített szűrés: a dedikált POI-k (isPoi) sosem kapnak "terem" utótagot
+        const hasType = isPoi || lower.includes('terem') || lower.includes('labor') || 
                         lower.includes('mosdó') || lower.includes('wc') || 
                         lower.includes('lépcső') || lower.includes('bejárat') || 
-                        lower.includes('porta') || lower.includes('büfé');
+                        lower.includes('porta') || lower.includes('büfé') || 
+                        lower.includes('automata') || lower.includes('mikró') || 
+                        lower.includes('atm');
         
-        // Csak akkor fűzzük hozzá, ha még nem tartalmaz típust és a név hossza megengedi
+        // Csak az egyszerű szobaszámok (pl. "QBF11") kapják meg a " terem" végződést
         if (!hasType && name.length < 20) name += " terem";
+        
         return name;
     };
 
@@ -3300,6 +3321,9 @@ function updateSelectedHighlight(level) {
  * az alaphelyzetükbe.
  */
 function closeSheet() {
+    // Alaphelyzetbe állítjuk a közeli kereső menüt kilépéskor
+    if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
+
     // A panel elrejtése a CSS osztály eltávolításával
     document.getElementById('bottom-sheet').classList.remove('open');
     
@@ -4378,6 +4402,18 @@ function toggleNearbyMenu() {
     
     // A sheet magasságának újrakalkulálása a POI rács méretéhez
     setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+}
+
+/**
+ * Visszaállítja a "Közelben" menü állapotát az alapértelmezettre.
+ * Eltünteti a POI gridet és inaktívvá teszi a gombot.
+ */
+function resetNearbyMenu() {
+    const container = document.getElementById('nearby-menu-container');
+    if (container) container.remove();
+    
+    const btn = document.querySelector('.btn-nearby');
+    if (btn) btn.classList.remove('active');
 }
 
 /**
