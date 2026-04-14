@@ -495,6 +495,11 @@ const TYPE_DICT = {
     'area': 'Terület',
     'vending_machine': 'Automata',
     'cafe': 'Büfé',
+    'fast_food': 'Gyorsétterem',
+    'restaurant': 'Étterem',
+    'kiosk': 'Büfé',
+    'microwave': 'Mikró',
+    'atm': 'ATM',
     'shop': 'Bolt'
 };
 
@@ -2856,23 +2861,31 @@ function openSheet(feature) {
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
     // --- 2. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
-    // Elsődleges prioritás: Explicit név (name) vagy azonosító (ref), például "K155".
     let displayName = p.name || p.ref;
-    // Ha nincs sem neve, sem referenciája, a típusát használjuk megnevezésként (pl. "Mosdó").
-    if (!displayName) {
-        displayName = typeName;
+
+    // Intelligens névszűrés: Ha nincs neve, vagy a neve csak egy hosszú OSM azonosító szám
+    if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
+        let matchedPoiName = null;
+        // Megvizsgáljuk, hogy az elem illeszkedik-e valamelyik POI konfigurációra
+        if (typeof POI_TYPES !== 'undefined') {
+            for (const key in POI_TYPES) {
+                if (POI_TYPES[key].filter(p)) { 
+                    matchedPoiName = POI_TYPES[key].name; 
+                    break; 
+                }
+            }
+        }
+        displayName = matchedPoiName || typeName;
     }
 
     // --- 3. SZINT-INFORMÁCIÓK MEGJELENÍTÉSE (Alias Logika bevonásával) ---
     let displayLevelString = "";
     
     // A) Lokális felülírás: Ha a térképelem rendelkezik egyedi szint-megnevezéssel 
-    // (pl. a "2-3" helyett konkrétan "1;2"), akkor azt részesítjük előnyben.
     if (p['level:ref']) {
         displayLevelString = p['level:ref'];
     } 
-    // B) Globális alias fordítás: Ha nincs egyedi megnevezés, a nyers szinteket 
-    // lefordítjuk a felhasználóbarát aliasokra (pl. "1" -> "MF" vagy "0" -> "Fsz").
+    // B) Globális alias fordítás
     else {
         const rawLevels = getLevelsFromFeature(feature);
         const mappedLevels = rawLevels.map(lvl => {
@@ -2882,17 +2895,24 @@ function openSheet(feature) {
     }
 
     // --- DOM (HTML) ELEMEK FRISSÍTÉSE ---
-    
-    // Főcím (név) beállítása a panel tetején
     document.getElementById('sheet-title').innerText = displayName;
     
-    // Alcím logika: Intelligens információ-megjelenítés a redundancia elkerülésére
-    if (displayName === typeName) {
-        // Ha a név megegyezik a típussal (pl. Főcím: "Mosdó"), felesleges az alcímben is 
-        // feltüntetni a típust, elegendő csak a szintet.
+    // Alcím logika: Intelligens információ-megjelenítés OSM specifikus tagekkel
+    let extraInfo = "";
+    if (p.amenity === 'vending_machine' && p.vending) {
+        // Specifikus automata típusok fordítása
+        const vDict = { 'coffee': 'Kávégép', 'drinks': 'Italautomata', 'sweets': 'Snack / Édesség', 'snack': 'Snack', 'food': 'Étel' };
+        extraInfo = vDict[p.vending] || p.vending;
+    } else if (p.operator) {
+        // Operátor megjelenítése (pl. ATM esetében a bank neve)
+        extraInfo = p.operator; 
+    }
+
+    if (extraInfo) {
+        document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${extraInfo}`;
+    } else if (displayName === typeName) {
         document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString}`;
     } else {
-        // Ha van egyedi neve (pl. "K155"), az alcímben feltüntetjük a szintet és a típust is (pl. "Szint: 1 | Terem").
         document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${typeName}`;
     }
     
@@ -3268,6 +3288,18 @@ function closeSheet() {
     
     // A globális kiválasztott elem (selectedFeature) nullázása
     selectedFeature = null;
+
+    // A POI markerek vizuális állapotának visszaállítása alapértelmezettre
+    if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
+        poiMarkersGroup.eachLayer(layer => {
+            if (layer._icon) {
+                layer._icon.style.opacity = '1';
+                layer._icon.style.filter = 'none';
+                layer._icon.style.transform = 'rotate(-45deg)'; // Eredeti CSS állapot
+                layer.setZIndexOffset(0);
+            }
+        });
+    }
 }
 
 /**
@@ -3283,6 +3315,10 @@ function clearRouteAndClose() {
     routeMarkersLayerGroup.clearLayers();    // Kezdő/végpont markerek törlése
     routeArrowsLayerGroup.clearLayers();     // Irányjelző nyilak törlése
     selectedHighlightLayer.clearLayers();    // Kiválasztott elem kiemelésének törlése
+
+    if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
+        poiMarkersGroup.clearLayers(); // Törli a POI pineket is a teljes kilépésnél
+    }
     
     // 2. Globális útvonal- és navigációs változók alaphelyzetbe állítása (nullázása)
     pendingNavSource = null;                 // Várakozó kezdőpont törlése
@@ -3561,6 +3597,11 @@ function handleRightAction(e) {
         
         // Mező tartalmának törlése
         input.value = '';
+
+        // POI markerek eltávolítása a térképről a keresés törlésekor
+        if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
+            poiMarkersGroup.clearLayers();
+        }
         
         // A gomb állapotának visszaállítása alapértelmezettre (tune ikon)
         updateRightButtonState(); 
@@ -3735,9 +3776,28 @@ function renderPoiMarker(poi) {
     // 4. Interakció (Click)
     marker.on('click', () => {
         openSheet(feature);
-        
-        // Kamera mozgatása. 
         smartFlyTo(feature);
+
+        // --- VIZUÁLIS KIEMELÉS ÉS ELHALVÁNYÍTÁS ---
+        // A DOM elemek közvetlen manipulálása a gyors vizuális visszajelzésért
+        poiMarkersGroup.eachLayer(layer => {
+            if (layer._icon) {
+                if (layer === marker) {
+                    // A kiválasztott marker vizuális kiemelése
+                    layer._icon.style.opacity = '1';
+                    layer._icon.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.8))';
+                    // Fontos: a forgatást meg kell tartani, mert a CSS-ből jön!
+                    layer._icon.style.transform = 'rotate(-45deg) scale(1.1)';
+                    layer.setZIndexOffset(1000); // Legfelülre hozás
+                } else {
+                    // A háttérbe szoruló markerek elhalványítása
+                    layer._icon.style.opacity = '0.4';
+                    layer._icon.style.filter = 'grayscale(50%)';
+                    layer._icon.style.transform = 'rotate(-45deg) scale(0.85)';
+                    layer.setZIndexOffset(0);
+                }
+            }
+        });
     });
 
     // 5. Belekúrjuk a LayerGroup-ba, hogy megjelenjen a térképen
