@@ -2148,9 +2148,9 @@ async function fetchOverpass(query, serverIndex = 0) {
 
 /**
  * A térkép nézetét automatikusan a betöltött épület geometriájához igazítja.
- * A Turf.js segítségével kiszámítja a teljes épület befoglaló dobozát (bounding box),
- * és a kamerát úgy állítja be, hogy az épület tökéletesen kitöltse a látható teret,
- * elkerülve a keresősáv és az alsó panelek általi kitakarást.
+ * Számítógépen a teljes épületet a képernyőbe foglalja, míg mobil eszközökön
+ * a mértani középpontra fókuszál egy optimalizált, közepes nagyítási szinttel,
+ * hogy az épület ne váljon olvashatatlanul kicsivé.
  */
 function alignMapToBuildingCenter() {
     // Megosztott link esetén a célpont (szoba) fókusza élvez prioritást
@@ -2164,29 +2164,58 @@ function alignMapToBuildingCenter() {
         const bbox = turf.bbox(geoJsonData); 
         
         if (bbox) {
-            // Átalakítás Leaflet Bounds formátumra: [[minLat, minLon], [maxLat, maxLon]]
-            const leafletBounds = [
-                [bbox[1], bbox[0]], // Dél-Nyugat
-                [bbox[3], bbox[2]]  // Észak-Kelet
-            ];
-            
             // Megnézzük, nyitva van-e valamilyen alsó panel, ami kitakarja a térképet
             const sheet = document.getElementById('bottom-sheet');
             let bottomPadding = 20; // Alap kis margó
             if (sheet && sheet.classList.contains('open')) {
                 bottomPadding = sheet.getBoundingClientRect().height + 20;
             }
-            
-            // Tökéletes ráigazítás dinamikus margókkal (padding)
-            map.fitBounds(leafletBounds, {
-                paddingTopLeft: [20, 80], // Felül 80px helyhagyás a keresősávnak
-                paddingBottomRight: [20, bottomPadding], // Alul hely az esetleges UI-nak
-                maxZoom: currentBuilding.zoom || 20, // Ne zoomoljon be extrém mód egy pici épületnél
-                animate: true,
-                duration: 0.8
-            });
-            
-            console.log("Map perfectly framed to building bounds.");
+
+            // Eszköz szélességének vizsgálata (768px alatt mobilnak tekintjük)
+            if (window.innerWidth < 768) {
+                // --- TELEFONOS NÉZET ---
+                // Nem a teljes befoglalást (fitBounds) használjuk, hanem a mértani közepét
+                const centerLon = (bbox[0] + bbox[2]) / 2;
+                const centerLat = (bbox[1] + bbox[3]) / 2;
+                
+                // Az épület alapértelmezett zoomjánál egy picit távolabbi, kényelmes nézet
+                const targetZoom = (currentBuilding.zoom || 19) - 0.5;
+                
+                // Eltolás számítása a UI elemek miatt (Keresősáv felül, esetleges panel alul)
+                const centerPoint = map.project([centerLat, centerLon], targetZoom);
+                
+                // Kiszámoljuk a vizuális középpontot:
+                // Lefelé toljuk az alsó padding felével, de felfelé húzzuk a keresősáv (kb. 80px) miatt.
+                centerPoint.y += (bottomPadding / 2) - 40; 
+                
+                const targetLatLng = map.unproject(centerPoint, targetZoom);
+                
+                map.flyTo(targetLatLng, targetZoom, {
+                    animate: true,
+                    duration: 0.8
+                });
+                
+                console.log("Mobile view: Center aligned with fixed medium zoom.");
+
+            } else {
+                // --- SZÁMÍTÓGÉPES NÉZET ---
+                // Átalakítás Leaflet Bounds formátumra: [[minLat, minLon], [maxLat, maxLon]]
+                const leafletBounds = [
+                    [bbox[1], bbox[0]], // Dél-Nyugat
+                    [bbox[3], bbox[2]]  // Észak-Kelet
+                ];
+                
+                // Tökéletes ráigazítás dinamikus margókkal (padding)
+                map.fitBounds(leafletBounds, {
+                    paddingTopLeft: [20, 80], // Felül 80px helyhagyás a keresősávnak
+                    paddingBottomRight: [20, bottomPadding], // Alul hely az esetleges UI-nak
+                    maxZoom: currentBuilding.zoom || 20,
+                    animate: true,
+                    duration: 0.8
+                });
+                
+                console.log("Desktop view: Map perfectly framed to building bounds.");
+            }
         }
     } catch (e) {
         console.warn("Auto-align error:", e);
