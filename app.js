@@ -3844,9 +3844,22 @@ function showPoiCategory(typeKey) {
     activePoiCategory = typeKey; // Eltároljuk az aktív keresési állapotot
 
     const allPois = getPoiPositions(typeKey);
+    
+    // --- HIBAKEZELÉS: Ha egyáltalán nincs ilyen POI az épületben ---
     if (allPois.length === 0) {
-        showToast("Nincs ilyen hely az épületben.");
+        const config = POI_TYPES[typeKey];
+        showToast(`Nincs ${config.name.toLowerCase()} a(z) ${currentBuilding.name}-ben! 🚫`);
+        
         activePoiCategory = null;
+        
+        // Virtuális "X" gomb nyomás: Kereső ürítése és UI visszaállítása
+        const input = document.getElementById('search-input');
+        if (input) {
+            input.value = '';
+            input.blur(); // Elvesszük a fókuszt, hogy lezárjon a billentyűzet
+        }
+        if (typeof updateRightButtonState === 'function') updateRightButtonState();
+        
         return;
     }
 
