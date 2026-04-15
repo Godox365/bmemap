@@ -2288,9 +2288,7 @@ function processOsmData(osmData, isUpdate = false) {
     }
 
     // 4. Felhasználói felület és térkép renderelése
-    // Ha isUpdate === true (azaz háttérben frissült a json), akkor NE animáljunk (!isUpdate -> false).
-    // Így a cache betöltése szépen animál, a netes frissítés pedig némán kicseréli a szobákat a háttérben.
-    renderLevel(currentLevel, !isUpdate, true); // true = ez egy teljes épület betöltés
+    renderLevel(currentLevel, !isUpdate);
     createLevelControls();
     
     // Dinamikus láthatóság (részletességi szint / LOD) frissítése az aktuális nagyításhoz
@@ -2570,25 +2568,16 @@ function drawLabels(level) {
 }
 
 /**
- * Újraindítja a CSS animációkat a térképen.
- * @param {boolean} isBuildingLoad - Ha true, az egész épület "fókuszálódik", ha false, csak a szobák cserélődnek finoman.
+ * Újraindítja a "Blueprint" (alaprajz előtűnése) CSS animációt a térképen.
+ * Kizárólag épületváltáskor és első betöltéskor hívódik meg a prémium UX érdekében.
  */
-function triggerBlueprintAnimation(isBuildingLoad = false) {
+function triggerBlueprintAnimation() {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
     
-    // Eltávolítjuk mindkét lehetséges class-t a reseteléshez
-    mapContainer.classList.remove('blueprint-animating', 'level-switch-animating');
-    
-    // Reflow kikényszerítése
-    void mapContainer.offsetWidth; 
-    
-    // A megfelelő animáció indítása a paraméter alapján
-    if (isBuildingLoad) {
-        mapContainer.classList.add('blueprint-animating');
-    } else {
-        mapContainer.classList.add('level-switch-animating');
-    }
+    mapContainer.classList.remove('blueprint-animating');
+    void mapContainer.offsetWidth; // Reflow kikényszerítése
+    mapContainer.classList.add('blueprint-animating');
 }
 
 /**
@@ -2596,7 +2585,7 @@ function triggerBlueprintAnimation(isBuildingLoad = false) {
  * @param {string} level - A megjelenítendő szint azonosítója (pl. '0', '1', '-1').
  * @param {boolean} animate - Indítsa-e el a Blueprint előtűnési animációt (alapból true).
  */
-function renderLevel(level, animate = true, isBuildingLoad = false) {
+function renderLevel(level, animate = true) {
     // Korábbi rétegek tartalmának törlése az újrarenderelés előtt
     indoorLayerGroup.clearLayers();
     iconLayerGroup.clearLayers();
@@ -2793,9 +2782,8 @@ function renderLevel(level, animate = true, isBuildingLoad = false) {
     drawLabels(level);
     
     // --- BLUEPRINT ANIMÁCIÓ INDÍTÁSA ---
-    // Csak akkor indítjuk az animációt, ha ez nem egy háttérben történő adatfrissítés
     if (animate) {
-        if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation(isBuildingLoad);
+        if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation();
     }
 }
 
@@ -5678,8 +5666,8 @@ function switchLevel(level) {
     // A globális változó frissítése, biztosítva a sztring típusú tárolást
     currentLevel = level.toString(); 
     
-    // 1. renderLevel hívása: animate = true, de isBuildingLoad = false (Lágy emeletváltás)
-    renderLevel(currentLevel, true, false);
+    // 1. A térkép vizuális elemeinek újrarenderelése azonnal, animáció nélkül
+    renderLevel(currentLevel, false);
     
     // 2. A szintválasztó gombok állapotának (aktív kijelölés) frissítése a felületen
     updateLevelUI();
