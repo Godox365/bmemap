@@ -1979,11 +1979,10 @@ function changeBuilding(key, autoSearchTerm = null) {
     initBuildings(); 
     
     // Az új épület adatainak betöltése (OpenStreetMap adatok letöltése vagy cache-ből olvasása)
-    // A függvényhívás sorrendje biztosítja, hogy a betöltő (loader) hamarabb jelenjen meg, mint a kamera mozgatása
     loadOsmData(); 
     
-    // A térkép kamerájának pozicionálása az új épület középpontjára és alapértelmezett nagyítási szintjére
-    map.setView(currentBuilding.center, currentBuilding.zoom);
+    // A map.setView innen TÖRÖLVE LETT, hogy elkerüljük az ugrálást.
+    // A kamera pozicionálását a processOsmData végzi el azonnal, miután az adatok betöltöttek.
 }
 
 /**
@@ -2149,10 +2148,11 @@ async function fetchOverpass(query, serverIndex = 0) {
 /**
  * A térkép nézetét automatikusan a betöltött épület geometriájához igazítja.
  * Számítógépen a teljes épületet a képernyőbe foglalja, míg mobil eszközökön
- * a mértani középpontra fókuszál egy optimalizált, közepes nagyítási szinttel,
- * hogy az épület ne váljon olvashatatlanul kicsivé.
+ * a mértani középpontra fókuszál egy optimalizált, közepes nagyítási szinttel.
+ * 
+ * @param {boolean} animate - Ha hamis, a kamera azonnal, átmenet nélkül ugrik a helyére (pl. épületváltáskor).
  */
-function alignMapToBuildingCenter() {
+function alignMapToBuildingCenter(animate = true) {
     // Megosztott link esetén a célpont (szoba) fókusza élvez prioritást
     const params = new URLSearchParams(window.location.search);
     if (params.get('share')) return;
@@ -2174,47 +2174,42 @@ function alignMapToBuildingCenter() {
             // Eszköz szélességének vizsgálata (768px alatt mobilnak tekintjük)
             if (window.innerWidth < 768) {
                 // --- TELEFONOS NÉZET ---
-                // Nem a teljes befoglalást (fitBounds) használjuk, hanem a mértani közepét
                 const centerLon = (bbox[0] + bbox[2]) / 2;
                 const centerLat = (bbox[1] + bbox[3]) / 2;
                 
                 // Az épület alapértelmezett zoomjánál egy picit távolabbi, kényelmes nézet
                 const targetZoom = (currentBuilding.zoom || 19) - 0.5;
                 
-                // Eltolás számítása a UI elemek miatt (Keresősáv felül, esetleges panel alul)
+                // Pixel alapú eltolás számítása a UI elemek miatt, függetlenül az aktuális zoomtól
                 const centerPoint = map.project([centerLat, centerLon], targetZoom);
-                
-                // Kiszámoljuk a vizuális középpontot:
-                // Lefelé toljuk az alsó padding felével, de felfelé húzzuk a keresősáv (kb. 80px) miatt.
-                centerPoint.y += (bottomPadding / 2) - 40; 
+                centerPoint.y += (bottomPadding / 2) - 40; // Felső és alsó UI kitakarás kompenzálása
                 
                 const targetLatLng = map.unproject(centerPoint, targetZoom);
                 
-                map.flyTo(targetLatLng, targetZoom, {
-                    animate: true,
-                    duration: 0.8
-                });
+                if (animate) {
+                    map.flyTo(targetLatLng, targetZoom, { animate: true, duration: 0.8 });
+                } else {
+                    map.setView(targetLatLng, targetZoom, { animate: false });
+                }
                 
-                console.log("Mobile view: Center aligned with fixed medium zoom.");
+                console.log("Mobile view: Center aligned. Animated:", animate);
 
             } else {
                 // --- SZÁMÍTÓGÉPES NÉZET ---
-                // Átalakítás Leaflet Bounds formátumra: [[minLat, minLon], [maxLat, maxLon]]
                 const leafletBounds = [
                     [bbox[1], bbox[0]], // Dél-Nyugat
                     [bbox[3], bbox[2]]  // Észak-Kelet
                 ];
                 
-                // Tökéletes ráigazítás dinamikus margókkal (padding)
                 map.fitBounds(leafletBounds, {
-                    paddingTopLeft: [20, 80], // Felül 80px helyhagyás a keresősávnak
-                    paddingBottomRight: [20, bottomPadding], // Alul hely az esetleges UI-nak
+                    paddingTopLeft: [20, 80], 
+                    paddingBottomRight: [20, bottomPadding], 
                     maxZoom: currentBuilding.zoom || 20,
-                    animate: true,
-                    duration: 0.8
+                    animate: animate,
+                    duration: animate ? 0.8 : 0
                 });
                 
-                console.log("Desktop view: Map perfectly framed to building bounds.");
+                console.log("Desktop view: Map perfectly framed. Animated:", animate);
             }
         }
     } catch (e) {
@@ -2296,14 +2291,15 @@ function processOsmData(osmData, isUpdate = false) {
         }
     }
 
-    // Felhasználói felület és térkép renderelése a beállított adatok alapján
+    // 3. KAMERA POZICIONÁLÁSA (Először ezt tesszük meg, hogy a renderelés már a jó helyen történjen!)
+    // Ha első betöltés (nem frissítés), akkor animáció nélkül (false) azonnal a helyére ugrik.
+    if (!isUpdate) {
+        alignMapToBuildingCenter(false);
+    }
+
+    // 4. Felhasználói felület és térkép renderelése a már beállított nézeten
     renderLevel(currentLevel);
     createLevelControls();
-
-    // Kamera pozicionálása: Csak az első betöltésnél igazítjuk középre, frissítésnél (isUpdate) mellőzzük
-    if (!isUpdate) {
-        alignMapToBuildingCenter();
-    }
     
     // Dinamikus láthatóság (részletességi szint / LOD) frissítése az aktuális nagyításhoz
     updateDynamicVisibility();
