@@ -828,6 +828,7 @@ function showFavoritesInSearch() {
         
         // Végigiterálunk a POI kategóriákon és legeneráljuk a gombokat
         for (const [key, config] of Object.entries(POI_TYPES)) {
+            if (config.hideInGrid) continue; // Rejtett kategóriák átugrása
             const btn = document.createElement('div');
             btn.className = 'poi-grid-item';
             btn.innerHTML = `
@@ -961,14 +962,15 @@ const POI_TYPES = {
         name: 'Kávéautomata',
         icon: 'local_cafe',
         color: 'var(--poi-coffee)',
-        // Ha a vending tartalmazza a 'coffee' szót (pl. 'coffee;drinks' is jó)
+        aliases: ['kávé', 'kave', 'kávéautomata', 'kaveautomata'],
         filter: (p) => p.amenity === 'vending_machine' && p.vending && p.vending.includes('coffee')
     },
     food: {
         id: 'food',
         name: 'Büfé / Kaja',
-        icon: 'fastfood',
+        icon: 'restaurant',
         color: 'var(--poi-food)',
+        aliases: ['büfé', 'bufe', 'kaja', 'étterem', 'etterem', 'kifőzde', 'pékség'],
         filter: (p) => p.amenity === 'cafe' || p.amenity === 'fast_food' || p.amenity === 'restaurant' || p.shop === 'kiosk'
     },
     vending: {
@@ -976,7 +978,7 @@ const POI_TYPES = {
         name: 'Automata',
         icon: 'water_bottle',
         color: 'var(--poi-vending)',
-        // Megnézzük, tartalmaz-e bármit a rágcsálnivalók/italok közül
+        aliases: ['automata', 'snack', 'italautomata', 'csoki', 'innivaló', 'ital'],
         filter: (p) => p.amenity === 'vending_machine' && p.vending && (p.vending.includes('drinks') || p.vending.includes('sweets') || p.vending.includes('snack') || p.vending.includes('food'))
     },
     microwave: {
@@ -984,6 +986,7 @@ const POI_TYPES = {
         name: 'Mikró',
         icon: 'microwave',
         color: 'var(--poi-microwave)',
+        aliases: ['mikró', 'mikro', 'melegítő', 'mikrohullámú'],
         filter: (p) => p.amenity === 'microwave'
     },
     atm: {
@@ -991,6 +994,7 @@ const POI_TYPES = {
         name: 'ATM',
         icon: 'local_atm',
         color: 'var(--poi-atm)',
+        aliases: ['atm', 'bankautomata', 'pénz', 'készpénz'],
         filter: (p) => p.amenity === 'atm'
     },
     toilet: {
@@ -998,7 +1002,27 @@ const POI_TYPES = {
         name: 'WC',
         icon: 'wc',
         color: 'var(--color-toilet-fill)',
+        aliases: ['wc', 'vécé', 'mosdó', 'toalett', 'toilet', 'budi'],
         filter: (p) => p.amenity === 'toilets' || p.amenity === 'toilet' || p.room === 'toilet' || p.room === 'toilets' || (p.name && p.name.toLowerCase().includes('wc'))
+    },
+    // --- REJTETT KATEGÓRIÁK A KERESŐHÖZ ---
+    stairs: {
+        id: 'stairs',
+        name: 'Lépcső',
+        icon: 'stairs',
+        color: 'var(--color-stairs)',
+        hideInGrid: true, // Nem jelenik meg a vizuális rácsokban
+        aliases: ['lépcső', 'lepcso', 'lépcsőház', 'stairs'],
+        filter: (p) => p.highway === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase'
+    },
+    elevator: {
+        id: 'elevator',
+        name: 'Lift',
+        icon: 'elevator',
+        color: 'var(--color-elevator)',
+        hideInGrid: true, // Nem jelenik meg a vizuális rácsokban
+        aliases: ['lift', 'felvonó', 'elevator'],
+        filter: (p) => p.highway === 'elevator' || p.room === 'elevator' || p.amenity === 'elevator'
     }
 };
 
@@ -3544,15 +3568,22 @@ function handleSearch(e) {
             return; // Kilépés a sikeres találat feldolgozása után
         }
 
-        // --- 3. Prioritás: Generikus kategóriák kiemelése ---
-        // Ha a felhasználó általános kifejezést keres (pl. "mosdó", "lépcső"), 
-        // ahelyett, hogy egy konkrét elemre ugranánk, kiemeljük az összes relevánsat a térképen.
-        const genericTerms = ["wc", "vécé", "mosdó", "toalett", "toilet", "lépcső", "lépcsőház", "stairs"];
-        if (genericTerms.some(t => term.toLowerCase().includes(t))) { 
-            highlightCategory(term); 
-            resultsDiv.style.display = 'none'; 
+        // --- 3. Prioritás: Generikus kategóriák (POI) kiemelése ---
+        const lowerTerm = term.toLowerCase();
+        let matchedPoiKey = null;
+        
+        // Végignézzük, hogy a beírt szó egyezik-e valamelyik POI alias-ával
+        for (const [key, config] of Object.entries(POI_TYPES)) {
+            if (config.aliases && config.aliases.some(alias => lowerTerm.includes(alias))) {
+                matchedPoiKey = key;
+                break;
+            }
+        }
 
-            // UI frissítés: Ikon állapot beállítása
+        if (matchedPoiKey) {
+            // Ha találtunk egyezést (pl. "budi" -> 'toilet'), beindítjuk az új okos POI rendszert!
+            showPoiCategory(matchedPoiKey); 
+            resultsDiv.style.display = 'none'; 
             updateRightButtonState();
             return;
         }
@@ -3749,47 +3780,6 @@ function handleRightAction(e) {
     }
 }
 
-/**
- * Kiemel egy meghatározott kategóriát (pl. mosdók vagy lépcsők) a térképen 
- * a felhasználó által beírt keresési kifejezés alapján.
- * Csak az aktuálisan megjelenített szinten (currentLevel) lévő elemeket emeli ki,
- * ezzel segítve az általános tájékozódást egy adott szinten.
- * * @param {string} term - A felhasználó által megadott keresési kifejezés (pl. "wc", "lépcső").
- */
-function highlightCategory(term) {
-    // A korábban alkalmazott kiemelések törlése a térképi rétegről az új keresés előtt
-    highlightLayerGroup.clearLayers();
-    
-    // A keresett kategória logikai azonosítása a kulcsszavak alapján
-    const isToilet = ["wc", "vécé", "mosdó", "toalett", "toilet"].some(t => term.includes(t));
-    const isStairs = ["lépcső", "lépcsőház", "stairs"].some(t => term.includes(t));
-    
-    // Új GeoJSON réteg létrehozása és szűrése a vizuális kiemeléshez
-    L.geoJSON(geoJsonData, {
-        filter: function(feature) {
-            const levels = getLevelsFromFeature(feature);
-            
-            // Csak az aktuálisan megtekintett emelet elemeit vizsgáljuk és jelenítjük meg
-            if (!levels.includes(currentLevel)) return false;
-            
-            const p = feature.properties;
-            
-            // Érvényesítés a mosdó (toilet) kategóriára az OSM metaadatok alapján
-            if (isToilet && (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets')) return true;
-            
-            // Érvényesítés a lépcső (stairs) kategóriára az OSM metaadatok alapján
-            if (isStairs && (p.room === 'stairs' || p.indoor === 'staircase')) return true;
-            
-            return false;
-        },
-        // A kiemelés vizuális stílusának beállítása (feltűnő sárga körvonal, enyhe kitöltéssel)
-        style: { color: "#ffeb3b", weight: 4, fillOpacity: 0.1 } 
-    }).addTo(highlightLayerGroup);
-    
-    // Az alsó információs panel (Bottom Sheet) elrejtése, hogy a fókusz 
-    // teljesen a térképen megjelenő kategória-találatokra irányuljon.
-    document.getElementById('bottom-sheet').classList.remove('open');
-}
 
 /**
  * Kiszűri a megadott típusú POI-kat a jelenlegi térképadatokból,
@@ -3893,15 +3883,30 @@ function showPoiCategory(typeKey) {
         });
 
         if (closestPoi) {
-            const targetLvl = getLevelsFromFeature(closestPoi.feature)[0] || "0";
-            const displayLvl = levelAliases[targetLvl] || targetLvl;
+            const poiLvls = getLevelsFromFeature(closestPoi.feature);
+            let targetLvl = poiLvls[0] || "0"; // Alapértelmezett, ha csak 1 szintje van
             
+            // Többszintes okosugrás (pl. lift, lépcső esetén)
+            if (poiLvls.length > 1) {
+                const currentNum = parseFloat(currentLevel) || 0;
+                let minDiff = Infinity;
+                
+                // Megkeressük a POI emeletei közül azt, amelyik numerikusan a legközelebb van hozzánk
+                poiLvls.forEach(l => {
+                    const lNum = parseFloat(l) || 0;
+                    const diff = Math.abs(currentNum - lNum);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        targetLvl = l;
+                    }
+                });
+            }
+            
+            const displayLvl = levelAliases[targetLvl] || targetLvl;
             showToast(`Nincs ezen a szinten. Átváltás a(z) ${displayLvl}. szintre...`);
             
-            // Szintváltás: Ez automatikusan meghívja a renderLevel-t, ami majd kirajzolja a pineket!
             switchLevel(targetLvl);
             
-            // Ráközelítünk a legközelebbi találatra
             setTimeout(() => {
                  smartFlyTo(closestPoi.feature);
             }, 300);
@@ -4522,6 +4527,7 @@ function toggleNearbyMenu() {
     grid.style.background = 'transparent';
 
     for (const [key, config] of Object.entries(POI_TYPES)) {
+        if (config.hideInGrid) continue; // Rejtett kategóriák átugrása
         const item = document.createElement('div');
         item.className = 'poi-grid-item';
         item.innerHTML = `
