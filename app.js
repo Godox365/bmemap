@@ -2695,64 +2695,18 @@ function renderLevel(level, animate = true) {
 
         // Pont típusú geometriák (pl. ajtók) egyedi renderelése
         pointToLayer: function(feature, latlng) {
-            const props = feature.properties;
-
-            // 1. WC-k
-            if (props.room === 'toilet' || props.amenity === 'toilets') {
-                return L.marker(latlng, {
-                    icon: L.divIcon({
-                        className: 'map-icon',
-                        html: `<span class="material-symbols-outlined" style="color: var(--color-toilet-stroke)">wc</span>`,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
-                    }),
-                    pane: 'markerPane'
-                });
-            }
-
-            // 2. Lépcsők és liftek
-            if (props.highway === 'steps' || props.highway === 'elevator') {
-                const iconName = props.highway === 'steps' ? 'stairs' : 'elevator';
-                return L.marker(latlng, {
-                    icon: L.divIcon({
-                        className: 'map-icon',
-                        html: `<span class="material-symbols-outlined">${iconName}</span>`,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
-                    }),
-                    pane: 'markerPane'
-                });
-            }
-
-            // 3. ÚJ POI-K
-            for (const key in POI_TYPES) {
-                if (POI_TYPES[key].filter(props)) {
-                    const config = POI_TYPES[key];
-                    return L.marker(latlng, {
-                        icon: L.divIcon({
-                            className: 'map-icon',
-                            html: `<span class="material-symbols-outlined" style="color: ${config.color}">${config.icon}</span>`,
-                            iconSize: [24, 24],
-                            iconAnchor: [12, 12]
-                        }),
-                        pane: 'markerPane'
+                if (feature.properties.entrance || feature.properties.door) {
+                    return L.circleMarker(latlng, { 
+                        radius: 3, 
+                        color: 'white', 
+                        fillColor: 'black', 
+                        fillOpacity: 1,
+                        className: 'door-marker' 
                     });
                 }
-            }
-
-            // 4. Ajtók
-            if (props.entrance || props.door) {
-                return L.circleMarker(latlng, { 
-                    radius: 3, 
-                    color: 'white', 
-                    fillColor: 'black', 
-                    fillOpacity: 1,
-                    className: 'door-marker' 
-                });
-            }
-            
-            // Rejtett marker a kattinthatóság fenntartásához
-            return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
+                // Kék alapértelmezett Leaflet pin (L.marker) letiltása.
+                // Helyette egy láthatatlan (opacity: 0) kört teszünk le, amely fenntartja a kattinthatóságot.
+                return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
         },
 
         // Eseménykezelők és ikonok hozzárendelése az egyes elemekhez
@@ -2765,7 +2719,7 @@ function renderLevel(level, animate = true) {
             if (p.room === 'stairs' || p.indoor === 'staircase') iconName = "stairs_2";
             if (p.highway === 'elevator' || p.room === 'elevator') iconName = "elevator"; 
             
-            // Új POI kategóriák dinamikus ikonjainak beállítása
+            // Új POI kategóriák dinamikus ikonjainak beállítása (CSAK A NÉV)
             if (p.amenity === 'vending_machine') {
                 if (p.vending === 'coffee') iconName = "local_cafe";
                 else iconName = "water_bottle"; 
@@ -2791,7 +2745,7 @@ function renderLevel(level, animate = true) {
                 }).addTo(iconLayerGroup);
             }
 
-            // Általános ikonok elhelyezése, amennyiben az elem nem kedvenc
+            // Általános ikonok elhelyezése (Nincs inline szín, csak a tiszta HTML!)
             if (iconName && !isFavorite(feature)) { 
                     L.marker(center, {
                     icon: L.divIcon({ className: 'map-icon', html: `<span class="material-symbols-outlined">${iconName}</span>` }),
