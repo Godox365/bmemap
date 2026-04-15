@@ -959,7 +959,8 @@ const POI_TYPES = {
         name: 'Kávéautomata',
         icon: 'local_cafe',
         color: 'var(--poi-coffee)',
-        filter: (p) => p.amenity === 'vending_machine' && p.vending === 'coffee'
+        // Ha a vending tartalmazza a 'coffee' szót (pl. 'coffee;drinks' is jó)
+        filter: (p) => p.amenity === 'vending_machine' && p.vending && p.vending.includes('coffee')
     },
     food: {
         id: 'food',
@@ -971,9 +972,10 @@ const POI_TYPES = {
     vending: {
         id: 'vending',
         name: 'Automata',
-        icon: 'water_bottle',
+        icon: 'shopping_basket',
         color: 'var(--poi-vending)',
-        filter: (p) => p.amenity === 'vending_machine' && (p.vending === 'drinks' || p.vending === 'sweets' || p.vending === 'snack' || p.vending === 'food')
+        // Megnézzük, tartalmaz-e bármit a rágcsálnivalók/italok közül
+        filter: (p) => p.amenity === 'vending_machine' && p.vending && (p.vending.includes('drinks') || p.vending.includes('sweets') || p.vending.includes('snack') || p.vending.includes('food'))
     },
     microwave: {
         id: 'microwave',
@@ -2707,7 +2709,7 @@ function renderLevel(level, animate = true) {
                 // Kék alapértelmezett Leaflet pin (L.marker) letiltása.
                 // Háttérkör a kattinthatósághoz (ami a POI-knál felveszi a kategória színét)
                 return L.circleMarker(latlng, { 
-                    radius: 12, 
+                    radius: 15, /* Picit nagyobb kör az ikon alatt */ 
                     opacity: 0, 
                     fillOpacity: 0, 
                     className: 'poi-bg-circle' 
@@ -2726,7 +2728,8 @@ function renderLevel(level, animate = true) {
             
             // Új POI kategóriák dinamikus ikonjainak beállítása (CSAK A NÉV)
             if (p.amenity === 'vending_machine') {
-                if (p.vending === 'coffee') iconName = "local_cafe";
+                // Ha árul kávét (is), akkor elsődlegesen kávéscsésze ikont kap
+                if (p.vending && p.vending.includes('coffee')) iconName = "local_cafe";
                 else iconName = "water_bottle"; 
             }
             if (p.amenity === 'cafe' || p.amenity === 'fast_food' || p.amenity === 'restaurant' || p.shop === 'kiosk') iconName = "fastfood";
@@ -2986,9 +2989,14 @@ function openSheet(feature) {
     // Alcím logika: Intelligens információ-megjelenítés OSM specifikus tagekkel
     let extraInfo = "";
     if (p.amenity === 'vending_machine' && p.vending) {
-        // Specifikus automata típusok fordítása
-        const vDict = { 'coffee': 'Kávégép', 'drinks': 'Italautomata', 'sweets': 'Snack / Édesség', 'snack': 'Snack', 'food': 'Étel' };
-        extraInfo = vDict[p.vending] || p.vending;
+        // Szótár a fordításhoz
+        const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
+        // A pontosvesszővel elválasztott értékek szétdarabolása (pl. "coffee;drinks" -> ["coffee", "drinks"])
+        const types = p.vending.split(';');
+        // Lefordítjuk az elemeket, és ha nincs a szótárban, az eredetit hagyjuk meg
+        const translated = types.map(t => vDict[t.trim()] || t.trim());
+        // Összefűzzük őket egy szép, vesszővel elválasztott listává
+        extraInfo = translated.join(', ');
     } else if (p.operator) {
         // Operátor megjelenítése (pl. ATM esetében a bank neve)
         extraInfo = p.operator; 
