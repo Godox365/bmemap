@@ -64,22 +64,34 @@ async function updateMaps() {
     for (const [key, center] of Object.entries(BUILDINGS)) {
         console.log(`\n🏢 --- ${key.toUpperCase()} ÉPÜLET FRISSÍTÉSE ---`);
         const query = `[out:json][timeout:120];
-                        (area(around:30, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];)->.targetBuilding;
-                        .targetBuilding map_to_area -> .searchArea;
+                        // 1. Megkeressük a 30m-en belüli épület Vonalakat és Relációkat (kizárva a hidakat és tetőket)
                         (
-                        way["indoor"](area.searchArea);
-                        relation["indoor"](area.searchArea);
-                        way["highway"~"corridor|steps"](area.searchArea);
-                        node["entrance"](area.searchArea);
-                        node["door"](area.searchArea);
-                        way["building:part"](area.searchArea);
-                        way["room"~"stairs|toilet|toilets"](area.searchArea);
-                        way(around:20, ${center[0]}, ${center[1]})["building"];
+                            way(around:30, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
+                            relation(around:30, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
+                        )->.targetBuilding;
                         
-                        node["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
-                        way["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
-                        node["shop"="kiosk"](area.searchArea);
-                        way["shop"="kiosk"](area.searchArea);
+                        // 2. Ezt a halmazt alakítjuk keresési területté (Így már nem lesz üres a json!)
+                        .targetBuilding map_to_area -> .searchArea;
+                        
+                        // 3. Jöhetnek a belső adatok
+                        (
+                            // Meglévő geometriai adatok
+                            way["indoor"](area.searchArea);
+                            relation["indoor"](area.searchArea);
+                            way["highway"~"corridor|steps"](area.searchArea);
+                            node["entrance"](area.searchArea);
+                            node["door"](area.searchArea);
+                            way["building:part"](area.searchArea);
+                            way["room"~"stairs|toilet|toilets"](area.searchArea);
+                            
+                            // Maga az épület körvonala a térképhez
+                            way(around:20, ${center[0]}, ${center[1]})["building"];
+                            
+                            // ÚJ POI ADATOK
+                            node["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
+                            way["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
+                            node["shop"="kiosk"](area.searchArea);
+                            way["shop"="kiosk"](area.searchArea);
                         );
                         out body;
                         >;
