@@ -783,7 +783,7 @@ function toggleFavoriteCurrent() {
     // Változások perzisztens mentése és a nézetek (UI, térkép) frissítése.
     saveFavorites();
     updateFavoriteUI(); 
-    renderLevel(currentLevel); 
+    renderLevel(currentLevel, false); 
 }
 
 /**
@@ -1321,7 +1321,7 @@ function setColorTheme(key) {
     applyTheme();
     
     // A térképelemek (szobák, útvonalak, stb.) újrarendelése az új stílusokkal
-    renderLevel(currentLevel); 
+    renderLevel(currentLevel, false); 
     
     // A téma kiválasztó lista grafikus frissítése a menüben
     renderThemeSelector(); 
@@ -1541,7 +1541,7 @@ function closeThemeEditor(saved = false) {
     // Visszaállítási logika: Ha a felhasználó mentés nélkül zárt be, visszatöltjük a korábban mentett témát.
     if (!saved) {
         applyTheme(); 
-        renderLevel(currentLevel);
+        renderLevel(currentLevel, false);
     }
     
     // A kiemelési (highlight) réteg állapotának helyreállítása.
@@ -1577,7 +1577,7 @@ function saveThemeOverrides() {
     localStorage.setItem('custom_theme_overrides', JSON.stringify(CUSTOM_THEME_OVERRIDES));
     
     // A térkép újrarenderelése a vizuális konzisztencia biztosítása érdekében.
-    renderLevel(currentLevel); 
+    renderLevel(currentLevel, false); 
     
     // A szerkesztő ablak bezárása 'saved = true' flaggel, hogy megelőzzük az értékek nemkívánatos visszaállítását.
     closeThemeEditor(true); 
@@ -1652,7 +1652,7 @@ function resetThemeOverrides() {
     
     // A téma vizuális visszaállítása, a térkép újrarenderelése és a szerkesztő bezárása
     applyTheme(); 
-    renderLevel(currentLevel);
+    renderLevel(currentLevel, false);
     closeThemeEditor(true); // Bezárjuk és mentettnek tekintjük (resetelt állapot)
 }
 
@@ -1763,7 +1763,7 @@ function handleColorChange(varName, value) {
     // Ha valami drasztikusat (pl szoba szín) változtatunk, újra kell rajzolni a réteget
     // De csak óvatosan, mert lassíthatja a dragginget.
     // A CSS változók (háttér, gombok) azonnaliak, de a canvas/SVG alapú dolgokhoz (room fill) kellhet a render.
-    // renderLevel(currentLevel); // Ezt inkább hagyjuk a mentésre, vagy ha nagyon kell, debounce-al.
+    // renderLevel(currentLevel, false); // Ezt inkább hagyjuk a mentésre, vagy ha nagyon kell, debounce-al.
 }
 
 /**
@@ -2290,7 +2290,7 @@ function processOsmData(osmData, isUpdate = false) {
     // 4. Felhasználói felület és térkép renderelése
     // Ha isUpdate === true (azaz háttérben frissült a json), akkor NE animáljunk (!isUpdate -> false).
     // Így a cache betöltése szépen animál, a netes frissítés pedig némán kicseréli a szobákat a háttérben.
-    renderLevel(currentLevel, !isUpdate);
+    renderLevel(currentLevel, !isUpdate, true); // true = ez egy teljes épület betöltés
     createLevelControls();
     
     // Dinamikus láthatóság (részletességi szint / LOD) frissítése az aktuális nagyításhoz
@@ -2570,22 +2570,25 @@ function drawLabels(level) {
 }
 
 /**
- * Újraindítja a "Blueprint" (alaprajz előtűnése) CSS animációt a térképen.
- * Épület- és szintváltáskor hívódik meg a prémium UX érdekében.
+ * Újraindítja a CSS animációkat a térképen.
+ * @param {boolean} isBuildingLoad - Ha true, az egész épület "fókuszálódik", ha false, csak a szobák cserélődnek finoman.
  */
-function triggerBlueprintAnimation() {
+function triggerBlueprintAnimation(isBuildingLoad = false) {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
     
-    // Eltávolítjuk a class-t, hogy az animáció nullázódjon
-    mapContainer.classList.remove('blueprint-animating');
+    // Eltávolítjuk mindkét lehetséges class-t a reseteléshez
+    mapContainer.classList.remove('blueprint-animating', 'level-switch-animating');
     
-    // A böngésző renderelési ciklusának (reflow) kikényszerítése,
-    // enélkül a JS túl gyors lenne, és nem indulna újra az animáció.
+    // Reflow kikényszerítése
     void mapContainer.offsetWidth; 
     
-    // Visszatesszük a class-t, ami elindítja a 0.35 másodperces fade-in-t
-    mapContainer.classList.add('blueprint-animating');
+    // A megfelelő animáció indítása a paraméter alapján
+    if (isBuildingLoad) {
+        mapContainer.classList.add('blueprint-animating');
+    } else {
+        mapContainer.classList.add('level-switch-animating');
+    }
 }
 
 /**
@@ -2593,7 +2596,7 @@ function triggerBlueprintAnimation() {
  * @param {string} level - A megjelenítendő szint azonosítója (pl. '0', '1', '-1').
  * @param {boolean} animate - Indítsa-e el a Blueprint előtűnési animációt (alapból true).
  */
-function renderLevel(level, animate = true) {
+function renderLevel(level, animate = true, isBuildingLoad = false) {
     // Korábbi rétegek tartalmának törlése az újrarenderelés előtt
     indoorLayerGroup.clearLayers();
     iconLayerGroup.clearLayers();
@@ -2792,7 +2795,7 @@ function renderLevel(level, animate = true) {
     // --- BLUEPRINT ANIMÁCIÓ INDÍTÁSA ---
     // Csak akkor indítjuk az animációt, ha ez nem egy háttérben történő adatfrissítés
     if (animate) {
-        if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation();
+        if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation(isBuildingLoad);
     }
 }
 
@@ -5675,8 +5678,8 @@ function switchLevel(level) {
     // A globális változó frissítése, biztosítva a sztring típusú tárolást
     currentLevel = level.toString(); 
     
-    // 1. A térkép vizuális elemeinek újrarenderelése az új szint adatainak megfelelően
-    renderLevel(currentLevel);
+    // 1. renderLevel hívása: animate = true, de isBuildingLoad = false (Lágy emeletváltás)
+    renderLevel(currentLevel, true, false);
     
     // 2. A szintválasztó gombok állapotának (aktív kijelölés) frissítése a felületen
     updateLevelUI();
