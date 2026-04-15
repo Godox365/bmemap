@@ -2705,8 +2705,13 @@ function renderLevel(level, animate = true) {
                     });
                 }
                 // Kék alapértelmezett Leaflet pin (L.marker) letiltása.
-                // Helyette egy láthatatlan (opacity: 0) kört teszünk le, amely fenntartja a kattinthatóságot.
-                return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
+                // Háttérkör a kattinthatósághoz (ami a POI-knál felveszi a kategória színét)
+                return L.circleMarker(latlng, { 
+                    radius: 12, 
+                    opacity: 0, 
+                    fillOpacity: 0, 
+                    className: 'poi-bg-circle' 
+                });
         },
 
         // Eseménykezelők és ikonok hozzárendelése az egyes elemekhez

@@ -679,17 +679,25 @@
             transform-origin: center center;
         }
 
+        /* Alapbeállítás az ikonok alatti színes körök méretezéséhez */
+        path.poi-bg-circle {
+            transform-origin: center;
+            transform-box: fill-box; /* Ez biztosítja, hogy a kör a saját közepe körül zsugorodjon! */
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
         /* --- KÖZEPES ZOOM (Egyszerű kicsinyítés) --- */
-        /* Nincs trükközés: csak arányosan kisebbek lesznek a Material ikonok */
         .map-container-mid .map-icon span {
-            transform: scale(0.6); /* 60%-os méretre zsugorodnak */
-            opacity: 0.8; /* Kicsit el is halványulnak a háttérben */
+            transform: scale(0.6); 
+            opacity: 0.8; 
+        }
+        /* Itt zsugorítjuk a színes háttérkört is az ikonnal együtt! */
+        .map-container-mid path.poi-bg-circle {
+            transform: scale(0.6);
         }
         .map-container-mid path.door-marker {
-            opacity: 0.4; /* Ajtók halványulnak */
+            opacity: 0.4; 
         }
-        
-        /* A kereső csepp alakú markereit is zsugorítjuk, ha kizoomol a user */
         .map-container-mid .poi-marker {
             transform: rotate(-45deg) scale(0.6);
             opacity: 0.8;
@@ -697,11 +705,17 @@
 
         /* --- TÁVOLI ZOOM (Teljes elrejtés) --- */
         .map-container-low .map-icon span {
-            transform: scale(0); /* Eltűnik */
+            transform: scale(0); 
             opacity: 0;
         }
         .map-container-low .map-icon {
-            pointer-events: none; /* Ne lehessen rákattintani a láthatatlan ikonokra */
+            pointer-events: none; 
+        }
+        /* A színes háttérkört is nullára nyomjuk és láthatatlanná tesszük */
+        .map-container-low path.poi-bg-circle {
+            transform: scale(0);
+            opacity: 0;
+            pointer-events: none;
         }
         .map-container-low path.door-marker {
             opacity: 0;
