@@ -679,24 +679,17 @@
             transform-origin: center center;
         }
 
-        /* --- KÖZEPES ZOOM (Pöttyé alakulás) --- */
+        /* --- KÖZEPES ZOOM (Egyszerű kicsinyítés) --- */
+        /* Nincs trükközés: csak arányosan kisebbek lesznek a Material ikonok */
         .map-container-mid .map-icon span {
-            font-size: 0px !important; /* Eltünteti a Material ikont */
-            color: transparent !important;
-            background-color: var(--icon-bg-color, white) !important; /* Felveszi a HTML-ből átadott színt */
-            width: 12px !important;
-            height: 12px !important;
-            min-width: 12px;
-            border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.8);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            transform: scale(1);
-            opacity: 0.9;
+            transform: scale(0.6); /* 60%-os méretre zsugorodnak */
+            opacity: 0.8; /* Kicsit el is halványulnak a háttérben */
         }
         .map-container-mid path.door-marker {
-            opacity: 0.4;
+            opacity: 0.4; /* Ajtók halványulnak */
         }
-        /* A keresés teardrop markerei is zsugorodjanak, hogy ne takarjanak ki mindent */
+        
+        /* A kereső csepp alakú markereit is zsugorítjuk, ha kizoomol a user */
         .map-container-mid .poi-marker {
             transform: rotate(-45deg) scale(0.6);
             opacity: 0.8;
@@ -704,11 +697,11 @@
 
         /* --- TÁVOLI ZOOM (Teljes elrejtés) --- */
         .map-container-low .map-icon span {
-            transform: scale(0);
+            transform: scale(0); /* Eltűnik */
             opacity: 0;
         }
         .map-container-low .map-icon {
-            pointer-events: none;
+            pointer-events: none; /* Ne lehessen rákattintani a láthatatlan ikonokra */
         }
         .map-container-low path.door-marker {
             opacity: 0;

@@ -2702,8 +2702,7 @@ function renderLevel(level, animate = true) {
                 return L.marker(latlng, {
                     icon: L.divIcon({
                         className: 'map-icon',
-                        // A --icon-bg-color teszi lehetővé a CSS számára a pöttyé alakítást
-                        html: `<span class="material-symbols-outlined" style="color: var(--color-toilet-stroke); --icon-bg-color: var(--color-toilet-stroke)">wc</span>`,
+                        html: `<span class="material-symbols-outlined" style="color: var(--color-toilet-stroke)">wc</span>`,
                         iconSize: [24, 24],
                         iconAnchor: [12, 12]
                     }),
@@ -2711,13 +2710,13 @@ function renderLevel(level, animate = true) {
                 });
             }
 
-            // 2. Lépcsők és liftek (Alapból fehér pöttyök lesznek)
+            // 2. Lépcsők és liftek
             if (props.highway === 'steps' || props.highway === 'elevator') {
                 const iconName = props.highway === 'steps' ? 'stairs' : 'elevator';
                 return L.marker(latlng, {
                     icon: L.divIcon({
                         className: 'map-icon',
-                        html: `<span class="material-symbols-outlined" style="--icon-bg-color: #ffffff">${iconName}</span>`,
+                        html: `<span class="material-symbols-outlined">${iconName}</span>`,
                         iconSize: [24, 24],
                         iconAnchor: [12, 12]
                     }),
@@ -2732,7 +2731,7 @@ function renderLevel(level, animate = true) {
                     return L.marker(latlng, {
                         icon: L.divIcon({
                             className: 'map-icon',
-                            html: `<span class="material-symbols-outlined" style="color: ${config.color}; --icon-bg-color: ${config.color}">${config.icon}</span>`,
+                            html: `<span class="material-symbols-outlined" style="color: ${config.color}">${config.icon}</span>`,
                             iconSize: [24, 24],
                             iconAnchor: [12, 12]
                         }),
@@ -2752,7 +2751,7 @@ function renderLevel(level, animate = true) {
                 });
             }
             
-            // Rejtett marker a kattinthatóság fenntartásához a szobák közepén
+            // Rejtett marker a kattinthatóság fenntartásához
             return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
         },
 
