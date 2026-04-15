@@ -2147,52 +2147,42 @@ async function fetchOverpass(query, serverIndex = 0) {
 
 /**
  * A térkép nézetét automatikusan a betöltött épület geometriájához igazítja.
- * Számítógépen a teljes épületet a képernyőbe foglalja, míg mobil eszközökön
- * a mértani középpontra fókuszál egy optimalizált, közepes nagyítási szinttel.
  * 
- * @param {boolean} animate - Ha hamis, a kamera azonnal, átmenet nélkül ugrik a helyére (pl. épületváltáskor).
+ * Szigorúan animáció (panning/zooming) nélkül működik: azonnal a tökéletes, 
+ * végleges helyre ugrik, hogy a vizuális élményt kizárólag a CSS "Blueprint"
+ * fade-in effektus adja, rángatózás nélkül.
  */
-function alignMapToBuildingCenter(animate = true) {
-    // Megosztott link esetén a célpont (szoba) fókusza élvez prioritást
+function alignMapToBuildingCenter() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('share')) return;
 
     if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) return;
 
     try {
-        // Turf bbox formátuma: [minLon, minLat, maxLon, maxLat]
         const bbox = turf.bbox(geoJsonData); 
         
         if (bbox) {
-            // Megnézzük, nyitva van-e valamilyen alsó panel, ami kitakarja a térképet
             const sheet = document.getElementById('bottom-sheet');
-            let bottomPadding = 20; // Alap kis margó
+            let bottomPadding = 20; 
             if (sheet && sheet.classList.contains('open')) {
                 bottomPadding = sheet.getBoundingClientRect().height + 20;
             }
 
-            // Eszköz szélességének vizsgálata (768px alatt mobilnak tekintjük)
             if (window.innerWidth < 768) {
                 // --- TELEFONOS NÉZET ---
                 const centerLon = (bbox[0] + bbox[2]) / 2;
                 const centerLat = (bbox[1] + bbox[3]) / 2;
                 
-                // Az épület alapértelmezett zoomjánál egy picit távolabbi, kényelmes nézet
                 const targetZoom = (currentBuilding.zoom || 19) - 0.5;
                 
-                // Pixel alapú eltolás számítása a UI elemek miatt, függetlenül az aktuális zoomtól
                 const centerPoint = map.project([centerLat, centerLon], targetZoom);
-                centerPoint.y += (bottomPadding / 2) - 40; // Felső és alsó UI kitakarás kompenzálása
-                
+                centerPoint.y += (bottomPadding / 2) - 40; 
                 const targetLatLng = map.unproject(centerPoint, targetZoom);
                 
-                if (animate) {
-                    map.flyTo(targetLatLng, targetZoom, { animate: true, duration: 0.8 });
-                } else {
-                    map.setView(targetLatLng, targetZoom, { animate: false });
-                }
+                // Kőkemény azonnali ugrás animáció nélkül
+                map.setView(targetLatLng, targetZoom, { animate: false });
                 
-                console.log("Mobile view: Center aligned. Animated:", animate);
+                console.log("Mobile view: Center aligned instantly.");
 
             } else {
                 // --- SZÁMÍTÓGÉPES NÉZET ---
@@ -2201,15 +2191,15 @@ function alignMapToBuildingCenter(animate = true) {
                     [bbox[3], bbox[2]]  // Észak-Kelet
                 ];
                 
+                // Kőkemény azonnali ugrás animáció nélkül
                 map.fitBounds(leafletBounds, {
                     paddingTopLeft: [20, 80], 
                     paddingBottomRight: [20, bottomPadding], 
                     maxZoom: currentBuilding.zoom || 20,
-                    animate: animate,
-                    duration: animate ? 0.8 : 0
+                    animate: false // FONTOS: Nulla animáció!
                 });
                 
-                console.log("Desktop view: Map perfectly framed. Animated:", animate);
+                console.log("Desktop view: Map perfectly framed instantly.");
             }
         }
     } catch (e) {
@@ -2292,8 +2282,9 @@ function processOsmData(osmData, isUpdate = false) {
     }
 
     // 3. KAMERA POZICIONÁLÁSA
+    // Szigorúan azonnali beállás az adatok renderelése előtt
     if (!isUpdate) {
-        alignMapToBuildingCenter(true);
+        alignMapToBuildingCenter();
     }
 
     // 4. Felhasználói felület és térkép renderelése
