@@ -1898,7 +1898,10 @@ function detectClosestBuilding() {
             // - A távolság kevesebb, mint 1 km (ne váltson, ha a felhasználó messze van az egyetemtől)
             if (closestKey && closestKey !== currentBuildingKey && minDist < 1000) {
                 console.log(`GPS: ${closestKey} épület észlelve (${Math.round(minDist)}m). Váltás...`);
-                showToast(`📍 GPS: ${BUILDINGS[closestKey].name} észlelve. Betöltés...`);
+                
+                // --- Vizuális visszajelzés a felhasználónak a GPS alapú váltásról ---
+                showToast(`✨ ${BUILDINGS[closestKey].name} észlelve`);
+                
                 // Globális funkció meghívása a közelebbi épület betöltésére
                 changeBuilding(closestKey);
             }
@@ -6127,6 +6130,13 @@ function getFeatureId(feature) {
  */
 function showToast(message) {
     const t = document.getElementById('toast-notification');
+    if (!t) return;
+
+    // FIX: Ha a toast véletlenül a Bottom Sheet-ben van, áthelyezzük a body-ba,
+    // hogy zárt sheet esetén is mindig a képernyőn (látható) maradjon!
+    if (t.parentNode.id === 'bottom-sheet') {
+        document.body.appendChild(t);
+    }
     
     // Szöveges tartalom dinamikus frissítése, amennyiben paraméterként megadásra került
     if (message) {
@@ -6136,8 +6146,15 @@ function showToast(message) {
     // A láthatóságot vezérlő CSS osztály hozzáadása
     t.classList.add('visible');
     
+    // FIX: Ha már fut egy eltüntető időzítő, töröljük, hogy a friss üzenet biztosan kint maradjon 3 másodpercig
+    if (window.toastTimeout) {
+        clearTimeout(window.toastTimeout);
+    }
+    
     // Az értesítés automatikus elrejtése 3000 ezredmásodperc (3 másodperc) eltelte után
-    setTimeout(() => t.classList.remove('visible'), 3000);
+    window.toastTimeout = setTimeout(() => {
+        t.classList.remove('visible');
+    }, 3000);
 }
 
 /**
