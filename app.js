@@ -2147,35 +2147,48 @@ async function fetchOverpass(query, serverIndex = 0) {
 }
 
 /**
- * A térkép nézetét automatikusan a betöltött épület geometriai középpontjára igazítja.
- * A funkció kiszámítja az összes térképelem (GeoJSON) alapján a befoglaló dobozt (bounding box),
- * meghatározza annak középpontját, majd a kamerát finom animációval oda mozgatja.
+ * A térkép nézetét automatikusan a betöltött épület geometriájához igazítja.
+ * A Turf.js segítségével kiszámítja a teljes épület befoglaló dobozát (bounding box),
+ * és a kamerát úgy állítja be, hogy az épület tökéletesen kitöltse a látható teret,
+ * elkerülve a keresősáv és az alsó panelek általi kitakarást.
  */
 function alignMapToBuildingCenter() {
-    // Ha van megosztott link (share paraméter az URL-ben), akkor megszakítjuk az automatikus 
-    // középre igazítást, mivel a megosztási logika (processUrlParams) egy konkrét szobára fog fókuszálni.
+    // Megosztott link esetén a célpont (szoba) fókusza élvez prioritást
     const params = new URLSearchParams(window.location.search);
     if (params.get('share')) return;
 
-    // Biztonsági ellenőrzés: csak akkor hajtjuk végre, ha a térképadatok érvényesek és nem üresek
     if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) return;
 
     try {
-        // A teljes betöltött geometria befoglaló dobozának (BBOX) kiszámítása a Turf.js segítségével.
-        // Formátum: [minX, minY, maxX, maxY] (azaz [minLon, minLat, maxLon, maxLat])
+        // Turf bbox formátuma: [minLon, minLat, maxLon, maxLat]
         const bbox = turf.bbox(geoJsonData); 
         
         if (bbox) {
-            // A geometriai középpont (szélességi és hosszúsági fokok) kiszámítása a határok átlagolásával
-            const centerLon = (bbox[0] + bbox[2]) / 2;
-            const centerLat = (bbox[1] + bbox[3]) / 2;
+            // Átalakítás Leaflet Bounds formátumra: [[minLat, minLon], [maxLat, maxLon]]
+            const leafletBounds = [
+                [bbox[1], bbox[0]], // Dél-Nyugat
+                [bbox[3], bbox[2]]  // Észak-Kelet
+            ];
             
-            // Finom kameramozgatás (pan) a valós középpontra, amely vizuális megerősítést ad a betöltésről
-            map.panTo([centerLat, centerLon]);
-            console.log("Map aligned to building center:", centerLat, centerLon);
+            // Megnézzük, nyitva van-e valamilyen alsó panel, ami kitakarja a térképet
+            const sheet = document.getElementById('bottom-sheet');
+            let bottomPadding = 20; // Alap kis margó
+            if (sheet && sheet.classList.contains('open')) {
+                bottomPadding = sheet.getBoundingClientRect().height + 20;
+            }
+            
+            // Tökéletes ráigazítás dinamikus margókkal (padding)
+            map.fitBounds(leafletBounds, {
+                paddingTopLeft: [20, 80], // Felül 80px helyhagyás a keresősávnak
+                paddingBottomRight: [20, bottomPadding], // Alul hely az esetleges UI-nak
+                maxZoom: currentBuilding.zoom || 20, // Ne zoomoljon be extrém mód egy pici épületnél
+                animate: true,
+                duration: 0.8
+            });
+            
+            console.log("Map perfectly framed to building bounds.");
         }
     } catch (e) {
-        // Hibakezelés a Turf.js számítási hibái vagy egyéb váratlan kivételek esetén
         console.warn("Auto-align error:", e);
     }
 }
