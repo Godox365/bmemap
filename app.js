@@ -953,6 +953,8 @@ let activeNavTarget = null;
 // --- ÚJ POI RENDSZER GLOBÁLISAI ---
 let poiMarkersGroup; // Ebben tároljuk majd a térképen lévő aktív ikonokat
 
+let activePoiCategory = null; // Tárolja, hogy épp milyen POI-kat jelenítünk meg a térképen
+
 const POI_TYPES = {
     coffee: {
         id: 'coffee',
@@ -972,7 +974,7 @@ const POI_TYPES = {
     vending: {
         id: 'vending',
         name: 'Automata',
-        icon: 'shopping_basket',
+        icon: 'water_bottle',
         color: 'var(--poi-vending)',
         // Megnézzük, tartalmaz-e bármit a rágcsálnivalók/italok közül
         filter: (p) => p.amenity === 'vending_machine' && p.vending && (p.vending.includes('drinks') || p.vending.includes('sweets') || p.vending.includes('snack') || p.vending.includes('food'))
@@ -1967,6 +1969,7 @@ function changeBuilding(key, autoSearchTerm = null) {
 
     // Töröljük a POI markereket is az épületváltáskor
     if (poiMarkersGroup) poiMarkersGroup.clearLayers();
+    activePoiCategory = null; // Állapot törlése
     
     // Aktív navigációs indulópont törlése az épületváltás miatt
     pendingNavSource = null;
@@ -2789,6 +2792,12 @@ function renderLevel(level, animate = true) {
     // Szöveges feliratok (címkék) kirajzolása az aktuális szintre
     drawLabels(level);
     
+    // --- POI PINEK SZINTFÜGGŐ ÚJRARENDELÉSE ---
+    // Ha aktív egy POI keresés, a szintváltáskor automatikusan frissítjük a markereket
+    if (typeof renderActivePoiCategory === 'function') {
+        renderActivePoiCategory(level);
+    }
+    
     // --- BLUEPRINT ANIMÁCIÓ INDÍTÁSA ---
     if (animate) {
         if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation();
@@ -3434,6 +3443,7 @@ function clearRouteAndClose() {
 
     if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
         poiMarkersGroup.clearLayers(); // Törli a POI pineket is a teljes kilépésnél
+        activePoiCategory = null; // Állapot törlése
     }
     
     // 2. Globális útvonal- és navigációs változók alaphelyzetbe állítása (nullázása)
@@ -3720,6 +3730,7 @@ function handleRightAction(e) {
         // POI markerek eltávolítása a térképről a keresés törlésekor
         if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
             poiMarkersGroup.clearLayers();
+            activePoiCategory = null; // Állapot törlése
         }
         
         // A gomb állapotának visszaállítása alapértelmezettre (tune ikon)
@@ -3825,41 +3836,91 @@ function getPoiPositions(typeKey) {
 }
 
 /**
- * A fő POI megjelenítő függvény. Törli a régieket és lerakja az újakat.
- * @param {string} typeKey - A POI kategória kulcsa
+ * A POI keresés fő belépési pontja. Megvizsgálja, hogy van-e találat az aktuális 
+ * emeleten. Ha nincs, intelligensen átvált arra az emeletre, ahol a legközelebbi található.
+ * @param {string} typeKey - A POI kategória kulcsa (pl. 'coffee')
  */
 function showPoiCategory(typeKey) {
-    // 1. Minden korábbi markert eltüntetünk
-    if (poiMarkersGroup) {
-        poiMarkersGroup.clearLayers();
-    }
+    activePoiCategory = typeKey; // Eltároljuk az aktív keresési állapotot
 
-    // 2. Megszerezzük a POI-k listáját koordinátákkal
-    const pois = getPoiPositions(typeKey);
-
-    if (pois.length === 0) {
-        console.warn("Nem találtam ilyen POI-t ezen a szinten:", typeKey);
+    const allPois = getPoiPositions(typeKey);
+    if (allPois.length === 0) {
+        showToast("Nincs ilyen hely az épületben.");
+        activePoiCategory = null;
         return;
     }
 
-    // 3. Renderelés (Ezt a következő lépésben írjuk meg, de a hívást már ide tesszük)
-    pois.forEach(poi => {
-        renderPoiMarker(poi);
+    // Megnézzük, van-e az aktuális emeleten találat
+    const poisOnCurrentFloor = allPois.filter(poi => {
+        const lvls = getLevelsFromFeature(poi.feature);
+        return lvls.includes(currentLevel);
     });
 
-    // --- ÚJ: KAMERA MOZGATÁSA ---
-    // Lekérjük az összes lerakott pin befoglaló téglalapját
-    const bounds = poiMarkersGroup.getBounds();
-    
-    if (bounds.isValid()) {
-        // Átpannelünk és zoomolunk, hogy minden látsszon. 
-        // A padding biztosítja, hogy ne lógjanak le a szélén a pinek.
-        map.fitBounds(bounds, { 
-            padding: [50, 50], 
-            maxZoom: 19, 
-            animate: true,
-            duration: 0.8
+    if (poisOnCurrentFloor.length > 0) {
+        // Ha van az aktuális emeleten, csak kirajzoltatjuk őket
+        renderActivePoiCategory(currentLevel);
+    } else {
+        // Ha NINCS az aktuális emeleten: megkeressük a fizikailag (2D-ben) legközelebbit
+        // A térkép aktuális közepét vesszük referenciának
+        const mapCenter = map.getCenter();
+        const centerPt = turf.point([mapCenter.lng, mapCenter.lat]);
+        
+        let closestPoi = null;
+        let minDist = Infinity;
+
+        allPois.forEach(poi => {
+            // A getPoiPositions [lat, lon] formátumot ad, a Turf-nek [lon, lat] kell!
+            const poiPt = turf.point([poi.coords[1], poi.coords[0]]);
+            const dist = turf.distance(centerPt, poiPt);
+            
+            if (dist < minDist) {
+                minDist = dist;
+                closestPoi = poi;
+            }
         });
+
+        if (closestPoi) {
+            const targetLvl = getLevelsFromFeature(closestPoi.feature)[0] || "0";
+            const displayLvl = levelAliases[targetLvl] || targetLvl;
+            
+            showToast(`Nincs ezen a szinten. Átváltás a(z) ${displayLvl}. szintre...`);
+            
+            // Szintváltás: Ez automatikusan meghívja a renderLevel-t, ami majd kirajzolja a pineket!
+            switchLevel(targetLvl);
+            
+            // Ráközelítünk a legközelebbi találatra
+            setTimeout(() => {
+                 smartFlyTo(closestPoi.feature);
+            }, 300);
+        }
+    }
+}
+
+/**
+ * Kirajzolja a térképre az aktív kategóriába tartozó POI markereket,
+ * de Szigorúan csak azokat, amelyek a megadott szinten találhatóak.
+ * @param {string} level - Az aktuálisan megjelenített szint
+ */
+function renderActivePoiCategory(level) {
+    if (!activePoiCategory) return;
+    if (poiMarkersGroup) poiMarkersGroup.clearLayers();
+
+    const allPois = getPoiPositions(activePoiCategory);
+    
+    // Szűrés kizárólag a jelenleg látható emeletre
+    const poisOnLevel = allPois.filter(poi => {
+        const lvls = getLevelsFromFeature(poi.feature);
+        return lvls.includes(level);
+    });
+
+    poisOnLevel.forEach(poi => renderPoiMarker(poi));
+
+    // Ha vannak pinek ezen az emeleten, ráigazítjuk a kamerát (csak ha sokat rajzoltunk ki)
+    if (poisOnLevel.length > 0) {
+        const bounds = poiMarkersGroup.getBounds();
+        if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 100], maxZoom: 20, animate: true, duration: 0.8 });
+        }
     }
 }
 
