@@ -64,7 +64,7 @@ async function updateMaps() {
     for (const [key, center] of Object.entries(BUILDINGS)) {
         console.log(`\n🏢 --- ${key.toUpperCase()} ÉPÜLET FRISSÍTÉSE ---`);
         const query = `[out:json][timeout:120];
-                        (area(around:20, ${center[0]}, ${center[1]})["building"];)->.targetBuilding;
+                        (area(around:30, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];)->.targetBuilding;
                         .targetBuilding map_to_area -> .searchArea;
                         (
                         way["indoor"](area.searchArea);
