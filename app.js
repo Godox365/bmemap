@@ -2041,11 +2041,23 @@ function toKey(lat, lon, level) {
  * @returns {string[]} Az érvényes szintek egyedi, növekvő sorrendbe rendezett tömbje.
  */
 function getLevelsFromFeature(feature) {
-    // Biztonsági ellenőrzés: ha az elem vagy a szintadat nem létezik, üres tömbbel térünk vissza
-    if (!feature || !feature.properties || !feature.properties.level) return [];
+    if (!feature || !feature.properties) return [];
+    
+    const p = feature.properties;
+
+    // --- FALLBACK LOGIKA HIÁNYZÓ SZINTEKRE ---
+    // Ha az OSM-ben lusta volt a szerkesztő, és nem adott meg szintet, 
+    // de az elem egy POI, ajtó, vagy bejárat, alapértelmezetten a Földszintre ("0") rakjuk.
+    if (!p.level) {
+        const isPoi = p.amenity === 'vending_machine' || p.amenity === 'microwave' || p.amenity === 'atm' || p.amenity === 'cafe' || p.amenity === 'fast_food' || p.shop === 'kiosk' || p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets';
+        if (p.entrance || p.door || isPoi) {
+            return ["0"];
+        }
+        return []; // Ha nem POI és nincs szintje (pl. egy fa kint), azt hagyjuk békén
+    }
     
     // A nyers szintadat sztringgé alakítása a biztonságos string műveletekhez
-    const raw = feature.properties.level.toString();
+    const raw = p.level.toString();
     
     // A vesszőket pontosvesszőre cseréljük a formátum egységesítése érdekében, majd feldaraboljuk
     const parts = raw.replace(/,/g, ';').split(';');
