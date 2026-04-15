@@ -2291,14 +2291,15 @@ function processOsmData(osmData, isUpdate = false) {
         }
     }
 
-    // 3. KAMERA POZICIONÁLÁSA (Először ezt tesszük meg, hogy a renderelés már a jó helyen történjen!)
-    // Ha első betöltés (nem frissítés), akkor animáció nélkül (false) azonnal a helyére ugrik.
+    // 3. KAMERA POZICIONÁLÁSA
     if (!isUpdate) {
-        alignMapToBuildingCenter(false);
+        alignMapToBuildingCenter(true);
     }
 
-    // 4. Felhasználói felület és térkép renderelése a már beállított nézeten
-    renderLevel(currentLevel);
+    // 4. Felhasználói felület és térkép renderelése
+    // Ha isUpdate === true (azaz háttérben frissült a json), akkor NE animáljunk (!isUpdate -> false).
+    // Így a cache betöltése szépen animál, a netes frissítés pedig némán kicseréli a szobákat a háttérben.
+    renderLevel(currentLevel, !isUpdate);
     createLevelControls();
     
     // Dinamikus láthatóság (részletességi szint / LOD) frissítése az aktuális nagyításhoz
@@ -2598,11 +2599,10 @@ function triggerBlueprintAnimation() {
 
 /**
  * Megjeleníti és rendereli a térképen az adott szinthez tartozó elemeket.
- * Előzetesen törli az aktuális rétegeket, frissíti az útvonalak és kiemelések láthatóságát,
- * majd a GeoJSON adatok alapján feldolgozza és stilizálja a megfelelő szint térképi elemeit.
- * * @param {string} level - A megjelenítendő szint azonosítója (pl. '0', '1', '-1').
+ * @param {string} level - A megjelenítendő szint azonosítója (pl. '0', '1', '-1').
+ * @param {boolean} animate - Indítsa-e el a Blueprint előtűnési animációt (alapból true).
  */
-function renderLevel(level) {
+function renderLevel(level, animate = true) {
     // Korábbi rétegek tartalmának törlése az újrarenderelés előtt
     indoorLayerGroup.clearLayers();
     iconLayerGroup.clearLayers();
@@ -2799,9 +2799,10 @@ function renderLevel(level) {
     drawLabels(level);
     
     // --- BLUEPRINT ANIMÁCIÓ INDÍTÁSA ---
-    // Miután a Leaflet mindent letett a DOM-ba (falak, ikonok, feliratok),
-    // ráküldjük az animációt, ami az egészet gyönyörűen fókuszba hozza.
-    triggerBlueprintAnimation();
+    // Csak akkor indítjuk az animációt, ha ez nem egy háttérben történő adatfrissítés
+    if (animate) {
+        if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation();
+    }
 }
 
 /**
