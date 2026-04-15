@@ -159,6 +159,7 @@
         
         /* LEAFLET CONTROLS */
         .level-control { 
+            position: relative; /* EZ FONTOS A GÖRGETÉSHEZ! */
             background: var(--bg-surface); 
             padding: 6px; 
             border-radius: 12px; 
@@ -169,8 +170,8 @@
             max-height: 50vh; 
             overflow-y: auto;
             scrollbar-width: none;
-            touch-action: pan-y; /* FONTOS: Engedi a függőleges görgetést */
-            pointer-events: auto; /* Biztos ami biztos */
+            touch-action: pan-y; 
+            pointer-events: auto; 
         }
         .level-control::-webkit-scrollbar { display: none; } /* Chrome scrollbar rejtés */
 
@@ -678,27 +679,43 @@
             transform-origin: center center;
         }
 
-        /* --- KÖZEPES ZOOM (Kicsinyítés) --- */
-        /* Csak a belső ikont kicsinyítjük! */
+        /* --- KÖZEPES ZOOM (Pöttyé alakulás) --- */
         .map-container-mid .map-icon span {
-            transform: scale(0.6); /* 60%-os méret */
-            opacity: 0.7;
+            font-size: 0px !important; /* Eltünteti a Material ikont */
+            color: transparent !important;
+            background-color: var(--icon-bg-color, white) !important; /* Felveszi a HTML-ből átadott színt */
+            width: 12px !important;
+            height: 12px !important;
+            min-width: 12px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.8);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            transform: scale(1);
+            opacity: 0.9;
         }
         .map-container-mid path.door-marker {
-            opacity: 0.4; /* Ajtók halványulnak */
+            opacity: 0.4;
+        }
+        /* A keresés teardrop markerei is zsugorodjanak, hogy ne takarjanak ki mindent */
+        .map-container-mid .poi-marker {
+            transform: rotate(-45deg) scale(0.6);
+            opacity: 0.8;
         }
 
-        /* --- TÁVOLI ZOOM (Elrejtés - "Túl későn" fix) --- */
+        /* --- TÁVOLI ZOOM (Teljes elrejtés) --- */
         .map-container-low .map-icon span {
-            transform: scale(0); /* Eltűnik */
+            transform: scale(0);
             opacity: 0;
         }
-        /* Itt a wrapper-ről levesszük a klikkelhetőséget */
         .map-container-low .map-icon {
             pointer-events: none;
         }
-        
         .map-container-low path.door-marker {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .map-container-low .poi-marker {
+            transform: rotate(-45deg) scale(0);
             opacity: 0;
             pointer-events: none;
         }

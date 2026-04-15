@@ -2695,18 +2695,65 @@ function renderLevel(level, animate = true) {
 
         // Pont típusú geometriák (pl. ajtók) egyedi renderelése
         pointToLayer: function(feature, latlng) {
-                if (feature.properties.entrance || feature.properties.door) {
-                    return L.circleMarker(latlng, { 
-                        radius: 3, 
-                        color: 'white', 
-                        fillColor: 'black', 
-                        fillOpacity: 1,
-                        className: 'door-marker' 
+            const props = feature.properties;
+
+            // 1. WC-k
+            if (props.room === 'toilet' || props.amenity === 'toilets') {
+                return L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'map-icon',
+                        // A --icon-bg-color teszi lehetővé a CSS számára a pöttyé alakítást
+                        html: `<span class="material-symbols-outlined" style="color: var(--color-toilet-stroke); --icon-bg-color: var(--color-toilet-stroke)">wc</span>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    }),
+                    pane: 'markerPane'
+                });
+            }
+
+            // 2. Lépcsők és liftek (Alapból fehér pöttyök lesznek)
+            if (props.highway === 'steps' || props.highway === 'elevator') {
+                const iconName = props.highway === 'steps' ? 'stairs' : 'elevator';
+                return L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'map-icon',
+                        html: `<span class="material-symbols-outlined" style="--icon-bg-color: #ffffff">${iconName}</span>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    }),
+                    pane: 'markerPane'
+                });
+            }
+
+            // 3. ÚJ POI-K
+            for (const key in POI_TYPES) {
+                if (POI_TYPES[key].filter(props)) {
+                    const config = POI_TYPES[key];
+                    return L.marker(latlng, {
+                        icon: L.divIcon({
+                            className: 'map-icon',
+                            html: `<span class="material-symbols-outlined" style="color: ${config.color}; --icon-bg-color: ${config.color}">${config.icon}</span>`,
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
+                        }),
+                        pane: 'markerPane'
                     });
                 }
-                // Kék alapértelmezett Leaflet pin (L.marker) letiltása.
-                // Helyette egy láthatatlan (opacity: 0) kört teszünk le, amely fenntartja a kattinthatóságot.
-                return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
+            }
+
+            // 4. Ajtók
+            if (props.entrance || props.door) {
+                return L.circleMarker(latlng, { 
+                    radius: 3, 
+                    color: 'white', 
+                    fillColor: 'black', 
+                    fillOpacity: 1,
+                    className: 'door-marker' 
+                });
+            }
+            
+            // Rejtett marker a kattinthatóság fenntartásához a szobák közepén
+            return L.circleMarker(latlng, { radius: 12, opacity: 0, fillOpacity: 0 });
         },
 
         // Eseménykezelők és ikonok hozzárendelése az egyes elemekhez
@@ -5636,20 +5683,38 @@ function createLevelControls() {
     
     // A vezérlő hozzáadása a Leaflet térképpéldányhoz
     control.addTo(map);
+    
+    // Miután a vezérlő bekerült a DOM-ba, futtatjuk a UI frissítést egy minimális
+    // késleltetéssel, hogy a böngésző biztosan ki tudja számolni a magasságokat a görgetéshez.
+    setTimeout(() => {
+        updateLevelUI();
+    }, 50);
 }
 
 /**
- * Frissíti a szintválasztó gombok vizuális állapotát a felhasználói felületen.
- * Végigiterál az összes szintválasztó gombon, és az aktuális szintnek (currentLevel)
- * megfelelő gombhoz hozzáadja az 'active' CSS osztályt, a többitől pedig eltávolítja.
+ * Frissíti a szintválasztó gombok vizuális állapotát a felhasználói felületen,
+ * és automatikusan a látható terület (scroll) közepére görgeti az aktív gombot.
  */
 function updateLevelUI() {
-    // Végigiterálunk a DOM-ban található összes szintválasztó gombon
     document.querySelectorAll('.level-btn').forEach(btn => {
-        // A gomb adattribútumának összehasonlítása az aktuális szint azonosítójával
         if (btn.dataset.level === currentLevel.toString()) {
+            // Aktív állapot beállítása
             btn.classList.add('active');
+            
+            // --- AUTOMATIKUS GÖRGETÉS ---
+            const container = btn.parentNode; // Ez a .level-control div
+            
+            // Kiszámoljuk a gomb középpontjának helyét a konténeren belül
+            const scrollPos = btn.offsetTop - (container.offsetHeight / 2) + (btn.offsetHeight / 2);
+            
+            // Sima, animált görgetés a kiszámított pozícióba
+            container.scrollTo({
+                top: scrollPos,
+                behavior: 'smooth'
+            });
+            
         } else {
+            // Inaktív állapot
             btn.classList.remove('active');
         }
     });
