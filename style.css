@@ -1096,3 +1096,29 @@
     line-height: 1.1;
     word-break: break-word;
 }
+
+/* =========================================
+   BLUEPRINT FADE-IN (FOCUS) ANIMATION
+========================================= */
+@keyframes blueprintFocus {
+    0% {
+        opacity: 0;
+        filter: blur(4px);
+    }
+    100% {
+        opacity: 1;
+        filter: blur(0px);
+    }
+}
+
+/* 
+ * Csak az épülethez tartozó rétegeket animáljuk.
+ * A poiPane-t (csepp markerek) szándékosan kihagyjuk, hogy 
+ * ne zavarjon be a kereső lenyíló animációjába!
+ */
+.blueprint-animating .leaflet-floorPane-pane,
+.blueprint-animating .leaflet-overlay-pane,
+.blueprint-animating .leaflet-labelPane-pane,
+.blueprint-animating .leaflet-marker-pane {
+    animation: blueprintFocus 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
