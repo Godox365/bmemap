@@ -3126,41 +3126,49 @@ function openSheet(feature) {
 
     poiContainer.style.display = hasPoiData ? 'flex' : 'none';
     
-    // Ha találtunk részletes adatokat a helyiségről VAGY vannak POI metaadatok
+    // A Fő konténer láthatósága: ha BÁRMELYIK adat létezik (Terem infó VAGY POI infó)
     if (roomData || hasPoiData) {
-        // Az adatokat tartalmazó szekció megjelenítése
         dataContainer.style.display = 'block';
+    } else {
+        dataContainer.style.display = 'none';
+    }
+
+    // --- TEREM-ADATBÁZIS SPECIFIKUS ELEMEK KEZELÉSE ---
+    const metaContainer = document.querySelector('.room-meta');
+    const noteEl = document.getElementById('room-note');
+    const galleryEl = document.getElementById('room-gallery');
+
+    if (roomData) {
+        // Ha van belső adatbázis rekord (pl. tantermek)
+        if (metaContainer) metaContainer.style.display = 'flex';
+        if (noteEl) noteEl.style.display = 'block';
+        if (galleryEl) galleryEl.style.display = 'flex';
         
-        // Férőhely (kapacitás) adatának beállítása
         document.getElementById('meta-capacity').innerHTML = `<span class="material-symbols-outlined">group</span> ${roomData.capacity} fő`;
         
-        // Vizuális címkék (badge-ek) dinamikus megjelenítése a felszereltség (projektor, kulcs) alapján
         const projEl = document.getElementById('meta-projector');
         const keyEl = document.getElementById('meta-key');
         projEl.style.display = roomData.projector ? 'flex' : 'none';
         keyEl.style.display = roomData.key ? 'flex' : 'none';
         
-        // Megjegyzés/leírás mező kitöltése (ha van)
-        document.getElementById('room-note').innerText = roomData.note || "";
+        noteEl.innerText = roomData.note || "";
         
-        // --- KÉPGALÉRIA GENERÁLÁSA ---
-        const gallery = document.getElementById('room-gallery');
-        gallery.innerHTML = ""; // Előző képek törlése
-        
+        galleryEl.innerHTML = ""; 
         if (roomData.images && roomData.images.length > 0) {
-            // Végigiterálunk a kép URL-eken és legeneráljuk az <img> elemeket
             roomData.images.forEach(url => {
                 const img = document.createElement('img');
                 img.src = url;
                 img.className = 'gallery-img';
-                // A képre kattintva új fülön nyílik meg az eredeti méretű fotó
                 img.onclick = () => window.open(url, '_blank');
-                gallery.appendChild(img);
+                galleryEl.appendChild(img);
             });
         }
     } else {
-        // Ha nincsenek extra adatok a helyiségről, a konténert teljesen elrejtjük
-        dataContainer.style.display = 'none';
+        // Ha nincs belső adatbázis rekord (pl. büfék, automaták, amiknek csak nyitvatartásuk van)
+        // Elrejtjük a kapacitást, kulcsot, megjegyzést és képgalériát
+        if (metaContainer) metaContainer.style.display = 'none';
+        if (noteEl) noteEl.style.display = 'none';
+        if (galleryEl) galleryEl.style.display = 'none';
     }
 
     // Az információs panel (Sheet) vizuális megnyitása a CSS animáció aktiválásával
@@ -3171,17 +3179,13 @@ function openSheet(feature) {
     updateFavoriteUI(); 
     
     // --- 5. INTELLIGENS MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
-    // Rövid késleltetés alkalmazása szükséges, hogy a böngésző renderelő motorja 
-    // kiszámíthassa a betöltött tartalom (képek, szövegek) tényleges magasságát a DOM-ban.
     setTimeout(() => {
         const autoH = getAutoHeight();
         
-        // Ha sikeres adatbázis találat volt (sok adat, képek), a panelt automatikusan nagyobbra nyitjuk
-        if (roomData) {
+        // Ha van belső adatbázis rekord VAGY van OSM nyitvatartási/weboldal adat
+        if (roomData || hasPoiData) {
                 sheet.style.height = `${autoH}px`;
         } else {
-                // Ha nincs extra tartalom (csak név és szint), elegendő a minimális 
-                // betekintő (Peek) magasság, kis ráhagyással a kényelmes olvasáshoz.
                 sheet.style.height = `${getPeekHeight() + 20}px`; 
         }
     }, 50);
