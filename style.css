@@ -510,6 +510,15 @@
         .meta-tag span { font-size: 16px; }
         .room-note { font-style: italic; color: #888; margin-bottom: 15px; font-size: 14px; }
         
+        /* ÚJ: POI Részletek (Nyitvatartás, Weboldal) */
+        #poi-details-container { margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .poi-detail-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.4; }
+        .poi-detail-row .material-symbols-outlined { font-size: 18px; color: var(--icon-color); margin-top: 2px; }
+        .poi-detail-row a { color: var(--color-ui-active); text-decoration: none; font-weight: bold; }
+        .poi-detail-row a:hover { text-decoration: underline; }
+        .status-open { color: #4CAF50; font-weight: bold; } /* Zöld Nyitva */
+        .status-closed { color: #F44336; font-weight: bold; } /* Piros Zárva */
+        
         /* GALLERY */
         .room-gallery { 
             display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; 

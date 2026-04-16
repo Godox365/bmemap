@@ -3053,9 +3053,81 @@ function openSheet(feature) {
     const roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey);
     
     const dataContainer = document.getElementById('room-data-container');
+
+    // --- 4.5 OSM POI ADATOK (Nyitvatartás, Weboldal) ---
+    const poiContainer = document.getElementById('poi-details-container');
+    const hoursRow = document.getElementById('poi-hours-row');
+    const hoursText = document.getElementById('poi-hours-text');
+    const webRow = document.getElementById('poi-website-row');
+    const webLink = document.getElementById('poi-website-link');
     
-    // Ha találtunk részletes adatokat a helyiségről (férőhely, felszereltség, képek)
-    if (roomData) {
+    let hasPoiData = false;
+
+    // Weboldal kezelése
+    if (p.website || p['contact:website']) {
+        const url = p.website || p['contact:website'];
+        webLink.href = url.startsWith('http') ? url : 'https://' + url;
+        webLink.innerText = url.replace('https://', '').replace('http://', '').split('/')[0]; // Csak a domaint írjuk ki szépen
+        webRow.style.display = 'flex';
+        hasPoiData = true;
+    } else {
+        webRow.style.display = 'none';
+    }
+
+    // Nyitvatartás kezelése és értelmezése
+    if (p.opening_hours) {
+        const rawHours = p.opening_hours;
+        let formattedHours = rawHours;
+        let isOpenNowHtml = "";
+
+        if (rawHours === '24/7') {
+            isOpenNowHtml = `<span class="status-open">Nyitva (0-24)</span><br>`;
+            formattedHours = "Mindennap nyitva";
+        } else {
+            // Magyarítás szótár az OSM napokhoz
+            const daysDict = { 'Mo': 'Hétfő', 'Tu': 'Kedd', 'We': 'Szerda', 'Th': 'Csütörtök', 'Fr': 'Péntek', 'Sa': 'Szombat', 'Su': 'Vasárnap', 'off': 'Zárva', 'closed': 'Zárva' };
+            
+            // Szövegcsere magyarra
+            for (const [en, hu] of Object.entries(daysDict)) {
+                formattedHours = formattedHours.replace(new RegExp(en, 'g'), hu);
+            }
+            // Sortörések berakása a pontosvesszőknél a szép listáért
+            formattedHours = formattedHours.split(';').map(s => s.trim()).join('<br>');
+
+            // EGYSZERŰ NYITVA TARTÁS ELLENŐRZŐ (Hétköznapi formátumokra)
+            try {
+                const now = new Date();
+                const currentDayStr = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][now.getDay()];
+                const currentMins = now.getHours() * 60 + now.getMinutes();
+                
+                // Megnézzük, szerepel-e a mai nap (vagy napköz) a stringben, és kinyerjük az időt (pl. 08:00-16:00)
+                // Megjegyzés: Ez egy nagyon egyszerű heuristika, bonyolult OSM stringeknél nem jelez semmit, ami jobb, mint a fals adat.
+                const timeMatch = rawHours.match(new RegExp(`(?:${currentDayStr}|Mo-Fr).*?(\\d{2}):(\\d{2})\\s*-\\s*(\\d{2}):(\\d{2})`));
+                
+                if (timeMatch) {
+                    const startMins = parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
+                    const endMins = parseInt(timeMatch[3]) * 60 + parseInt(timeMatch[4]);
+                    
+                    if (currentMins >= startMins && currentMins <= endMins) {
+                        isOpenNowHtml = `<span class="status-open">Nyitva</span><br>`;
+                    } else {
+                        isOpenNowHtml = `<span class="status-closed">Zárva</span><br>`;
+                    }
+                }
+            } catch (e) { /* Csendes hibakezelés */ }
+        }
+
+        hoursText.innerHTML = isOpenNowHtml + `<span style="opacity:0.8; font-size:13px;">${formattedHours}</span>`;
+        hoursRow.style.display = 'flex';
+        hasPoiData = true;
+    } else {
+        hoursRow.style.display = 'none';
+    }
+
+    poiContainer.style.display = hasPoiData ? 'flex' : 'none';
+    
+    // Ha találtunk részletes adatokat a helyiségről VAGY vannak POI metaadatok
+    if (roomData || hasPoiData) {
         // Az adatokat tartalmazó szekció megjelenítése
         dataContainer.style.display = 'block';
         
@@ -3531,51 +3603,10 @@ function handleSearch(e) {
     // ==========================================
     if (e.key === 'Enter') {
         
-        // --- 1. Prioritás: Intelligens Épületváltás ---
-        // Ha a felhasználó egy másik épület specifikus kódját írta be (pl. "QBF11", miközben a 'K' épület van nyitva)
-        for (const [key, data] of Object.entries(BUILDINGS)) {
-            // Ellenőrizzük, hogy más épületről van-e szó, és illeszkedik-e az előre definiált reguláris kifejezésre (regex)
-            if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
-                // Modális (felugró) ablak megjelenítése a felhasználói szándék megerősítésére
-                showModal(
-                    "Épület Váltás", 
-                    `A keresett hely (${term}) valószínűleg a(z) ${data.name}-ben van. Átváltsunk?`, 
-                    () => {
-                        // Megerősítés esetén átváltunk az új épületre, és átadjuk a keresési kifejezést automatikus kereséshez
-                        changeBuilding(key, term); 
-                    }
-                );
-                // Megszakítjuk a további keresést, hogy elkerüljük az irreleváns helyi találatokra való fókuszálást
-                return; 
-            }
-        }
-
-        // --- 2. Prioritás: Helyi térképelemek keresése ---
-        // Az aktuális épület elemeinek szűrése az egyedi 'smartFilter' algoritmussal
-        const hits = smartFilter(term); 
-        if (hits.length > 0) {
-            // Ha van releváns találat, a térképet az első (legjobb) találatra pozicionáljuk
-            zoomToFeature(hits[0]);
-            // Megnyitjuk a részletes információs panelt a kiválasztott elemhez
-            openSheet(hits[0]);
-            // Elrejtjük az automatikus kiegészítő (autocomplete) listát
-            resultsDiv.style.display = 'none'; 
-            
-            // A keresőmező tartalmának frissítése a pontos formázott névvel
-            const val = hits[0].properties.name || hits[0].properties.ref || term;
-            document.getElementById('search-input').value = val;
-
-            // UI frissítés: A keresőmező melletti ikon (pl. Törlés X) állapotának beállítása (B-003 Fix)
-            updateRightButtonState();
-
-            return; // Kilépés a sikeres találat feldolgozása után
-        }
-
-        // --- 3. Prioritás: Generikus kategóriák (POI) kiemelése ---
+        // --- 1. Prioritás: Generikus kategóriák (POI) kiemelése ---
         const lowerTerm = term.toLowerCase();
         let matchedPoiKey = null;
         
-        // Végignézzük, hogy a beírt szó egyezik-e valamelyik POI alias-ával
         for (const [key, config] of Object.entries(POI_TYPES)) {
             if (config.aliases && config.aliases.some(alias => lowerTerm.includes(alias))) {
                 matchedPoiKey = key;
@@ -3584,14 +3615,43 @@ function handleSearch(e) {
         }
 
         if (matchedPoiKey) {
-            // Ha találtunk egyezést (pl. "budi" -> 'toilet'), beindítjuk az új okos POI rendszert!
             showPoiCategory(matchedPoiKey); 
             resultsDiv.style.display = 'none'; 
             updateRightButtonState();
             return;
         }
-        
-        // Ha semmilyen találat vagy felismerhető minta nincs, esemény nélkül kilépünk
+
+        // --- 2. Prioritás: Helyi térképelemek keresése (Jelenlegi épület) ---
+        const hits = smartFilter(term); 
+        if (hits.length > 0) {
+            zoomToFeature(hits[0]);
+            openSheet(hits[0]);
+            resultsDiv.style.display = 'none'; 
+            
+            const val = hits[0].properties.name || hits[0].properties.ref || term;
+            document.getElementById('search-input').value = val;
+            updateRightButtonState();
+            return; 
+        }
+
+        // --- 3. Prioritás (Végső Fallback): Intelligens Épületváltás ---
+        // Ha semmi találat nincs az aktuális épületben, megnézzük, hogy a regex alapján máshol van-e
+        for (const [key, data] of Object.entries(BUILDINGS)) {
+            if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
+                showModal(
+                    "Épület Váltás", 
+                    `Nincs találat itt. A keresett hely (${term}) valószínűleg a(z) ${data.name}-ben van. Átváltsunk?`, 
+                    () => { changeBuilding(key, term); }
+                );
+                // A UI frissítése: becsukjuk a listát, fókusz levétele
+                resultsDiv.style.display = 'none';
+                e.target.blur();
+                return; 
+            }
+        }
+
+        // --- 4. Ha végképp semmi ---
+        showToast("Nincs találat erre a kifejezésre.");
         return; 
     }
 
