@@ -2837,7 +2837,11 @@ function renderLevel(level, animate = true) {
  * Célja, hogy egy OpenStreetMap-ből származó név (name) vagy referencia (ref) alapján
  * megtalálja a legmegfelelőbb egyezést a külső szoba-adatbázisban (ROOM_DATABASE),
  * leküzdve a formátumbeli eltéréseket, elírásokat, vagy a hiányzó épület/szárny azonosítókat.
- * * @param {string} osmName - Az OSM-ből származó 'name' tag értéke.
+ * Szigorított szobakereső algoritmus külső adatbázis illesztéshez.
+ * Célja, hogy egy OpenStreetMap-ből származó név vagy referencia alapján
+ * megtalálja a pontos egyezést, de kizárja a fals pozitívokat (pl. K150 ne találja meg a K2150-et,
+ * vagy az I épületes B007 ne találja meg az E007-et).
+ * @param {string} osmName - Az OSM-ből származó 'name' tag értéke.
  * @param {string} osmRef - Az OSM-ből származó 'ref' tag értéke.
  * @param {string} osmLevel - Az OSM-ből származó szint adat (lehet többértékű is, pontosvesszővel elválasztva).
  * @param {string} buildingKey - Az aktuális épület azonosítója (pl. 'K', 'Q').
@@ -2846,94 +2850,88 @@ function renderLevel(level, animate = true) {
 function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
     if (!osmName && !osmRef) return null;
     
-    // A keresési mag (core) meghatározása, előnyben részesítve a pontosabb referenciaszámot.
+    // A keresési mag meghatározása
     let core = (osmRef || osmName || "").trim();
-    
-    // "Névtelen" vagy üres értékek kiszűrése.
     if (core.toLowerCase().includes("névtelen") || core === "") return null;
-    
-    // A mag normalizálása (kisbetűsítés, szóközök/speciális karakterek eltávolítása).
-    core = normalizeRoomId(core); // pl. "107" vagy "b107"
+    core = normalizeRoomId(core); 
     
     const b = buildingKey.toLowerCase(); 
-    
-    // Csak a legelső szintet vesszük figyelembe többértékű megadás esetén.
     const rawLvl = osmLevel.split(';')[0];
-    
-    // A szint lehetséges betűjeleinek/aliasainak lekérése (pl. -1 -> ["-1", "p", "f"]).
     const lvlChars = getLevelChars(buildingKey, rawLvl);
 
-    // A keresési mag szétválasztása szárny (wing) és szobaszám (num) részre, ha tartalmaz betűt.
+    // Különszedjük a betűs szárnyat (wing) és a számot, pl. "kf50" -> wing:"kf", num:"50"
     let wing = "";
     let num = core;
-    // Regex magyarázat: Olyan stringet keresünk, amely betűkkel kezdődik, majd számokkal (és esetleg más karakterekkel) folytatódik.
     const splitMatch = core.match(/^([a-z]+)(\d+.*)$/);
     if (splitMatch) {
-        wing = splitMatch[1]; // pl. "b"
-        num = splitMatch[2];  // pl. "107"
+        wing = splitMatch[1]; 
+        num = splitMatch[2];  
     }
 
-    // Egyedi keresési jelöltek (permutációk) halmazának inicializálása a duplikációk elkerülésére.
     const candidates = new Set();
     
-    // 1. Alapértelmezett jelöltek hozzáadása.
-    candidates.add(core); // Eredeti mag (pl. "b107")
-    if (wing) candidates.add(num); // Ha van szárny, kipróbáljuk csak a számot is (pl. "107")
+    // 1. Legvalószínűbb BME formátum: Épület + Mag (pl. "k" + "150" -> "k150", "i" + "b028" -> "ib028")
+    candidates.add(b + core);
+    // 2. Maga a nyers azonosító (pl. "qbf11", ha az OSM-ben már benne volt az épület)
+    candidates.add(core);
 
-    // 2. Jelöltek generálása a szintek összes lehetséges aliasával kombinálva.
+    // 3. Szint alapú kombinációk
     lvlChars.forEach(lvl => {
-        // Szint + Mag (pl. "p107", "pb107")
-        if (!core.startsWith(lvl)) candidates.add(lvl + core);
-        
-        // Épület azonosító + Mag (pl. "q107", "qb107")
-        candidates.add(b + core);
-
-        // Épület azonosító + Szint + Mag (Leggyakoribb formátum: "qp107", "qpb107")
-        candidates.add(b + lvl + core); 
-        
-        // Speciális "Wingman" logika a szárnyat tartalmazó épületekhez (pl. Q épület B szárny).
+        candidates.add(b + lvl + core); // pl. q + f + 11 -> qf11
         if (wing) {
-            // Épület + Szárny + Szint + Szám (pl. Q + B + P + 107 -> "qbp107")
-            candidates.add(b + wing + lvl + num); 
-            // Szárny + Szint + Szám (pl. B + P + 107 -> "bp107")
-            candidates.add(wing + lvl + num);     
+            // Ha van betűs szárny (pl. KF50), megpróbáljuk az Épület + Szint + Szám kombót is (K + MF + 50)
+            candidates.add(b + lvl + num);
+            candidates.add(wing + lvl + num);
         }
     });
 
-    // Hibakeresési információk naplózása a generált permutációkról.
-    console.log(`🔎 DB Keresés: "${core}" (Wing:${wing}, Lvl:${lvlChars}) ->`, Array.from(candidates));
-
-    // Az adatbázisban tárolt összes kulcs lekérése az iterációhoz.
     const dbKeys = Object.keys(ROOM_DATABASE);
     
-    // Elsődleges keresés: Pontos egyezés vizsgálata a normalizált értékek között.
+    // --- 1. KÖR: PONTOS EGYEZÉS ---
+    // Ez a legbiztosabb, itt nincs kecmec.
     for (const cand of candidates) {
         for (const dbKey of dbKeys) {
-            const cleanDbKey = normalizeRoomId(dbKey);
-            if (cleanDbKey === cand) {
+            if (normalizeRoomId(dbKey) === cand) {
                 console.log(`   ✅ TALÁLAT (Pontos): ${dbKey}`);
-                return ROOM_DATABASE[dbKey]; // Azonnali visszatérés sikeres egyezés esetén
+                return ROOM_DATABASE[dbKey]; 
             }
         }
     }
     
-    // Másodlagos keresés (Fuzzy fallback): Részleges egyezés vizsgálata.
+    // --- 2. KÖR: SZIGORÚ RÉSZLEGES EGYEZÉS (Fuzzy) ---
     for (const cand of candidates) {
-        // Túl rövid (pl. 1-2 karakteres) jelölteket kihagyjuk a fals pozitív találatok elkerülése végett.
-        if (cand.length < 3) continue; 
+        // Túl rövid karaktereket nem engedünk fuzzy keresésbe a fals pozitívok miatt
+        if (cand.length < 2) continue; 
         
+        const isOnlyNumbers = /^\d+$/.test(cand);
+
         for (const dbKey of dbKeys) {
             const cleanDbKey = normalizeRoomId(dbKey);
-            // Ellenőrizzük, hogy az adatbázisbeli kulcs tartalmazza-e a keresett jelöltet 
-            // (pl. adatbázisban: "qbp107_labor", keresett: "qbp107").
-            if (cleanDbKey.includes(cand)) {
-                console.log(`   ✅ TALÁLAT (Fuzzy): ${dbKey}`);
-                return ROOM_DATABASE[dbKey];
+            
+            // SZABÁLY 1: Az adatbázis kulcsnak az aktuális épület betűjével kell kezdődnie!
+            // Megakadályozza, hogy az I épület "B007" keresése megtalálja az "E007"-et.
+            if (!cleanDbKey.startsWith(b)) continue;
+
+            // SZABÁLY 2: Részleges egyezés vizsgálata
+            if (isOnlyNumbers) {
+                // Ha csak számot keresünk (pl. "150"), levágjuk az épület betűjét a DB kulcsról.
+                // A maradéknak (pl. "150") PONTOSAN egyeznie kell, nem lehet csak a része (pl. "2150").
+                const withoutBuilding = cleanDbKey.replace(b, '');
+                if (withoutBuilding === cand || withoutBuilding.startsWith(cand + '_')) {
+                    console.log(`   ✅ TALÁLAT (Szigorú Fuzzy - Szám): ${dbKey}`);
+                    return ROOM_DATABASE[dbKey];
+                }
+            } else {
+                // Ha a keresett szóban van betű is (pl. "bf11" vagy "kf50"), az már elég specifikus
+                // ahhoz, hogy sima "includes" vizsgálattal is biztonságos legyen (mivel az épület már egyezik).
+                if (cleanDbKey.includes(cand)) {
+                    console.log(`   ✅ TALÁLAT (Szigorú Fuzzy - Szöveg): ${dbKey}`);
+                    return ROOM_DATABASE[dbKey];
+                }
             }
         }
     }
     
-    // Ha semmilyen egyezés nem található, null értékkel térünk vissza.
     return null;
 }
 
