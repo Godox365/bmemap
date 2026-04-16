@@ -17,6 +17,13 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
     <meta name="theme-color" content="#1e1e1e">
 
+    <!-- PWA MANIFEST & IOS TAGS -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BMEmap">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <!-- OPEN GRAPH (Facebook, Discord, stb.) -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://bmemap.hu/">
@@ -140,6 +147,15 @@
                         <span class="material-symbols-outlined">palette</span>
                         Téma szerkesztése
                     </button>
+                </div>
+
+                <div class="settings-section" id="pwa-install-section" style="display: none;">
+                    <label>Alkalmazás telepítése</label>
+                    <button class="btn-theme-edit" id="btn-install-app" style="background: var(--color-ui-active); color: var(--color-ui-active-text);">
+                        <span class="material-symbols-outlined">download</span>
+                        Telepítés kezdőképernyőre
+                    </button>
+                    <div class="settings-hint">Teljes képernyős, gyorsabb, offline mód.</div>
                 </div>
 
                 <div class="settings-section">

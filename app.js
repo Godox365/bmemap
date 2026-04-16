@@ -987,7 +987,8 @@ const POI_TYPES = {
         icon: 'microwave',
         color: 'var(--poi-microwave)',
         aliases: ['mikró', 'mikro', 'melegítő', 'mikrohullámú'],
-        filter: (p) => p.amenity === 'microwave'
+        // Megtalálja az amenity=microwave-et ÉS a konyhába/büfébe integrált mikrókat is (microwave=yes)
+        filter: (p) => p.amenity === 'microwave' || p.microwave === 'yes'
     },
     atm: {
         id: 'atm',
@@ -6563,3 +6564,55 @@ if (buildingToLoad !== currentBuildingKey) {
 // --- 3. GPS ALAPÚ HELYZETMEGHATÁROZÁS ---
 // Aszinkron háttérfolyamat indítása a felhasználóhoz legközelebbi épület detektálására
 detectClosestBuilding();
+
+
+// === PWA & SERVICE WORKER REGISZTRÁCIÓ ===
+
+// 1. Service Worker regisztrálása (Offline működéshez)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((registration) => {
+            console.log('ServiceWorker sikeresen regisztrálva: ', registration.scope);
+        }).catch((err) => {
+            console.log('ServiceWorker regisztráció sikertelen: ', err);
+        });
+    });
+}
+
+// 2. "Add to Home Screen" (Telepítés) logika kezelése
+let deferredPrompt;
+const installSection = document.getElementById('pwa-install-section');
+const installBtn = document.getElementById('btn-install-app');
+
+// A böngésző szól, ha az app telepíthető (Android/Chrome)
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Megakadályozzuk az automatikus, tolakodó felugró ablakot
+    e.preventDefault();
+    // Eltároljuk az eseményt, hogy később (gombnyomásra) előhívhassuk
+    deferredPrompt = e;
+    // Megjelenítjük a telepítés gombot a Beállításokban
+    if (installSection) installSection.style.display = 'block';
+});
+
+if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            // Előhívjuk a rendszer telepítő ablakát
+            deferredPrompt.prompt();
+            // Megvárjuk a felhasználó döntését
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+                installSection.style.display = 'none'; // Eltüntetjük a gombot
+            }
+            // A promptot csak egyszer lehet használni
+            deferredPrompt = null;
+        }
+    });
+}
+
+// Ha a felhasználó már telepítette az appot, elrejtjük a gombot
+window.addEventListener('appinstalled', () => {
+    if (installSection) installSection.style.display = 'none';
+    showToast("BMEmap sikeresen telepítve! 📱");
+});
