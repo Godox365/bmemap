@@ -2955,7 +2955,24 @@ function openSheet(feature) {
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
     // --- 2. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
-    let displayName = p.name || p.ref;
+    let displayName = "";
+
+    if (p.name && p.ref) {
+        // Ha van Név és Ref is, megnézzük, hogy a Ref benne van-e a Névben
+        const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
+        const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
+        
+        if (cleanName.includes(cleanRef)) {
+            // Ha a név már tartalmazza a kódot (pl. "QBF11 Labor"), elég csak a nevet kiírni
+            displayName = p.name;
+        } else {
+            // Ha teljesen más a kettő (pl. Ref: "IB028", Name: "Auditorium Maximum"), összekötjük őket
+            displayName = `${p.ref} - ${p.name}`;
+        }
+    } else {
+        // Ha csak az egyik van meg, azt használjuk
+        displayName = p.name || p.ref;
+    }
 
     // Intelligens névszűrés: Ha nincs neve, vagy a neve csak egy hosszú OSM azonosító szám
     if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
@@ -3195,8 +3212,21 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         if (!feat || !feat.properties) return "Ismeretlen hely";
         const p = feat.properties;
         
-        let name = p.name || p.ref;
+        let name = "";
         let isPoi = false;
+
+        // Okos Név + Ref kombináció az itinerben is
+        if (p.name && p.ref) {
+            const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
+            const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
+            if (cleanName.includes(cleanRef)) {
+                name = p.name;
+            } else {
+                name = `${p.ref} - ${p.name}`;
+            }
+        } else {
+            name = p.name || p.ref;
+        }
 
         // Ha nincs neve, vagy csak egy értelmetlen OSM azonosító szám
         if (!name || (!isNaN(name) && name.toString().length > 5)) {
@@ -4674,10 +4704,14 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     // A navigációs gráf frissítése az útvonaltervezés előtt (pl. beállítások változása miatt)
     buildRoutingGraph(); 
 
-    // Útvonaltervezés megkezdésekor eltávolítjuk a keresett POI pineket a vizuális tisztaság érdekében
+    // --- TÉRKÉP LETISZTÍTÁSA NAVIGÁCIÓ ELŐTT ---
+    // Eltávolítjuk a keresett POI pineket (cseppeket), hogy ne zavarják az útvonalat
     if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
         poiMarkersGroup.clearLayers();
+        activePoiCategory = null; // Állapot törlése
     }
+    // A Bottom Sheet "Közelben" radar menüjét is bezárjuk, ha nyitva lenne
+    if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
     
     // A célpont meghatározása (prioritás: paraméter > globális kiválasztás)
     const target = targetFeature || selectedFeature;
