@@ -12,54 +12,35 @@ if (typeof ROOM_DATABASE === 'undefined') {
  * Meghatározza egy adott épület és szint alapján a lehetséges szintazonosító karaktereket.
  * Kombinálja a nyers szintszámot, a dinamikusan betöltött aliasokat (pl. OSM-ből származó adatok),
  * valamint az épület-specifikus, fixen kódolt (hardcoded) kivételszabályokat.
+ * Elsődlegesen a dinamikusan betöltött aliasokat (OSM 'level:ref') használja a fals találatok elkerülésére.
  * * @param {string} buildingKey - Az épület azonosítója (pl. 'K', 'Q', 'I').
  * @param {number|string} rawLevel - A szint nyers, eredeti értéke (pl. 0, -1, 1).
  * @returns {string[]} A szinthez tartozó lehetséges azonosítók tömbje (pl. ['-1', 'f', '0']).
  */
 function getLevelChars(buildingKey, rawLevel) {
-    // Változók normalizálása a konzisztens összehasonlítás érdekében
     const b = buildingKey.toUpperCase();
     const l = rawLevel.toString();
     
-    // Set adatszerkezet használata az azonosítók egyediségének biztosítására
     let chars = new Set();
 
-    // 1. Alapértelmezett bejegyzés: a nyers szintszám (pl. "1")
+    // 1. Alapértelmezett bejegyzés: a nyers szintszám (pl. "1", "0", "-1")
     chars.add(l);
 
-    // 2. Dinamikus aliasok feldolgozása (OSM 'level:ref' tag alapján)
-    // Ha a globális 'levelAliases' objektumban létezik bejegyzés az adott szinthez, azt is hozzáadjuk
+    // 2. Dinamikus aliasok (OSM 'level:ref') - EZZEL KERESÜNK ELSŐDLEGESEN! (pl. 'mf')
     if (levelAliases[l]) {
-        chars.add(normalizeRoomId(levelAliases[l])); // normalizált érték (pl. "mf")
+        chars.add(normalizeRoomId(levelAliases[l]));
     }
 
-    // 3. Fixen kódolt szabályok és visszamenőleges (legacy) kompatibilitás
+    // 3. Biztonságos Fallback szabályok (kigyomlálva a veszélyes K épület 0->1 bugot)
     if (b === 'K') {
-        // A 'K' épület egyedi szintkiosztása
-        if (l === '-1') { 
-            chars.add('f'); 
-            chars.add('0'); 
-        }
-        if (l === '0') { 
-            chars.add('1'); 
-        }
+        if (l === '-1') chars.add('f'); // Földszint/Alagsor
     } else if (b === 'Q') {
-        // A 'Q' épület egyedi szintkiosztása
-        if (l === '-1') {
-            chars.add('p');
-        }
-        // Biztonsági fallback, bár elsődlegesen az OSM level:ref kezeli
-        if (l === '0') {
-            chars.add('f'); 
-        }
+        if (l === '-1') chars.add('p'); // Parkoló
+        if (l === '0') chars.add('f');  // Földszint
     } else {
-        // Általános, alapértelmezett szabály a többi épület esetében
-        if (l === '0') {
-            chars.add('f');
-        }
+        if (l === '0') chars.add('f');
     }
 
-    // A Set adatszerkezet konvertálása szabványos tömbbé
     return Array.from(chars);
 }
 
@@ -505,7 +486,6 @@ const TYPE_DICT = {
 
 // === CACHE SYSTEM (F-015) ===
 const CACHE_PREFIX = "bmemap_data_";
-const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 1 hétig érvényes
 
 /**
  * Be- vagy kikapcsolja az alkalmazás gyorsítótárazási (cache) funkcióját.
@@ -646,34 +626,24 @@ function saveToCache(buildingKey, data) {
  * ha az adat nem található, lejárt, vagy a funkció ki van kapcsolva.
  */
 function loadFromCache(buildingKey) {
-    // Gyorsítótár állapotának ellenőrzése: ha a felhasználó kikapcsolta, 
-    // a rendszer úgy viselkedik, mintha nem lennének mentett adatok (hálózati letöltést kényszerít).
     if (!APP_SETTINGS.cacheEnabled) {
         console.log("Cache disabled by user settings.");
         return null;
     }
 
-    // Nyers adat lekérése a helyi tárolóból a megadott kulcs alapján
     const raw = localStorage.getItem(CACHE_PREFIX + buildingKey);
     if (!raw) return null;
 
     try {
-        // Az adat deszerializálása (JSON parse)
         const item = JSON.parse(raw);
         
-        // Érvényességi idő ellenőrzése (lejárt-e a beállított CACHE_EXPIRY_MS időtartam)
-        if (Date.now() - item.timestamp > CACHE_EXPIRY_MS) {
-            console.log("Cache expired for", buildingKey);
-            // Lejárt adat automatikus törlése a tárolóból és a felület frissítése
-            localStorage.removeItem(CACHE_PREFIX + buildingKey);
-            updateCacheSizeDisplay();
-            return null;
-        }
+        // KIVETTÜK A LEJÁRATI IDŐ (EXPIRE) ELLENŐRZÉST!
+        // Ha a felhasználó offline van (PWA), a régi adat ezerszer jobb, mint az üres képernyő.
+        // A frissítést amúgy is elintézi a háttérben a loadOsmData, ha van net.
         
         console.log(`Loaded ${buildingKey} from cache!`);
         return item.data;
     } catch (e) {
-        // Hibakezelés sérült JSON struktúra esetén
         return null;
     }
 }
