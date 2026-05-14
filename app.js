@@ -6528,11 +6528,29 @@ applyTheme();
 // --- 1. URL PARAMÉTEREK VIZSGÁLATA (ÉPÜLET AZONOSÍTÁSA) ---
 const params = new URLSearchParams(window.location.search);
 const shareCode = params.get('share');
+const buildingParam = params.get('building') || params.get('b'); // Támogatja a ?building=k és a rövid ?b=k formátumot is
 
 // Alapértelmezett épület azonosítójának beállítása
 let buildingToLoad = "K"; 
 
-// Megosztási kód (deep link) jelenlétének ellenőrzése és előfeldolgozása
+// Egyszerű épület-paraméter (deep link) feldolgozása (kis/nagybetű független)
+if (buildingParam) {
+    const searchKey = buildingParam.trim().toUpperCase();
+    
+    // Végigiterálunk a konfigurált épületeken, hogy megtaláljuk a pontos egyezést.
+    // Ez biztosítja, hogy a többkarakteres vagy speciális karakteres (pl. "KÖ") azonosítók is működjenek.
+    const matchedKey = Object.keys(BUILDINGS).find(key => key.toUpperCase() === searchKey);
+    
+    if (matchedKey) {
+        buildingToLoad = matchedKey;
+        console.log("URL paraméterből kiválasztott épület:", buildingToLoad);
+    } else {
+        console.warn("Ismeretlen épület paraméter az URL-ben:", buildingParam);
+    }
+}
+
+// Megosztási kód (deep link) jelenlétének ellenőrzése és előfeldolgozása.
+// (Ez magasabb prioritású, felülírja a sima 'building' paramétert, ha a megosztás máshova mutat).
 if (shareCode) {
     try {
         // A kódolt adatcsomag gyors visszafejtése (Base64 -> UTF-8 -> JSON)
