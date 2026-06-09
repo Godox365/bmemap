@@ -1030,10 +1030,8 @@ function focusOnEndpoint(type) {
 
 const PRECISION = 6; 
 const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter",           // A hivatalos, legstabilabb (néha rate-limitel)
-    "https://overpass.kumi.systems/api/interpreter",     // Stabil svájci/német szerver
-    "https://overpass.private.coffee/api/interpreter",   // Elvileg kéne működnie
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter" // A leggyorsabb szerver volt, de most (2026 04) le van halva, fallbacknek.
+    "https://overpass-api.de/api/interpreter",  // Stabilabb
+    "https://overpass.private.coffee/api/interpreter"  // Fallback
 ];
 
 /**
