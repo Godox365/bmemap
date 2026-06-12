@@ -138,8 +138,7 @@ const BUILDINGS = {
     "Q": { name: "Q Épület", center: [47.473410, 19.059555], zoom: 20, regex: /^Q/i },
     "E": { name: "E Épület", center: [47.477857, 19.057739], zoom: 20, regex: /^E/i },
     "R": { name: "R Épület", center: [47.4789527, 19.0591848], zoom: 19, regex: /^R/i },
-    "A": { name: "A Épület", center: [47.4765122, 19.056128], zoom: 19, regex: /^A/i },
-    "J": { name: "J Épület", center: [47.479532, 19.057396], zoom: 19, regex: /^J/i } 
+    "KT": { name: "Könyvtár", center: [47.480968, 19.054609], zoom: 20, regex: /^KT/i }
 };
 
 // === A NAGY SZÍN-BIBLIA ===
