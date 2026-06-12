@@ -1030,8 +1030,9 @@ function focusOnEndpoint(type) {
 
 const PRECISION = 6; 
 const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter",  // Stabilabb
-    "https://overpass.private.coffee/api/interpreter"  // Fallback
+    "https://overpass-api.de/api/interpreter",  // Legstabilabb
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter"
 ];
 
 /**
