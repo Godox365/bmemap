@@ -138,7 +138,7 @@ const BUILDINGS = {
     "Q": { name: "Q Épület", center: [47.473410, 19.059555], zoom: 20, regex: /^Q/i },
     "E": { name: "E Épület", center: [47.477857, 19.057739], zoom: 20, regex: /^E/i },
     "R": { name: "R Épület", center: [47.4789527, 19.0591848], zoom: 19, regex: /^R/i },
-    "KT": { name: "Könyvtár", center: [47.480968, 19.054609], zoom: 20, regex: /^KT/i }
+    "KT": { name: "Könyvtár", center: [47.480952, 19.054596], zoom: 20, regex: /^KT/i }
 };
 
 // === A NAGY SZÍN-BIBLIA ===
@@ -1058,8 +1058,8 @@ poiMarkersGroup = L.featureGroup().addTo(map);
 
 /**
  * Nagy teljesítményű SVG renderelő példányosítása.
- * A 'padding' paraméter értéke (2.0) biztosítja, hogy a látható nézeten kívül 
- * további két képernyőnyi terület előre kirajzolásra kerüljön, csökkentve a 
+ * A 'padding' paraméter értéke biztosítja, hogy a látható nézeten kívül 
+ * további képernyőnyi területek előre kirajzolásra kerüljenek, csökkentve a 
  * görgetés (panning) közbeni villogást vagy akadást.
  * @type {L.SVG}
  */
@@ -1244,8 +1244,8 @@ function applyTheme() {
     const tileOptions = { 
         attribution: '&copy; OSM contributors', 
         maxZoom: 22,
-        keepBuffer: 25,       // Sokkal több csempét tart a memóriában (B-007)
-        updateWhenIdle: false // Azonnal tölt, nem csak megálláskor
+        keepBuffer: 25,       // Több csempét tart a memóriában
+        updateWhenIdle: true
     };
 
     if (currentTileLayer && currentTileLayer._url !== newUrl) {
