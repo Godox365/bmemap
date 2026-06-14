@@ -1044,10 +1044,7 @@ const OVERPASS_SERVERS = [
 const map = L.map('map', { 
     zoomControl: false, 
     attributionControl: false,
-    // Finomított nagyítás (Smooth Zoom) konfigurációja
-    zoomSnap: 0,       // Lehetővé teszi a tört értékű nagyítási szinteket (pl. 18.5)
-    zoomDelta: 0.1,    // A nagyítási lépésköz finomítása
-    wheelPxPerZoomLevel: 120 // Az egérgörgő érzékenységének beállítása
+    zoomSnap: 0.5,  // Megfelezett nagyítási szintek a lassabb zoom érdekében
 }).setView(currentBuilding.center, currentBuilding.zoom);
 // --- POI RÉTEG ÉS CSOPORT INICIALIZÁLÁSA ---
 map.createPane('poiPane');
