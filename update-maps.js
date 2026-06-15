@@ -1,7 +1,7 @@
 const fs = require('fs');
 const osmtogeojson = require('osmtogeojson');
 
-// Az épületeid központjai az eredeti kódodból
+// Az épületek koordinátái
 const BUILDINGS = {
     "k": [47.4816562, 19.0559196],
     "i": [47.472616, 19.059552],
@@ -11,15 +11,15 @@ const BUILDINGS = {
     "kt": [47.480952, 19.054596]
 };
 
-// Az általad kért szerverlista prioritás sorrendben
+// Overpass szerverlista prioritás sorrendben
 const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter",
+    "https://overpass-api.de/api/interpreter", //Stabil német
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter", //Gyors orosz, de volt, hogy lehalt pár hónapra
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+    "https://overpass.private.coffee/api/interpreter"
 ];
 
-// Fallback logika: Ha az egyik beszarik, megy a következőre
+// Fallback logika: Ha az egyik nem működik, megy a következőre
 async function fetchWithFallback(query) {
     for (let i = 0; i < OVERPASS_SERVERS.length; i++) {
         const server = OVERPASS_SERVERS[i];
@@ -30,7 +30,7 @@ async function fetchWithFallback(query) {
                 method: "POST",
                 body: query,
                 headers: {
-                    // EZ A VARÁZSSZÓ: Bemutatkozunk, így nem bannolnak ki a szerverek!
+                    // Bemutatkozunk, így (remélhetőleg) nem bannolnak ki a szerverek.
                     'User-Agent': 'BMEmap-Updater/1.0'
                 },
                 signal: AbortSignal.timeout(25000)
@@ -63,13 +63,13 @@ async function updateMaps() {
     for (const [key, center] of Object.entries(BUILDINGS)) {
         console.log(`\n🏢 --- ${key.toUpperCase()} ÉPÜLET FRISSÍTÉSE ---`);
         const query = `[out:json][timeout:120];
-                        // 1. Megkeressük a 30m-en belüli épület Vonalakat és Relációkat (kizárva a hidakat és tetőket)
+                        // 1. Megkeressük az 5m-en belüli épület Vonalakat és Relációkat (kizárva a hidakat és tetőket)
                         (
-                            way(around:30, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
-                            relation(around:30, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
+                            way(around:5, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
+                            relation(around:5, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
                         )->.targetBuilding;
                         
-                        // 2. Ezt a halmazt alakítjuk keresési területté (Így már nem lesz üres a json!)
+                        // 2. Ezt a halmazt alakítjuk keresési területté
                         .targetBuilding map_to_area -> .searchArea;
                         
                         // 3. Jöhetnek a belső adatok
@@ -84,9 +84,9 @@ async function updateMaps() {
                             way["room"~"stairs|toilet|toilets"](area.searchArea);
                             
                             // Maga az épület körvonala a térképhez
-                            way(around:20, ${center[0]}, ${center[1]})["building"];
+                            way(around:5, ${center[0]}, ${center[1]})["building"];
                             
-                            // ÚJ POI ADATOK
+                            // POI ADATOK
                             node["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
                             way["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
                             node["shop"="kiosk"](area.searchArea);
@@ -106,11 +106,10 @@ async function updateMaps() {
             fs.writeFileSync(filename, JSON.stringify(geoJson));
             console.log(`💾 Mentve: ${filename} (${(JSON.stringify(geoJson).length / 1024).toFixed(2)} KB)`);
 
-            // Pihenünk 5 másodpercet (3 helyett), hogy véletlenül se kapjunk rate limitet
+            // Rate limit miatt várunk 5 másodpercet
             await new Promise(resolve => setTimeout(resolve, 5000));
 
         } catch (err) {
-            // ITT A LÉNYEG: Nincs process.exit(1)! 
             // Csak kiírjuk a hibát, és a ciklus megy tovább a következő épületre.
             console.error(`💥 Hiba a(z) ${key.toUpperCase()} épületnél: ${err.message}`);
             console.log(`⏭️ Sebaj, megtartjuk a régit, ugrás a következő épületre...`);
