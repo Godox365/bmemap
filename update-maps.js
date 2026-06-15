@@ -84,7 +84,7 @@ async function updateMaps() {
                             way["room"~"stairs|toilet|toilets"](area.searchArea);
                             
                             // Maga az épület körvonala a térképhez
-                            way(around:5, ${center[0]}, ${center[1]})["building"];
+                            .targetBuilding;
                             
                             // POI ADATOK
                             node["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
