@@ -1029,10 +1029,9 @@ function focusOnEndpoint(type) {
 
 const PRECISION = 6; 
 const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter",           // A hivatalos, legstabilabb (néha rate-limitel)
-    "https://overpass.kumi.systems/api/interpreter",     // Stabil svájci/német szerver
-    "https://overpass.private.coffee/api/interpreter",   // Elvileg kéne működnie
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter" // A leggyorsabb szerver volt, de most (2026 04) le van halva, fallbacknek.
+    "https://overpass-api.de/api/interpreter",  // Legstabilabb
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter"
 ];
 
 /**
@@ -1044,10 +1043,7 @@ const OVERPASS_SERVERS = [
 const map = L.map('map', { 
     zoomControl: false, 
     attributionControl: false,
-    // Finomított nagyítás (Smooth Zoom) konfigurációja
-    zoomSnap: 0,       // Lehetővé teszi a tört értékű nagyítási szinteket (pl. 18.5)
-    zoomDelta: 0.1,    // A nagyítási lépésköz finomítása
-    wheelPxPerZoomLevel: 120 // Az egérgörgő érzékenységének beállítása
+    zoomSnap: 0.5,  // Megfelezett nagyítási szintek a lassabb zoom érdekében
 }).setView(currentBuilding.center, currentBuilding.zoom);
 // --- POI RÉTEG ÉS CSOPORT INICIALIZÁLÁSA ---
 map.createPane('poiPane');
