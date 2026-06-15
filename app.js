@@ -2217,7 +2217,7 @@ function getFeatureWeight(f) {
     const p = f.properties;
     
     // 1. SZINT (Legalul): Szerkezeti alapelemek (Padló, Fal, Épület körvonal)
-    if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall') return 1;
+    if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall' || p.building) return 1;
     
     // 2. SZINT: Folyosók. Biztosítja, hogy az ezekből nyíló szobák vizuálisan kiemelkedjenek.
     if (p.indoor === 'corridor' || p.highway === 'corridor') return 2;
@@ -2619,7 +2619,7 @@ function renderLevel(level, animate = true) {
             };
             
             // 1. Épület alapja, strukturális falak és a padló
-            if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall') {
+            if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall' || p.building) {
                 style = { 
                     color: "var(--color-outline)", 
                     weight: 1, 
