@@ -138,7 +138,7 @@ const BUILDINGS = {
     "Q": { name: "Q Épület", center: [47.473410, 19.059555], zoom: 20, regex: /^Q/i },
     "E": { name: "E Épület", center: [47.477857, 19.057739], zoom: 20, regex: /^E/i },
     "R": { name: "R Épület", center: [47.4789527, 19.0591848], zoom: 19, regex: /^R/i },
-    "KT": { name: "Könyvtár", center: [47.480952, 19.054596], zoom: 20, regex: /^KT/i }
+    "KT": { name: "Könyvtár", center: [47.480869, 19.054413], zoom: 20, regex: /^KT/i }
 };
 
 // === A NAGY SZÍN-BIBLIA ===
