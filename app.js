@@ -1138,10 +1138,7 @@ function updateLabelsVisibility() {
     
     // Ha a jelenlegi nagyítás elérte vagy meghaladta a küszöbértéket
     if (currentZoom >= limit) {
-        // Ellenőrizzük, hogy a címkék még nincsenek-e kirajzolva (a felesleges újrarenderelés elkerülése végett)
-        if (labelLayerGroup.getLayers().length === 0) {
-            drawLabels(currentLevel);
-        }
+        drawLabels(currentLevel);
     } else {
         // Ha a nagyítás a küszöbérték alatt van, eltávolítjuk az összes címkét a rétegről
         labelLayerGroup.clearLayers();
