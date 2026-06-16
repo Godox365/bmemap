@@ -15,7 +15,6 @@ const BUILDINGS = {
 const OVERPASS_SERVERS = [
     "https://overpass-api.de/api/interpreter", //Stabil német
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter", //Gyors orosz, de volt, hogy lehalt pár hónapra
-    "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter"
 ];
 
