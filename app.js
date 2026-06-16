@@ -1043,7 +1043,11 @@ const OVERPASS_SERVERS = [
 const map = L.map('map', { 
     zoomControl: false, 
     attributionControl: false,
-    zoomSnap: 0.5,  // Megfelezett nagyítási szintek a lassabb zoom érdekében
+    // Ha 768px-nél kisebb a képernyő (mobil), akkor működjön az egyujjas zoom, 
+    // ha nagyobb (asztali/Mac), akkor 0.5-ös.
+    zoomSnap: window.innerWidth < 768 ? 0 : 0.5,
+    zoomDelta: window.innerWidth < 768 ? 0.1 : 0.5,
+    wheelPxPerZoomLevel: 120
 }).setView(currentBuilding.center, currentBuilding.zoom);
 // --- POI RÉTEG ÉS CSOPORT INICIALIZÁLÁSA ---
 map.createPane('poiPane');
