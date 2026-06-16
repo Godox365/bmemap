@@ -2520,13 +2520,20 @@ function drawLabels(level) {
         // Ha az elem az előbbi kategóriák bármelyikébe esik, nem kap szöveges címkét a térképen
         if (isCorridor || isToilet || isStairs || isElevator || isPoi) return;
         
-        // A felirat szövegének meghatározása: elsődlegesen a referenciaszámot (ref) használjuk
-        let labelText = p.ref;
+
+        const z = map.getZoom();
+        let labelText = "";
         
-        // Ha nincs referenciaszám, de az elem rendelkezik névvel, azt használjuk, 
-        // feltéve, hogy a név hossza nem haladja meg a 15 karaktert (a térkép olvashatósága érdekében)
-        if (!labelText && p.name) {
-            if (p.name.length < 15) labelText = p.name;
+        if (z >= 21.5) {
+            // 1. Közeli zoom: kifér a ref+név
+            labelText = (p.ref && p.name) ? `${p.ref} - ${p.name}` : (p.name || p.ref);
+        } else if (z >= 20.5) {
+            // 2. Közepes zoom: kifér a név (ha van)
+            labelText = p.name || p.ref;
+        } else {
+            // 3. Távolabbi zoom: csak ref
+            // Ha nincs ref, megpróbáljuk a nevet, de szigorúbban levágva.
+            labelText = p.ref || (p.name && p.name.length < 10 ? p.name : "");
         }
 
         // Ha semmilyen érvényes feliratszöveg nem áll rendelkezésre, vagy az elem csak egy fal, továbblépünk
