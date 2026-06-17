@@ -6399,9 +6399,9 @@ async function processUrlParams() {
                 // Az értékek DOM-ba történő beillesztése
                 document.getElementById('sheet-title').innerText = displayName;
                 if (displayName === typeName) {
-                    document.getElementById('sheet-sub').innerText = `Szin: ${displayLevelString}`;
+                    document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString}`;
                 } else {
-                    document.getElementById('sheet-sub').innerText = `Szin: ${displayLevelString} | ${typeName}`;
+                    document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${typeName}`;
                 }
 
                 // A navigációs motor elindítása a paraméterekből kinyert pontokkal
