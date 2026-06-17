@@ -461,9 +461,10 @@ let CUSTOM_THEME_OVERRIDES = JSON.parse(localStorage.getItem('custom_theme_overr
 const APP_SETTINGS = {
     elevatorMode: localStorage.getItem('pref_elevator') || 'balanced',
     toiletMode: localStorage.getItem('pref_toilet') || 'all',
+    toiletAccessible: localStorage.getItem('pref_toilet_acc') === 'true',
     themeMode: localStorage.getItem('pref_theme') || 'dark', 
-    activeColorTheme: localStorage.getItem('pref_color_theme') || 'default', // &lt;--- Mentjük ezt is
-    cacheEnabled: localStorage.getItem('pref_cache_enabled') !== 'false' // Default true
+    activeColorTheme: localStorage.getItem('pref_color_theme') || 'default',
+    cacheEnabled: localStorage.getItem('pref_cache_enabled') !== 'false'
 };
 
 // TILE LAYERS
@@ -986,7 +987,15 @@ const POI_TYPES = {
         icon: 'wc',
         color: 'var(--color-toilet-fill)',
         aliases: ['wc', 'vécé', 'mosdó', 'toalett', 'toilet', 'budi'],
-        filter: (p) => p.amenity === 'toilets' || p.amenity === 'toilet' || p.room === 'toilet' || p.room === 'toilets' || (p.name && p.name.toLowerCase().includes('wc'))
+        filter: (p) => {
+            const isToilet = p.amenity === 'toilets' || p.amenity === 'toilet' || p.room === 'toilet' || p.room === 'toilets' || (p.name && p.name.toLowerCase().includes('wc'));
+            if (!isToilet) return false;
+            
+            // Ha az akadálymentes mód aktív, csak a 'wheelchair=yes' taggel ellátott mosdók jelennek meg
+            if (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.toiletAccessible && p.wheelchair !== 'yes') return false;
+            
+            return true;
+        }
     },
     // --- REJTETT KATEGÓRIÁK A KERESŐHÖZ ---
     stairs: {
@@ -1289,6 +1298,12 @@ function updateSettingsUI() {
     document.querySelectorAll('#seg-toilet .seg-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.val === APP_SETTINGS.toiletMode);
     });
+
+    // Akadálymentes mosdó gombja
+    const accBtn = document.getElementById('btn-toilet-acc');
+    if (accBtn) {
+        accBtn.classList.toggle('active', APP_SETTINGS.toiletAccessible);
+    }
     
     // A világos/sötét mód választó gombjainak vizuális frissítése
     document.querySelectorAll('#seg-theme .seg-btn').forEach(btn => {
@@ -1784,8 +1799,15 @@ function handleColorChange(varName, value) {
  */
 function setElevatorMode(mode) {
     APP_SETTINGS.elevatorMode = mode;
+    localStorage.setItem('pref_elevator', mode);
+    
+    // Csendes szinkronizáció: ha a mozgás kerekesszékes, a mosdó is az lesz
+    if (mode === 'wheelchair') {
+        APP_SETTINGS.toiletAccessible = true;
+        localStorage.setItem('pref_toilet_acc', 'true');
+    }
+    
     updateSettingsUI();
-    // Gráf újraépítése az új súlyokkal!
     buildRoutingGraph(); 
 }
 
@@ -1796,6 +1818,12 @@ function setElevatorMode(mode) {
  */
 function setToiletMode(mode) {
     APP_SETTINGS.toiletMode = mode;
+    updateSettingsUI();
+}
+
+function toggleToiletAccessible() {
+    APP_SETTINGS.toiletAccessible = !APP_SETTINGS.toiletAccessible;
+    localStorage.setItem('pref_toilet_acc', APP_SETTINGS.toiletAccessible);
     updateSettingsUI();
 }
 
@@ -4717,10 +4745,16 @@ function findNearestPOI(typeKey) {
     // Specifikus beállítások alkalmazása (pl. női/férfi WC)
     if (typeKey === 'toilet') {
         const mode = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.toiletMode) ? APP_SETTINGS.toiletMode : 'all';
+        const isAcc = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.toiletAccessible);
+        
         targets = targets.filter(f => {
             const p = f.properties;
-            if (mode === 'male' && p.female === 'yes' && p.male !== 'yes') return false; 
-            if (mode === 'female' && p.male === 'yes' && p.female !== 'yes') return false;
+            
+            // Ha az akadálymentes mód aktív, a nemek szerinti szűrést ignoráljuk (mert nem lenne találat)
+            if (!isAcc) {
+                if (mode === 'male' && p.female === 'yes' && p.male !== 'yes') return false; 
+                if (mode === 'female' && p.male === 'yes' && p.female !== 'yes') return false;
+            }
             return true;
         });
     }

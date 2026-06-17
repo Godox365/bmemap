@@ -1145,3 +1145,30 @@
 .blueprint-animating .leaflet-marker-pane {
     animation: blueprintFocus 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
+
+/* --- Pill (Chip) Gomb Stílusok --- */
+.pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-sub);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pill-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.pill-btn.active {
+    background: rgba(33, 150, 243, 0.15); /* Halvány kék háttér a kért dizájn alapján */
+    color: #2196F3; /* Kék szöveg és ikon */
+    border-color: #2196F3;
+}
