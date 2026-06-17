@@ -9,6 +9,17 @@ if (typeof ROOM_DATABASE === 'undefined') {
 }
 
 /**
+ * XSS védelem, kiszedi a HTML tageket az OSM adatokból.
+ */
+function escapeHTML(str) {
+    if (!str) return "";
+    return String(str).replace(/[&<>'"]/g, match => {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+        return map[match];
+    });
+}
+
+/**
  * Meghatározza egy adott épület és szint alapján a lehetséges szintazonosító karaktereket.
  * Kombinálja a nyers szintszámot, a dinamikusan betöltött aliasokat (pl. OSM-ből származó adatok),
  * valamint az épület-specifikus, fixen kódolt (hardcoded) kivételszabályokat.
@@ -844,7 +855,7 @@ function showFavoritesInSearch() {
         userFavorites.forEach(fav => {
             const div = document.createElement('div');
             div.className = 'result-item';
-            div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${fav.name} <span style="color:#888; font-size:12px">(${fav.building} épület, ${fav.level}. szint)</span>`;
+            div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${escapeHTML(fav.name)} <span style="color:#888; font-size:12px">(${escapeHTML(fav.building)} épület, ${escapeHTML(fav.level)}. szint)</span>`;
             
             // Kattintás eseménykezelője az adott kedvenc kiválasztásához
             div.onclick = () => {
@@ -2558,7 +2569,7 @@ function drawLabels(level) {
         // A vizuális ikon (DivIcon) létrehozása a felirat számára a megfelelő HTML és CSS beállításokkal
         const labelIcon = L.divIcon({
             className: 'room-label',
-            html: labelText,
+            html: escapeHTML(labelText), // Alap XSS védelem
             iconSize: [40, 20],  // Alapértelmezett méret, a végső méretezést a CSS flexbox kezeli
             iconAnchor: [20, 10] // A felirat középre igazítása a kiszámított koordinátához képest
         });
@@ -3065,7 +3076,7 @@ function openSheet(feature) {
 
     // Nyitvatartás kezelése és értelmezése
     if (p.opening_hours) {
-        const rawHours = p.opening_hours;
+        const rawHours = escapeHTML(p.opening_hours);
         let formattedHours = rawHours;
         let isOpenNowHtml = "";
 
@@ -3258,7 +3269,7 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         // Csak az egyszerű szobaszámok (pl. "QBF11") kapják meg a " terem" végződést
         if (!hasType && name.length < 20) name += " terem";
         
-        return name;
+        return escapeHTML(name);
     };
 
     // A cél- és kiindulópont megjelenítési nevének meghatározása
@@ -3708,7 +3719,7 @@ function handleSearch(e) {
                 const lvl = getLevelsFromFeature(hit)[0] || "?";
                 
                 // A javaslat összeállítása: Név (kiemelve) és a szint (halványan)
-                div.innerHTML = `${name} <span style="opacity:0.6; font-size:12px; margin-left:5px;">(Szint: ${lvl})</span>`;
+                div.innerHTML = `${escapeHTML(name)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">(Szint: ${escapeHTML(lvl)})</span>`;
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                 div.onclick = () => { 
