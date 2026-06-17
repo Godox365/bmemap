@@ -1150,8 +1150,9 @@ function updateLabelsVisibility() {
     const currentZoom = map.getZoom();
     const width = window.innerWidth;
     
-    // A megjelenítési küszöbérték meghatározása: mobil eszközökön 20-as, asztali környezetben 19-es zoom szint
-    const limit = width < 600 ? 20 : 19;
+    // A megjelenítési küszöbérték meghatározása: mobil eszközökön és asztali környezetben
+    // const limit = width < 600 ? 19 : 19;
+    const limit = 19;
     
     // Ha a jelenlegi nagyítás elérte vagy meghaladta a küszöbértéket
     if (currentZoom >= limit) {
@@ -2547,7 +2548,7 @@ function drawLabels(level) {
         } else {
             // 3. Távolabbi zoom: csak ref
             // Ha nincs ref, megpróbáljuk a nevet, de szigorúbban levágva.
-            labelText = p.ref || (p.name && p.name.length < 10 ? p.name : "");
+            labelText = p.ref || (p.name && p.name.length < 20 ? p.name : "");
         }
 
         // Ha semmilyen érvényes feliratszöveg nem áll rendelkezésre, vagy az elem csak egy fal, továbblépünk
