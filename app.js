@@ -890,7 +890,9 @@ function showFavoritesInSearch() {
  * @returns {string} A helyiség vagy elem magyar nyelvű megnevezése (szótár alapján), vagy alapértelmezetten "Hely".
  */
 function getHungarianType(p) {
-    // A releváns tagek prioritásos vizsgálata a típus meghatározásához
+    if (p.entrance === 'main') return 'Főbejárat';
+    if (p.entrance) return 'Bejárat';
+    if (p.door) return 'Ajtó';
     const key = p.room || p.indoor || p.amenity || p.highway || 'unknown';
     return TYPE_DICT[key] || (key !== 'unknown' ? key : 'Hely');
 }
@@ -3126,8 +3128,10 @@ function openSheet(feature) {
 
     poiContainer.style.display = hasPoiData ? 'flex' : 'none';
     
-    // A Fő konténer láthatósága: ha BÁRMELYIK adat létezik (Terem infó VAGY POI infó)
-    if (roomData || hasPoiData) {
+    const isAccessible = p.wheelchair === 'yes';
+
+    // A Fő konténer láthatósága: ha BÁRMELYIK adat létezik (Terem infó VAGY POI infó VAGY Akadálymentes)
+    if (roomData || hasPoiData || isAccessible) {
         dataContainer.style.display = 'block';
     } else {
         dataContainer.style.display = 'none';
@@ -3138,23 +3142,35 @@ function openSheet(feature) {
     const noteEl = document.getElementById('room-note');
     const galleryEl = document.getElementById('room-gallery');
 
-    if (roomData) {
-        // Ha van belső adatbázis rekord (pl. tantermek)
+    // Akadálymentes meta-tag dinamikus beszúrása a JS-ből, hogy ne kelljen a HTML-hez nyúlni
+    let accessEl = document.getElementById('meta-accessible');
+    if (!accessEl) {
+        accessEl = document.createElement('div');
+        accessEl.id = 'meta-accessible';
+        accessEl.className = 'meta-tag';
+        accessEl.innerHTML = '<span class="material-symbols-outlined">accessible</span> Akadálymentes';
+        if (metaContainer) metaContainer.appendChild(accessEl);
+    }
+    accessEl.style.display = isAccessible ? 'flex' : 'none';
+
+    if (roomData || isAccessible) {
         if (metaContainer) metaContainer.style.display = 'flex';
-        if (noteEl) noteEl.style.display = 'block';
-        if (galleryEl) galleryEl.style.display = 'flex';
+        if (noteEl) noteEl.style.display = roomData ? 'block' : 'none';
+        if (galleryEl) galleryEl.style.display = roomData ? 'flex' : 'none';
         
-        document.getElementById('meta-capacity').innerHTML = `<span class="material-symbols-outlined">group</span> ${roomData.capacity} fő`;
+        const capEl = document.getElementById('meta-capacity');
+        if (capEl) capEl.style.display = roomData ? 'flex' : 'none';
+        if (roomData) capEl.innerHTML = `<span class="material-symbols-outlined">group</span> ${roomData.capacity} fő`;
         
         const projEl = document.getElementById('meta-projector');
         const keyEl = document.getElementById('meta-key');
-        projEl.style.display = roomData.projector ? 'flex' : 'none';
-        keyEl.style.display = roomData.key ? 'flex' : 'none';
+        if (projEl) projEl.style.display = (roomData && roomData.projector) ? 'flex' : 'none';
+        if (keyEl) keyEl.style.display = (roomData && roomData.key) ? 'flex' : 'none';
         
-        noteEl.innerText = roomData.note || "";
+        if (noteEl && roomData) noteEl.innerText = roomData.note || "";
         
-        galleryEl.innerHTML = ""; 
-        if (roomData.images && roomData.images.length > 0) {
+        if (galleryEl) galleryEl.innerHTML = ""; 
+        if (roomData && roomData.images && roomData.images.length > 0) {
             roomData.images.forEach(url => {
                 const img = document.createElement('img');
                 img.src = url;
@@ -3164,8 +3180,6 @@ function openSheet(feature) {
             });
         }
     } else {
-        // Ha nincs belső adatbázis rekord (pl. büfék, automaták, amiknek csak nyitvatartásuk van)
-        // Elrejtjük a kapacitást, kulcsot, megjegyzést és képgalériát
         if (metaContainer) metaContainer.style.display = 'none';
         if (noteEl) noteEl.style.display = 'none';
         if (galleryEl) galleryEl.style.display = 'none';
@@ -4092,7 +4106,7 @@ function buildRoutingGraph() {
     
     // Főbejárat alaphelyzetbe állítása a legközelebbi bejárat kereséséhez
     mainEntranceNode = null;
-    let minEntranceDist = Infinity;
+    let potentialEntrances = [];
 
     // ==========================================
     // 1. SÚLYOZÁS ÉS BÜNTETÉSEK BEÁLLÍTÁSA (ACCESSIBILITY)
@@ -4226,20 +4240,54 @@ function buildRoutingGraph() {
             }
         }
         
-        // --- FŐBEJÁRAT KERESÉSE ---
-        if (p.entrance === 'main' || p.entrance === 'yes') {
-                const lvl = getLevelsFromFeature(f)[0] || "0";
-                const coords = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
-                
-                // Kiszámoljuk a bejárat távolságát az épület geometriai középpontjától.
-                // A legközelebbi bejáratot tekintjük főbejáratnak.
-                const dist = turf.distance(turf.point([coords[1], coords[0]]), turf.point([currentBuilding.center[1], currentBuilding.center[0]]));
-                if (dist < minEntranceDist) { 
-                    minEntranceDist = dist; 
-                    mainEntranceNode = { lat: coords[0], lon: coords[1], level: lvl }; 
-                }
+        // --- FŐBEJÁRAT/AJTÓK GYŰJTÉSE ---
+        if (p.entrance || p.door) {
+            potentialEntrances.push(f);
         }
     });
+
+    // --- FŐBEJÁRAT KIVÁLASZTÁSA (PONTOZÁS ALAPJÁN) ---
+    let bestEntranceScore = Infinity;
+    
+    potentialEntrances.forEach(f => {
+        const p = f.properties;
+        const isWheelchairMode = APP_SETTINGS.elevatorMode === 'wheelchair';
+        
+        // Ha akadálymentes mód van, de nem akadálymentes a bejárat, az nem jó
+        if (isWheelchairMode && p.wheelchair !== 'yes') return;
+
+        const lvl = getLevelsFromFeature(f)[0] || "0";
+        const coords = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
+        let score = turf.distance(turf.point([coords[1], coords[0]]), turf.point([currentBuilding.center[1], currentBuilding.center[0]]));
+        
+        // Főbejáratoknak nagy előnyt adunk
+        if (p.entrance === 'main') score -= 10000;
+        else if (p.entrance === 'yes') score -= 5000;
+        
+        if (score < bestEntranceScore) {
+            bestEntranceScore = score;
+            mainEntranceNode = { lat: coords[0], lon: coords[1], level: lvl, properties: p };
+        }
+    });
+
+    // Ha kerekesszékkel nem találtunk semmit, fallback a legközelebbi sima bejáratra
+    if (!mainEntranceNode && APP_SETTINGS.elevatorMode === 'wheelchair') {
+        console.warn("Nincs akadálymentes bejárat a térképen! Fallback normál bejáratra.");
+        potentialEntrances.forEach(f => {
+            const p = f.properties;
+            const lvl = getLevelsFromFeature(f)[0] || "0";
+            const coords = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
+            let score = turf.distance(turf.point([coords[1], coords[0]]), turf.point([currentBuilding.center[1], currentBuilding.center[0]]));
+            
+            if (p.entrance === 'main') score -= 10000;
+            else if (p.entrance === 'yes') score -= 5000;
+            
+            if (score < bestEntranceScore) {
+                bestEntranceScore = score;
+                mainEntranceNode = { lat: coords[0], lon: coords[1], level: lvl, properties: p };
+            }
+        });
+    }
 
     // ==========================================
     // 4. VERTIKÁLIS KAPCSOLATOK (LIFTEK ÉS POLIGON LÉPCSŐK)
@@ -4918,6 +4966,17 @@ function startNavigation(targetFeature = null, fromFeature = null) {
         } else {
             // Ha a navigáció a Főbejárattól indult, létrehozunk egy virtuális GeoJSON elemet a megjelenítéshez
             const startParts = bestPath[0].split(',');
+            
+            // Dinamikus név a bejárat típusa alapján
+            let entranceName = "Főbejárat";
+            if (mainEntranceNode && mainEntranceNode.properties) {
+                if (mainEntranceNode.properties.wheelchair === 'yes') {
+                    entranceName = "Akadálymentes Főbejárat";
+                } else if (mainEntranceNode.properties.entrance && mainEntranceNode.properties.entrance !== 'main') {
+                    entranceName = "Bejárat";
+                }
+            }
+
             activeNavSource = {
                 type: "Feature",
                 id: "main_entrance_virtual",
@@ -4927,7 +4986,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
                     coordinates: [parseFloat(startParts[1]), parseFloat(startParts[0])]
                 },
                 properties: {
-                    name: "Főbejárat",
+                    name: entranceName,
                     level: startParts[2],
                     indoor: "entrance"
                 }
