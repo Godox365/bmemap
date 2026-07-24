@@ -1,13 +1,13 @@
 // Átírtuk v2-re, hogy a böngésző észrevegye a változást és lecserélje a régi bugos workert!
-const CACHE_NAME = 'bmemap-shell-v2';
+const CACHE_NAME = 'bmemap-shell-v3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './style.css',
     './app.js',
     './room_data.js',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css',
+    'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js'
 ];
 
 self.addEventListener('install', (e) => {
@@ -34,6 +34,8 @@ self.addEventListener('activate', (e) => {
 
 // --- NETWORK FIRST STRATÉGIA ---
 self.addEventListener('fetch', (e) => {
+    // Chrome extension request-eket és nem-HTTP request-eket kihagyjuk
+    if (!e.request.url.startsWith('http')) return;
     e.respondWith(
         fetch(e.request)
             .then((networkResponse) => {

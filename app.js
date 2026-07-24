@@ -156,7 +156,7 @@ const BUILDINGS = {
 // Itt vannak definiálva a változók és az alapértelmezett értékeik (Dark / Light)
 const THEME_VARS = {
     // --- ALAPOK (UI & Háttér) ---
-    '--bg-body':           { dark: '#121212', light: '#f0f2f5', label: 'Háttér (Body)' },
+    '--bg-body':           { dark: '#000000', light: '#ffffff', label: 'Háttér (Body)' },
     '--bg-surface':        { dark: '#1e1e1e', light: '#ffffff', label: 'Kártya Háttér' },
     '--bg-element':        { dark: '#333333', light: '#e0e0e0', label: 'Gomb/Input Háttér' },
     '--bg-button-glass':   { dark: 'rgba(255,255,255,0.1)', light: 'rgba(0,0,0,0.05)', label: 'Üveg Gomb' },
@@ -166,13 +166,12 @@ const THEME_VARS = {
     '--icon-color':        { dark: '#aaaaaa', light: '#666666', label: 'Ikonok' },
     '--icon-color-active': { dark: '#ffffff', light: '#000000', label: 'Aktív Ikon' },
     
-    // --- UI AKTÍV ÁLLAPOTOK (Floor Selector, Switchek) ---
-    '--color-ui-active':   { dark: '#d0bcff', light: '#6200ee', label: 'Aktív Gomb/Switch' },
-    '--color-ui-active-text': { dark: '#381e72', light: '#ffffff', label: 'Aktív Gomb Szöveg' },
+    '--color-ui-active':   { dark: '#8A2432', light: '#8A2432', label: 'Aktív Gomb/Switch' },
+    '--color-ui-active-text': { dark: '#ffffff', light: '#ffffff', label: 'Aktív Gomb Szöveg' },
 
     // --- TÉRKÉP ELEMEK (Szobák & Falak) ---
     '--color-room':        { dark: '#00897b', light: '#00897b', label: 'Szoba Kitöltés' },
-    '--color-room-stroke': { dark: '#00897b', light: '#00695c', label: 'Szoba Körvonal' }, // ÚJ
+    '--color-room-stroke': { dark: '#26a69a', light: '#004d40', label: 'Szoba Körvonal' },
     '--color-room-text':   { dark: '#ffffff', light: '#000000', label: 'Szoba Felirat' },
     
     '--color-corridor':    { dark: '#444444', light: '#cccccc', label: 'Folyosó Fal' },
@@ -207,20 +206,20 @@ const THEME_VARS = {
 const COLOR_THEMES = {
     'default': {
         name: 'Alapértelmezett',
-        samples: ['#d0bcff', '#00897b', '#ff1744'],
+        samples: ['#8A2432', '#00897b', '#ffffff'],
         overrides: { 
             dark: {}, 
             light: {
-                '--bg-body': '#0066ff',
+                '--bg-body': '#ffffff',
                 '--bg-surface': '#ffffff',
                 '--bg-element': '#e0e0e0',
-                '--bg-button-glass': '#000000',
+                '--bg-button-glass': 'rgba(0,0,0,0.05)',
                 '--text-main': '#1c1c1e',
                 '--text-sub': '#666666',
                 '--border-color': '#d1d1d1',
                 '--icon-color': '#666666',
                 '--icon-color-active': '#000000',
-                '--color-ui-active': 'rgba(144.8250257743968, 102.68933898854078, 205.01886403990557, 1)',
+                '--color-ui-active': '#8A2432',
                 '--color-ui-active-text': '#ffffff',
                 '--color-room': 'rgba(61.012373144687864, 198.1596376544658, 184.1445887264592, 1)',
                 '--color-room-stroke': 'rgba(0, 105, 91.99999999999994, 1)',
@@ -469,10 +468,17 @@ const APP_SETTINGS = {
 
 // TILE LAYERS
 const TILE_LAYERS = {
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' 
+    dark: {
+        version: 8,
+        sources: { 'carto-dark': { type: 'raster', tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png','https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png','https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'], tileSize: 256, attribution: '&copy; CARTO &copy; OSM contributors' }},
+        layers: [{ id: 'carto-tiles', type: 'raster', source: 'carto-dark' }]
+    },
+    light: {
+        version: 8,
+        sources: { 'carto-light': { type: 'raster', tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png','https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png','https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'], tileSize: 256, attribution: '&copy; CARTO &copy; OSM contributors' }},
+        layers: [{ id: 'carto-tiles', type: 'raster', source: 'carto-light' }]
+    }
 };
-let currentTileLayer = null;
 
 // === SZÓTÁR (Hogy ne angolul írja ki) ===
 const TYPE_DICT = {
@@ -615,7 +621,6 @@ function saveToCache(buildingKey, data) {
             data: data
         };
         localStorage.setItem(CACHE_PREFIX + buildingKey, JSON.stringify(cacheItem));
-        console.log(`Cache saved for ${buildingKey}`);
         updateCacheSizeDisplay(); // UI frissítése mentés után
     } catch (e) {
         console.warn("Cache full or error. Clearing old entries...", e);
@@ -638,7 +643,6 @@ function saveToCache(buildingKey, data) {
  */
 function loadFromCache(buildingKey) {
     if (!APP_SETTINGS.cacheEnabled) {
-        console.log("Cache disabled by user settings.");
         return null;
     }
 
@@ -652,7 +656,6 @@ function loadFromCache(buildingKey) {
         // Ha a felhasználó offline van (PWA), a régi adat ezerszer jobb, mint az üres képernyő.
         // A frissítést amúgy is elintézi a háttérben a loadOsmData, ha van net.
         
-        console.log(`Loaded ${buildingKey} from cache!`);
         return item.data;
     } catch (e) {
         return null;
@@ -1057,136 +1060,409 @@ const OVERPASS_SERVERS = [
 ];
 
 /**
- * A Leaflet térképpéldány inicializálása és konfigurálása.
- * Alapértelmezett vezérlők (nagyítás, attribúció) kikapcsolása a testreszabhatóság érdekében.
- * Finomított nagyítási (smooth zoom) beállítások alkalmazása a folyékonyabb felhasználói élményért.
- * @type {L.Map}
+ * A MapLibre GL JS térképpéldány inicializálása és konfigurálása.
+ * @type {maplibregl.Map}
  */
-const map = L.map('map', { 
-    zoomControl: false, 
+const map = new maplibregl.Map({
+    container: 'map',
+    style: TILE_LAYERS[APP_SETTINGS.themeMode],
+    center: [currentBuilding.center[1], currentBuilding.center[0]], // MapLibre: [lon, lat]!
+    zoom: currentBuilding.zoom,
     attributionControl: false,
-    // Ha 768px-nél kisebb a képernyő (mobil), akkor működjön az egyujjas zoom, 
-    // ha nagyobb (asztali/Mac), akkor 0.5-ös.
-    zoomSnap: window.innerWidth < 768 ? 0 : 0.5,
-    zoomDelta: window.innerWidth < 768 ? 0.1 : 0.5,
-    wheelPxPerZoomLevel: 120
-}).setView(currentBuilding.center, currentBuilding.zoom);
-// --- POI RÉTEG ÉS CSOPORT INICIALIZÁLÁSA ---
-map.createPane('poiPane');
-map.getPane('poiPane').style.zIndex = 450;
-map.getPane('poiPane').style.pointerEvents = 'none';
-// FeatureGroup-ot használunk LayerGroup helyett, hogy tudjunk Bounds-ot számolni
-poiMarkersGroup = L.featureGroup().addTo(map);
+    dragRotate: false,
+    pitchWithRotate: false,
+    maxZoom: 22
+});
 
-/**
- * Nagy teljesítményű SVG renderelő példányosítása.
- * A 'padding' paraméter értéke biztosítja, hogy a látható nézeten kívül 
- * további képernyőnyi területek előre kirajzolásra kerüljenek, csökkentve a 
- * görgetés (panning) közbeni villogást vagy akadást.
- * @type {L.SVG}
- */
-const smoothRenderer = L.svg({ padding: 2.0 });
+// Attribution hozzáadása manuálisan (jobb alsó sarok)
+map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
-/**
- * Egyedi, rövidített szerzői jogi (attribution) vezérlő hozzáadása a térképhez.
- * Alapértelmezetten a jobb alsó sarokban jelenik meg az OpenStreetMap hivatkozással.
- */
-L.control.attribution({
-}).addAttribution('&copy; OSM contributors').addTo(map);
+// Forgatás letiltása érintésvezérléskor (épülettérképen nem kell)
+map.touchZoomRotate.disableRotation();
 
 /**
  * Eseményfigyelő regisztrálása a térkép nagyítási műveletének befejezésére ('zoomend').
  * Minden egyes zoomolás után frissíti a térképen lévő dinamikus elemek 
  * láthatóságát a megfelelő részletességi szint (LOD) fenntartása érdekében.
  */
+map.on('zoom', function() {
+    updateDynamicVisibility();
+});
+
 map.on('zoomend', function() {
-    // Címkék (szobafeliratok) láthatóságának frissítése a jelenlegi nagyítási szint alapján
-    updateLabelsVisibility();       
-    
-    // Dinamikus elemek (ikonok, ajtók) méretének és láthatóságának frissítése
     updateDynamicVisibility();      
 });
 
 /**
- * Dinamikusan frissíti a térkép konténerének CSS osztályait a jelenlegi 
- * nagyítási szint (zoom) és a képernyőszélesség (viewport width) alapján.
- * Ez a funkció felelős a térképi elemek (például ikonok, markerek) részletességi 
- * szintjének (Level of Detail - LOD) szabályozásáért.
+ * Dinamikusan frissíti a térkép DOM elemeinek CSS változóit a jelenlegi 
+ * nagyítási szint (zoom) alapján. Sima, képkockasebességű (60fps) átmenetet biztosít.
  */
 function updateDynamicVisibility() {
-    // Az aktuális nagyítási szint, a képernyőszélesség és a térkép DOM elemének lekérése
     const zoom = map.getZoom();
-    const width = window.innerWidth;
-    const mapContainer = map.getContainer(); // A <div id="map">
 
-    // Az előzőleg beállított láthatósági osztályok eltávolítása az alapállapot visszaállításához
-    mapContainer.classList.remove('map-container-mid', 'map-container-low');
+    // 1. Ikonok és POI-k skálázása (Eredeti 18.5 küszöbérték)
+    let iconScale = (zoom - 18.5) / (20.5 - 18.5);
+    if (iconScale < 0) iconScale = 0;
+    if (iconScale > 1) iconScale = 1;
+    iconScale = Math.sin(iconScale * Math.PI / 2);
 
-    // Mobil nézet specifikus szabályok (600px alatti szélesség esetén szigorúbb határok)
-    if (width < 600) {
-        if (zoom < 19) {
-            // Távoli nézet: A vizuális elemek (ikonok) teljesen rejtettek a teljesítmény és átláthatóság érdekében
-            mapContainer.classList.add('map-container-low');
-        } else if (zoom >= 19 && zoom < 21) {
-            // Köztes nézet: Az ikonok csökkentett méretben jelennek meg
-            mapContainer.classList.add('map-container-mid');
-        }
-        // 21-es zoom szint felett (Közeli nézet): Az elemek normál méretben láthatóak, nem kap külön osztályt
-    } 
-    // Asztali nézet specifikus szabályok (600px vagy annál nagyobb szélesség esetén)
-    else {
-        if (zoom < 18.5) {
-            // Távoli nézet: Az elemek teljesen rejtettek
-            mapContainer.classList.add('map-container-low');
-        } else if (zoom >= 18.5 && zoom < 20.5) {
-            // Köztes nézet: Az ikonok csökkentett méretben jelennek meg
-            mapContainer.classList.add('map-container-mid');
-        }
-        // 20.5-ös zoom szint felett (Közeli nézet): Az elemek normál méretben láthatóak
+    let poiScale = (zoom - 18.0) / (20.0 - 18.0);
+    if (poiScale < 0) poiScale = 0;
+    if (poiScale > 1) poiScale = 1;
+    poiScale = Math.sin(poiScale * Math.PI / 2);
+
+    // 2. Feliratok láthatósága és szöveg mérete (Eredeti 18.5 küszöbérték)
+    let labelOpacity = (zoom - 18.5) / (19.0 - 18.5);
+    if (labelOpacity < 0) labelOpacity = 0;
+    if (labelOpacity > 1) labelOpacity = 1;
+
+    let displayShort = 'none', displayMid = 'none', displayFull = 'none';
+    let fontSize = '10px';
+
+    if (zoom >= 20.5) {
+        displayFull = 'block';
+        fontSize = '12px';
+    } else if (zoom >= 19.5) {
+        displayMid = 'block';
+        fontSize = '11px';
+    } else if (zoom >= 18.5) {
+        displayShort = 'block';
+        fontSize = '10px';
     }
+
+    const root = document.documentElement;
+    root.style.setProperty('--dynamic-icon-scale', iconScale);
+    root.style.setProperty('--dynamic-poi-scale', poiScale);
+    root.style.setProperty('--dynamic-icon-opacity', iconScale < 0.05 ? 0 : iconScale);
     
-    // A szöveges címkék (feliratok) láthatóságának frissítése a módosított állapotnak megfelelően
-    updateLabelsVisibility();
+    root.style.setProperty('--dynamic-label-opacity', labelOpacity < 0.05 ? 0 : labelOpacity);
+    root.style.setProperty('--dynamic-label-size', fontSize);
+    
+    root.style.setProperty('--display-label-short', displayShort);
+    root.style.setProperty('--display-label-mid', displayMid);
+    root.style.setProperty('--display-label-full', displayFull);
 }
 
-/**
- * Szabályozza a térképen elhelyezett szöveges feliratok (címkék) láthatóságát.
- * A vizuális zsúfoltság elkerülése érdekében csak egy meghatározott nagyítási szint 
- * elérésekor rajzolja ki a feliratokat, eszközfüggő küszöbértékek alapján.
- */
-function updateLabelsVisibility() {
-    // A jelenlegi nagyítási szint és képernyőszélesség lekérése
-    const currentZoom = map.getZoom();
-    const width = window.innerWidth;
-    
-    // A megjelenítési küszöbérték meghatározása: mobil eszközökön és asztali környezetben
-    // const limit = width < 600 ? 19 : 19;
-    const limit = 19;
-    
-    // Ha a jelenlegi nagyítás elérte vagy meghaladta a küszöbértéket
-    if (currentZoom >= limit) {
-        drawLabels(currentLevel);
-    } else {
-        // Ha a nagyítás a küszöbérték alatt van, eltávolítjuk az összes címkét a rétegről
-        labelLayerGroup.clearLayers();
-    }
+let _mapLayersInitialized = false;
+
+// Globális tárolók a MapLibre Marker objektumoknak
+let _routeMarkers = [];
+let _arrowMarkers = [];
+let _poiMarkers = [];
+let _favoriteMarkers = [];
+let _roomIconMarkers = [];
+let _roomLabelMarkers = [];
+
+function _clearRouteMarkers() {
+    _routeMarkers.forEach(({ marker }) => marker.remove());
+    _routeMarkers = [];
 }
 
-map.createPane('floorPane'); map.getPane('floorPane').style.zIndex = 200;
-map.createPane('labelPane'); map.getPane('labelPane').style.zIndex = 450; // Z-Index: Legyen a szobák felett, de a navigáció/ikonok alatt
-map.createPane('routePane'); map.getPane('routePane').style.zIndex = 650; 
-map.createPane('highlightPane'); map.getPane('highlightPane').style.zIndex = 640;
-map.createPane('arrowPane'); map.getPane('arrowPane').style.zIndex = 660; // A Z-indexe legyen a vonal fölött, de a markerek alatt
-map.createPane('navMarkerPane'); map.getPane('navMarkerPane').style.zIndex = 700; // A legfelső réteg a navigációs ikonoknak
+function _clearArrowMarkers() {
+    _arrowMarkers.forEach(({ marker }) => marker.remove());
+    _arrowMarkers = [];
+}
 
-let indoorLayerGroup = L.layerGroup().addTo(map);
-let iconLayerGroup = L.layerGroup().addTo(map);
-let routeLayerGroup = L.layerGroup().addTo(map);
-let routeMarkersLayerGroup = L.layerGroup().addTo(map);
-let routeArrowsLayerGroup = L.layerGroup().addTo(map);
-let highlightLayerGroup = L.layerGroup().addTo(map); 
-let selectedHighlightLayer = L.layerGroup().addTo(map);
-let labelLayerGroup = L.layerGroup().addTo(map);
+function _clearPoiMarkers() {
+    _poiMarkers.forEach(m => m.remove());
+    _poiMarkers = [];
+}
+
+function _clearFavoriteMarkers() {
+    _favoriteMarkers.forEach(m => m.remove());
+    _favoriteMarkers = [];
+}
+
+function _clearRoomIconMarkers() {
+    _roomIconMarkers.forEach(m => m.remove());
+    _roomIconMarkers = [];
+}
+
+function _clearRoomLabelMarkers() {
+    _roomLabelMarkers.forEach(m => m.remove());
+    _roomLabelMarkers = [];
+}
+
+function _initMapSources() {
+    map.addSource('indoor-geojson', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+    
+    map.addSource('route-geojson', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+    
+    map.addSource('highlight-geojson', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+    
+    map.addSource('labels-geojson', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+}
+
+function _initMapLayers() {
+    const cs = () => getComputedStyle(document.documentElement);
+    const get = (v) => cs().getPropertyValue(v).trim();
+    
+    // 1. PADLÓ / FAL (floor-fill)
+    map.addLayer({
+        id: 'floor-fill', type: 'fill', source: 'indoor-geojson',
+        filter: ['all',
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['any', ['==', ['get', 'indoor'], 'level'], ['has', 'building:part'], ['==', ['get', 'indoor'], 'wall'], ['has', 'building']]
+        ],
+        paint: { 'fill-color': get('--color-floor-fill'), 'fill-opacity': 0.1 }
+    });
+    map.addLayer({
+        id: 'floor-outline', type: 'line', source: 'indoor-geojson',
+        filter: ['any', ['==', ['get', 'indoor'], 'level'], ['has', 'building:part']],
+        paint: { 'line-color': get('--color-outline'), 'line-width': 1 }
+    });
+    
+    // 2. FOLYOSÓK
+    map.addLayer({
+        id: 'corridor-fill', type: 'fill', source: 'indoor-geojson',
+        filter: ['all',
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['==', ['get', 'indoor'], 'corridor']
+        ],
+        paint: { 'fill-color': get('--color-corridor-fill'), 'fill-opacity': 1 }
+    });
+    map.addLayer({
+        id: 'corridor-line', type: 'line', source: 'indoor-geojson',
+        filter: ['==', ['get', 'highway'], 'corridor'],
+        paint: { 'line-color': get('--color-corridor'), 'line-width': 4, 'line-opacity': 0.5 }
+    });
+    
+    // 3. SZOBÁK
+    map.addLayer({
+        id: 'room-fill', type: 'fill', source: 'indoor-geojson',
+        filter: ['all', 
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['!', ['any', ['==',['get','indoor'],'level'], ['has','building:part'], ['==',['get','indoor'],'wall'], ['has','building'], ['==',['get','indoor'],'corridor'], ['==',['get','highway'],'corridor'], ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets'], ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps'], ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']]],
+            ['!', ['any', ['has', 'entrance'], ['has', 'door']]]
+        ],
+        paint: { 'fill-color': get('--color-room'), 'fill-opacity': 0.5 }
+    });
+    map.addLayer({
+        id: 'room-stroke', type: 'line', source: 'indoor-geojson',
+        filter: ['all', 
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['!', ['any', ['==',['get','indoor'],'level'], ['has','building:part'], ['==',['get','indoor'],'wall'], ['has','building'], ['==',['get','indoor'],'corridor'], ['==',['get','highway'],'corridor'], ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets'], ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps'], ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']]],
+            ['!', ['any', ['has', 'entrance'], ['has', 'door']]]
+        ],
+        paint: { 'line-color': get('--color-room-stroke'), 'line-width': 1.5 }
+    });
+    
+    // 4. MOSDÓK (toilet-fill)
+    map.addLayer({
+        id: 'toilet-fill', type: 'fill', source: 'indoor-geojson',
+        filter: ['all',
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['any', ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets']]
+        ],
+        paint: { 'fill-color': get('--color-toilet-fill'), 'fill-opacity': 0.9 }
+    });
+    map.addLayer({
+        id: 'toilet-stroke', type: 'line', source: 'indoor-geojson',
+        filter: ['any', ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets']],
+        paint: { 'line-color': get('--color-toilet-stroke'), 'line-width': 2 }
+    });
+    
+    // 5. LÉPCSŐK
+    map.addLayer({
+        id: 'stairs-fill', type: 'fill', source: 'indoor-geojson',
+        filter: ['all',
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['any', ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps']]
+        ],
+        paint: { 'fill-color': get('--color-stairs'), 'fill-opacity': 0.6 }
+    });
+    map.addLayer({
+        id: 'stairs-stroke', type: 'line', source: 'indoor-geojson',
+        filter: ['any', ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps']],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': get('--color-stairs-stroke'),
+            'line-width': ['case', ['==', ['geometry-type'], 'LineString'], 2.5, 1]
+        }
+    });
+    
+    // 6. LIFTEK
+    map.addLayer({
+        id: 'elevator-fill', type: 'fill', source: 'indoor-geojson',
+        filter: ['all',
+            ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+            ['any', ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']]
+        ],
+        paint: { 'fill-color': get('--color-elevator'), 'fill-opacity': 0.6 }
+    });
+    map.addLayer({
+        id: 'elevator-stroke', type: 'line', source: 'indoor-geojson',
+        filter: ['any', ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']],
+        paint: { 'line-color': get('--color-elevator-stroke'), 'line-width': 1 }
+    });
+    
+    // 7. AJTÓK (circle) - Dinamikus opacitás és méretezés zoom szinttől függően
+    map.addLayer({
+        id: 'door-circle', type: 'circle', source: 'indoor-geojson',
+        filter: ['any', ['has','entrance'], ['has','door']],
+        paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 18.5, 1.5, 20.5, 3],
+            'circle-color': '#000000',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 1.5,
+            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 18.5, 0, 19, 0.4, 20.5, 1],
+            'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 18.5, 0, 19, 0.4, 20.5, 1]
+        }
+    });
+    
+    // 8. KIJELÖLÉS (highlight) – kontúr
+    map.addLayer({
+        id: 'highlight-line', type: 'line', source: 'highlight-geojson',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': get('--color-highlight'), 'line-width': 5, 'line-opacity': 0.8 }
+    });
+    
+    // 9. ÚTVONAL
+    map.addLayer({
+        id: 'route-walk', type: 'line', source: 'route-geojson',
+        filter: ['==', ['get', 'routeType'], 'walk'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': get('--color-route-primary'), 'line-width': 5 }
+    });
+    map.addLayer({
+        id: 'route-transit', type: 'line', source: 'route-geojson',
+        filter: ['==', ['get', 'routeType'], 'transit'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': get('--color-route-secondary'), 'line-width': 5, 'line-dasharray': [2, 2] }
+    });
+    map.addLayer({
+        id: 'route-arrows', type: 'symbol', source: 'route-geojson',
+        filter: ['==', ['get', 'routeType'], 'walk'],
+        layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': 100,
+            'icon-image': 'route-arrow',
+            'icon-keep-upright': false,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true
+        }
+    });
+    map.addLayer({
+        id: 'route-walkline', type: 'line', source: 'route-geojson',
+        filter: ['==', ['get', 'routeType'], 'walkline'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#ffffff', 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [1, 2] }
+    });
+
+    // 10. MAP HOVER & CLICK LISTENERS
+    const FEATURE_LAYERS = ['room-fill', 'corridor-fill', 'toilet-fill', 'stairs-fill', 'elevator-fill', 'door-circle'];
+
+    FEATURE_LAYERS.forEach(layerId => {
+        map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
+
+        map.on('click', layerId, (e) => {
+            if (window.isMapInteractionLocked) return;
+            if (!e.features || e.features.length === 0) return;
+
+            const targetFeature = e.features[0];
+            let fullFeature = null;
+
+            if (geoJsonData && geoJsonData.features) {
+                const idx = targetFeature.properties ? targetFeature.properties._featureIndex : undefined;
+                if (idx !== undefined && geoJsonData.features[idx]) {
+                    fullFeature = geoJsonData.features[idx];
+                } else if (targetFeature.id !== undefined && geoJsonData.features[targetFeature.id]) {
+                    fullFeature = geoJsonData.features[targetFeature.id];
+                } else {
+                    const props = targetFeature.properties || {};
+                    fullFeature = geoJsonData.features.find(f => f.properties && f.properties.name === props.name && f.properties.ref === props.ref && f.properties.indoor === props.indoor);
+                }
+            }
+
+            const featToOpen = fullFeature || targetFeature;
+
+            if (window.clickTimeout) {
+                clearTimeout(window.clickTimeout);
+                window.clickTimeout = null;
+            }
+
+            window.clickTimeout = setTimeout(() => {
+                openSheet(featToOpen);
+                window.clickTimeout = null;
+            }, 200);
+        });
+    });
+
+    map.on('click', 'floor-fill', (e) => {
+        if (window.isMapInteractionLocked) return;
+        const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS });
+        if (!features || features.length === 0) {
+            closeSheet();
+        }
+    });
+
+    map.on('click', (e) => {
+        if (window.isMapInteractionLocked) return;
+        const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS.concat(['floor-fill']) });
+        if (!features || features.length === 0) {
+            if (activeRouteData) return; // Ne zárjuk be a sheet-et, ha aktív navigáció fut!
+            closeSheet();
+        }
+    });
+}
+
+function _applyThemeToMapLayers() {
+    if (!_mapLayersInitialized) return;
+    const cs = getComputedStyle(document.documentElement);
+    const get = (v) => cs.getPropertyValue(v).trim();
+    
+    if (map.getLayer('floor-fill')) map.setPaintProperty('floor-fill', 'fill-color', get('--color-floor-fill'));
+    if (map.getLayer('floor-outline')) map.setPaintProperty('floor-outline', 'line-color', get('--color-outline'));
+    if (map.getLayer('corridor-fill')) map.setPaintProperty('corridor-fill', 'fill-color', get('--color-corridor-fill'));
+    if (map.getLayer('corridor-line')) map.setPaintProperty('corridor-line', 'line-color', get('--color-corridor'));
+    if (map.getLayer('room-fill')) map.setPaintProperty('room-fill', 'fill-color', get('--color-room'));
+    if (map.getLayer('room-stroke')) map.setPaintProperty('room-stroke', 'line-color', get('--color-room-stroke'));
+    if (map.getLayer('toilet-fill')) map.setPaintProperty('toilet-fill', 'fill-color', get('--color-toilet-fill'));
+    if (map.getLayer('toilet-stroke')) map.setPaintProperty('toilet-stroke', 'line-color', get('--color-toilet-stroke'));
+    if (map.getLayer('stairs-fill')) map.setPaintProperty('stairs-fill', 'fill-color', get('--color-stairs'));
+    if (map.getLayer('stairs-stroke')) map.setPaintProperty('stairs-stroke', 'line-color', get('--color-stairs-stroke'));
+    if (map.getLayer('elevator-fill')) map.setPaintProperty('elevator-fill', 'fill-color', get('--color-elevator'));
+    if (map.getLayer('elevator-stroke')) map.setPaintProperty('elevator-stroke', 'line-color', get('--color-elevator-stroke'));
+    if (map.getLayer('highlight-line')) map.setPaintProperty('highlight-line', 'line-color', get('--color-highlight'));
+    if (map.getLayer('highlight-circle')) map.setPaintProperty('highlight-circle', 'circle-stroke-color', get('--color-highlight'));
+    if (map.getLayer('route-walk')) map.setPaintProperty('route-walk', 'line-color', get('--color-route-primary'));
+    if (map.getLayer('route-transit')) map.setPaintProperty('route-transit', 'line-color', get('--color-route-secondary'));
+    if (map.getLayer('room-labels')) {
+        map.setPaintProperty('room-labels', 'text-color', get('--color-room-text'));
+        map.setPaintProperty('room-labels', 'text-halo-color', get('--bg-body'));
+    }
+    _loadRouteArrowImage();
+}
+
+function _loadRouteArrowImage() {
+    const cs = getComputedStyle(document.documentElement);
+    const get = (v) => cs.getPropertyValue(v).trim();
+    const arrowColor = get('--color-arrow') || '#2196F3';
+    
+    const svg = `<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="12" x2="18" y2="12" stroke="${arrowColor}" stroke-width="2" stroke-linecap="round" />
+        <path d="M22 12 L16 9.5 L16 14.5 Z" fill="${arrowColor}" stroke="${arrowColor}" stroke-width="1" stroke-linejoin="round" />
+    </svg>`;
+    const img = new Image();
+    img.onload = () => {
+        if (map.hasImage('route-arrow')) map.removeImage('route-arrow');
+        map.addImage('route-arrow', img);
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 
 let currentLevel = "0";
 let availableLevels = [];
@@ -1249,32 +1525,50 @@ function applyTheme() {
         root.style.setProperty(varName, finalValue);
     }
 
-    // 3. UI Osztályok és Tile Layer (Marad a régi logika)
+    // 3. UI Osztályok és Tile Layer
     if (mode === 'light') {
         document.body.classList.add('light-mode');
-        document.getElementById('theme-shame-msg').classList.add('visible');
     } else {
         document.body.classList.remove('light-mode');
-        document.getElementById('theme-shame-msg').classList.remove('visible');
     }
 
-    const newUrl = (mode === 'light') ? TILE_LAYERS.light : TILE_LAYERS.dark;
+    const newStyle = (mode === 'light') ? TILE_LAYERS.light : TILE_LAYERS.dark;
+    
+    if (_mapLayersInitialized && map.getStyle) {
+        const currentStyle = map.getStyle();
+        // Keressük meg a carto forrást
+        const currentSourceId = currentStyle && currentStyle.sources && currentStyle.sources['carto-dark'] ? 'carto-dark' : 
+                               (currentStyle && currentStyle.sources && currentStyle.sources['carto-light'] ? 'carto-light' : '');
+        const targetSourceId = (mode === 'light') ? 'carto-light' : 'carto-dark';
+        
+        if (currentSourceId && currentSourceId !== targetSourceId) {
+            // Távolítsuk el a régi réteget és forrást
+            if (map.getLayer('carto-tiles')) map.removeLayer('carto-tiles');
+            if (map.getSource(currentSourceId)) map.removeSource(currentSourceId);
+            
+            // Adjuk hozzá az új forrást
+            map.addSource(targetSourceId, {
+                type: 'raster',
+                tiles: newStyle.sources[targetSourceId].tiles,
+                tileSize: 256,
+                attribution: '&copy; CARTO &copy; OSM contributors'
+            });
+            
+            // Adjuk hozzá az új réteget legalulra
+            const layers = map.getStyle().layers;
+            const firstCustomLayer = layers.find(l => l.id !== 'carto-tiles' && l.id !== 'background');
+            const beforeId = firstCustomLayer ? firstCustomLayer.id : undefined;
 
-    // OPTIMALIZÁLT TILE LAYER BEÁLLÍTÁSOK
-    const tileOptions = { 
-        attribution: '&copy; OSM contributors', 
-        maxZoom: 22,
-        keepBuffer: 25,       // Több csempét tart a memóriában
-        updateWhenIdle: true
-    };
-
-    if (currentTileLayer && currentTileLayer._url !== newUrl) {
-        map.removeLayer(currentTileLayer);
-        currentTileLayer = L.tileLayer(newUrl, tileOptions).addTo(map);
-        currentTileLayer.bringToBack();
-    } else if (!currentTileLayer) {
-        currentTileLayer = L.tileLayer(newUrl, tileOptions).addTo(map);
-        currentTileLayer.bringToBack();
+            map.addLayer({
+                id: 'carto-tiles',
+                type: 'raster',
+                source: targetSourceId
+            }, beforeId);
+            
+            _applyThemeToMapLayers();
+        } else {
+            _applyThemeToMapLayers();
+        }
     }
 
     updateSettingsUI();
@@ -1330,25 +1624,46 @@ function updateSettingsUI() {
 function setThemeMode(mode) {
     APP_SETTINGS.themeMode = mode;
     applyTheme();
+    renderThemeSelector();
+}
+
+/**
+ * Dinamikusan kiszámítja egy színtéma 3 reprezentatív színmintáját (dot) 
+ * az aktuális témamód (dark/light) és az egyedi felülírások alapján.
+ * @param {string} themeKey - A téma azonosítója.
+ * @returns {Array<string>} 3 CSS színkód tömbje.
+ */
+function getThemeSampleColors(themeKey) {
+    const mode = APP_SETTINGS.themeMode || 'dark';
+    const theme = COLOR_THEMES[themeKey];
+    if (!theme) return ['#8A2432', '#00897b', '#000000'];
+
+    const getVal = (vName) => {
+        if (theme.overrides && theme.overrides[mode] && theme.overrides[mode][vName]) {
+            return theme.overrides[mode][vName];
+        }
+        if (THEME_VARS[vName] && THEME_VARS[vName][mode]) {
+            return THEME_VARS[vName][mode];
+        }
+        return null;
+    };
+
+    const uiActive = getVal('--color-ui-active') || '#8A2432';
+    const roomColor = getVal('--color-room') || '#00897b';
+    const bgBody = getVal('--bg-body') || (mode === 'dark' ? '#000000' : '#ffffff');
+
+    return [uiActive, roomColor, bgBody];
 }
 
 /**
  * Kiválasztja és alkalmazza az aktív színpalettát (színtémát).
- * A módosítás érvénybe léptetése után a vizuális inkonzisztenciák elkerülése 
- * érdekében újrarendereli a térképet és frissíti a téma-választó felületet.
- * @param {string} key - A kiválasztott színtéma egyedi azonosítója (pl. 'default', 'ocean', 'nature').
+ * A módosítás érvénybe léptetése után újrarendereli a téma-választó felületet.
+ * @param {string} key - A kiválasztott színtéma azonosítója.
  */
 function setColorTheme(key) {
     APP_SETTINGS.activeColorTheme = key;
-    
-    // Az új színváltozók kiszámítása és a DOM-ra történő ráhúzása
     applyTheme();
-    
-    // A térképelemek (szobák, útvonalak, stb.) újrarendelése az új stílusokkal
-    renderLevel(currentLevel, false); 
-    
-    // A téma kiválasztó lista grafikus frissítése a menüben
-    renderThemeSelector(); 
+    renderThemeSelector();
 }
 
 /**
@@ -1360,48 +1675,30 @@ function setColorTheme(key) {
 function renderThemeSelector() {
     const container = document.getElementById('color-theme-list');
     
-    // Biztonsági ellenőrzés: ha a konténer nem létezik a DOM-ban, megszakítjuk a futást
     if (!container) return;
-    
-    // A konténer tartalmának teljes ürítése az újrarenderelés előtt
     container.innerHTML = '';
     
-    // Az aktuálisan beállított (aktív) színtéma lekérése a globális beállításokból
     const currentTheme = APP_SETTINGS.activeColorTheme;
 
-    // Iteráció az összes definiált színtémán a kulcs-érték párok alapján
     for (const [key, data] of Object.entries(COLOR_THEMES)) {
-        // Új befoglaló elem (div) létrehozása az adott témának
         const div = document.createElement('div');
-        
-        // Az elem stílusosztályának beállítása. Ha a ciklusban vizsgált téma
-        // megegyezik az aktív témával, megkapja a 'selected' (kiválasztott) osztályt.
         const isSelected = (key === currentTheme);
         div.className = 'theme-option' + (isSelected ? ' selected' : '');
-        
-        // Adat-attribútum beállítása és kattintás eseménykezelő (click handler) hozzárendelése
         div.dataset.key = key;
         div.onclick = () => setColorTheme(key);
         
-        // Színminta pöttyök (dots) HTML kódjának generálása
         let dotsHtml = '';
+        const colors = getThemeSampleColors(key);
         
-        // A megjelenítendő színek meghatározása: elsődlegesen a téma 'samples' tömbjét használja.
-        // Amennyiben ez nem áll rendelkezésre, tartalékként (fallback) kiválasztja az első három definiált színt.
-        const colors = data.samples || Object.values(data.colors || {}).slice(0,3);
-        
-        // HTML struktúra dinamikus összeállítása a kinyert színminták alapján
         colors.forEach(color => {
             dotsHtml += `<div class="dot" style="background: ${color}"></div>`;
         });
         
-        // A lista elem belső HTML szerkezetének (név és színminták) véglegesítése
         div.innerHTML = `
             <span class="theme-name">${data.name}</span>
             <div class="color-dots">${dotsHtml}</div>
         `;
         
-        // Az elkészült és feltöltött HTML elem hozzáadása a DOM konténerhez
         container.appendChild(div);
     }
 }
@@ -1516,16 +1813,11 @@ function openThemeEditor() {
             // Eseménykezelő: Színváltozás esetén (Live Preview funkció)
             pickr.on('change', (color, source, instance) => {
                 const rgbaColor = color.toRGBA().toString();
-                // A globális CSS változó értékének azonnali frissítése a DOM-ban
                 document.documentElement.style.setProperty(varName, rgbaColor);
                 pickr.applyColor(true); 
-
-                // Speciális eset: Ha a kiemelés (highlight) színét változtatják, 
-                // a meglévő kijelöléseket újra kell rajzolni az új színnel
-                if (varName === '--color-highlight') {
-                    selectedHighlightLayer.eachLayer(l => {
-                        if (l.feature) drawSelectedHighlight(l.feature);
-                    });
+                _applyThemeToMapLayers();
+                if (varName === '--color-highlight' && selectedFeature) {
+                    drawSelectedHighlight(selectedFeature);
                 }
             });
             
@@ -1573,7 +1865,7 @@ function closeThemeEditor(saved = false) {
     if (selectedFeature) {
         drawSelectedHighlight(selectedFeature);
     } else {
-        selectedHighlightLayer.clearLayers();
+        drawSelectedHighlight(null);
     }
 }
 
@@ -1765,7 +2057,7 @@ function focusOnElement(varName) {
             drawSelectedHighlight(target);
         } else {
             // A kiemelési réteg ürítése a színek zavartalan ellenőrzéséhez
-            selectedHighlightLayer.clearLayers();
+            drawSelectedHighlight(null);
         }
     }
 }
@@ -1782,12 +2074,10 @@ function focusOnElement(varName) {
  */
 function handleColorChange(varName, value) {
     document.documentElement.style.setProperty(varName, value);
-    // Hex kód frissítése a felületen az aktuális esemény (event) célpontja mellett
-    event.target.nextElementSibling.innerText = value;
-    // Ha valami drasztikusat (pl szoba szín) változtatunk, újra kell rajzolni a réteget
-    // De csak óvatosan, mert lassíthatja a dragginget.
-    // A CSS változók (háttér, gombok) azonnaliak, de a canvas/SVG alapú dolgokhoz (room fill) kellhet a render.
-    // renderLevel(currentLevel, false); // Ezt inkább hagyjuk a mentésre, vagy ha nagyon kell, debounce-al.
+    if (typeof event !== 'undefined' && event && event.target && event.target.nextElementSibling) {
+        event.target.nextElementSibling.innerText = value;
+    }
+    _applyThemeToMapLayers();
 }
 
 /**
@@ -1906,7 +2196,6 @@ function detectClosestBuilding() {
             // - Az nem egyezik meg a már betöltöttel
             // - A távolság kevesebb, mint 1 km (ne váltson, ha a felhasználó messze van az egyetemtől)
             if (closestKey && closestKey !== currentBuildingKey && minDist < 1000) {
-                console.log(`GPS: ${closestKey} épület észlelve (${Math.round(minDist)}m). Váltás...`);
                 
                 // --- Vizuális visszajelzés a felhasználónak a GPS alapú váltásról ---
                 showToast(`✨ ${BUILDINGS[closestKey].name} észlelve`);
@@ -1985,45 +2274,38 @@ function toggleBuildingMenu() {
  * @param {string|null} [autoSearchTerm=null] - Opcionális keresési kifejezés, amely a betöltés után automatikusan lefut.
  */
 function changeBuilding(key, autoSearchTerm = null) {
-    // Biztonsági ellenőrzés: ha az épület nem létezik a konfigurációban, megszakítjuk a folyamatot
     if (!BUILDINGS[key]) return;
     
-    // Aktuális épület állapotváltozóinak frissítése
     currentBuildingKey = key;
     currentBuilding = BUILDINGS[key];
     
-    // Ha meg van adva automatikus keresés, elmentjük a globális változóba a későbbi futtatáshoz
     if (autoSearchTerm) pendingSearchTerm = autoSearchTerm;
 
-    // Az előző épülethez tartozó memóriában tárolt adatok és vizuális rétegek teljes ürítése
     geoJsonData = null;
-    indoorLayerGroup.clearLayers();
-    iconLayerGroup.clearLayers();
-    routeLayerGroup.clearLayers();
-    highlightLayerGroup.clearLayers();
-    selectedHighlightLayer.clearLayers();
-
-    // Töröljük a POI markereket is az épületváltáskor
-    if (poiMarkersGroup) poiMarkersGroup.clearLayers();
-    activePoiCategory = null; // Állapot törlése
     
-    // Aktív navigációs indulópont törlése az épületváltás miatt
+    if (_mapLayersInitialized) {
+        const empty = { type: 'FeatureCollection', features: [] };
+        if (map.getSource('indoor-geojson')) map.getSource('indoor-geojson').setData(empty);
+        if (map.getSource('route-geojson')) map.getSource('route-geojson').setData(empty);
+        if (map.getSource('highlight-geojson')) map.getSource('highlight-geojson').setData(empty);
+        if (map.getSource('labels-geojson')) map.getSource('labels-geojson').setData(empty);
+    }
+
+    _clearRouteMarkers();
+    _clearArrowMarkers();
+    _clearPoiMarkers();
+    _clearFavoriteMarkers();
+    _clearRoomIconMarkers();
+    _clearRoomLabelMarkers();
+    
+    activePoiCategory = null;
     pendingNavSource = null;
 
-    // Keresőmező tartalmának alaphelyzetbe állítása
     document.getElementById('search-input').value = "";
-
-    // UI frissítése: A keresőmező melletti ikon alapállapotba (Tune) hozása
     updateRightButtonState();
     
-    // Az épületválasztó menü újrarenderelése az új kiválasztott állapottal
     initBuildings(); 
-    
-    // Az új épület adatainak betöltése (OpenStreetMap adatok letöltése vagy cache-ből olvasása)
     loadOsmData(); 
-    
-    // A map.setView innen TÖRÖLVE LETT, hogy elkerüljük az ugrálást.
-    // A kamera pozicionálását a processOsmData végzi el azonnal, miután az adatok betöltöttek.
 }
 
 /**
@@ -2216,31 +2498,23 @@ function alignMapToBuildingCenter() {
                 
                 const targetZoom = (currentBuilding.zoom || 19) - 0.5;
                 
-                const centerPoint = map.project([centerLat, centerLon], targetZoom);
-                centerPoint.y += (bottomPadding / 2) - 40; 
-                const targetLatLng = map.unproject(centerPoint, targetZoom);
+                map.jumpTo({
+                    center: [centerLon, centerLat],
+                    zoom: targetZoom,
+                    padding: { top: 40, bottom: bottomPadding, left: 10, right: 10 }
+                });
                 
-                // Kőkemény azonnali ugrás animáció nélkül
-                map.setView(targetLatLng, targetZoom, { animate: false });
-                
-                console.log("Mobile view: Center aligned instantly.");
 
             } else {
                 // --- SZÁMÍTÓGÉPES NÉZET ---
-                const leafletBounds = [
-                    [bbox[1], bbox[0]], // Dél-Nyugat
-                    [bbox[3], bbox[2]]  // Észak-Kelet
-                ];
+                map.fitBounds(
+                    [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+                    {
+                        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                        animate: false
+                    }
+                );
                 
-                // Kőkemény azonnali ugrás animáció nélkül
-                map.fitBounds(leafletBounds, {
-                    paddingTopLeft: [20, 80], 
-                    paddingBottomRight: [20, bottomPadding], 
-                    maxZoom: currentBuilding.zoom || 20,
-                    animate: false // FONTOS: Nulla animáció!
-                });
-                
-                console.log("Desktop view: Map perfectly framed instantly.");
             }
         }
     } catch (e) {
@@ -2286,16 +2560,13 @@ function processOsmData(osmData, isUpdate = false) {
     // 1. Aktuális állapot (szint/emelet) mentése a vizuális ugrálások elkerülése végett (B-010 Fix)
     const savedLevel = currentLevel;
 
-    console.log("🛠️ processOsmData indítása... Adat típusa:", osmData ? (osmData.type || "Nyers OSM API adat") : "UNDEFINED!");
 
     // Intelligens adatkonverzió vizsgálata
     if (osmData && osmData.type === 'FeatureCollection') {
         // Statikus, előkészített GeoJSON fájl (pl. GitHub Actions által generálva) feldolgozása
-        console.log("✅ Kész GeoJSON-t kaptunk (Statikus fájl), kihagyjuk a konvertálást.");
         geoJsonData = osmData;
     } else {
         // Nyers OSM adatok konvertálása GeoJSON formátumba (Fallback API esetén)
-        console.log("⚙️ Nyers OSM adatot kaptunk (Fallback), osmtogeojson konvertálás indul...");
         geoJsonData = osmtogeojson(osmData);
     }
     
@@ -2303,6 +2574,11 @@ function processOsmData(osmData, isUpdate = false) {
     if (geoJsonData && geoJsonData.features) {
         geoJsonData.features.sort((a, b) => {
             return getFeatureWeight(a) - getFeatureWeight(b);
+        });
+        geoJsonData.features.forEach((f, idx) => {
+            f.id = idx;
+            if (!f.properties) f.properties = {};
+            f.properties._featureIndex = idx;
         });
     }
 
@@ -2356,7 +2632,6 @@ async function loadOsmData() {
 
     if (cachedData) {
         try {
-            console.log("Rendering from cache...");
             
             // Adatok feldolgozása és térkép renderelése a gyorsítótárazott adatok alapján
             processOsmData(cachedData, false);
@@ -2402,12 +2677,10 @@ async function loadOsmData() {
         const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(newData);
 
         if (isDataNew) {
-            console.log("Új statikus adat érkezett, frissítés...");
             // Új adatok esetén frissítjük a térképet és felülírjuk a gyorsítótárat
             processOsmData(newData, loadedFromCache);
             saveToCache(buildingKey, newData);
         } else {
-            console.log("A statikus adat up-to-date.");
         }
 
         // Ha eddig a pontig csak a betöltőképernyő volt látható, most elrejtjük és futtatjuk a kiegészítő funkciókat
@@ -2467,7 +2740,6 @@ async function loadOsmData() {
         const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(osmData);
 
         if (isDataNew) {
-            console.log("Új élő adat érkezett (Fallback), frissítés...");
             processOsmData(osmData, loadedFromCache);
             saveToCache(buildingKey, osmData);
         }
@@ -2535,83 +2807,153 @@ function collectDoors() {
  * a szoba geometriájának belsejébe kerüljön.
  * @param {string} level - Az aktuálisan megjelenített szint (emelet) azonosítója.
  */
-function drawLabels(level) {
-    // A korábban kirajzolt címkék eltávolítása a rétegről az újrarendereléshez
-    labelLayerGroup.clearLayers();
-
-    // Biztonsági ellenőrzés: ha nincsenek betöltött adatok, megszakítjuk a futást a futásidejű hibák elkerülése végett
+function _drawRoomIcons(level) {
+    _clearRoomIconMarkers();
     if (!geoJsonData || !geoJsonData.features) return;
-    
-    // A feliratok csak a 19-es vagy annál nagyobb zoom szinten jelennek meg a zsúfoltság megelőzése érdekében
-    if (map.getZoom() < 19) return;
 
     geoJsonData.features.forEach(feature => {
-        // Szűrés a szintre: Csak az aktuálisan látható emelet elemeivel dolgozunk
         const levels = getLevelsFromFeature(feature);
         if (!levels.includes(level)) return;
 
         const p = feature.properties;
+        let iconName = null;
+        let bgColor = null;
 
-        // --- Szűrési logika (Blacklist) ---
-        // Meghatározzuk, hogy az adott elem technikai, közlekedő, vagy specifikus POI funkciót tölt-e be
+        if (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets') {
+            iconName = "wc";
+        }
+        if (p.room === 'stairs' || p.indoor === 'staircase') {
+            iconName = "stairs_2";
+        }
+        if (p.highway === 'elevator' || p.room === 'elevator') {
+            iconName = "elevator";
+        }
+
+        if (p.amenity === 'vending_machine') {
+            if (p.vending && p.vending.includes('coffee')) {
+                iconName = "local_cafe";
+                bgColor = "var(--color-coffee)";
+            } else {
+                iconName = "water_bottle";
+                bgColor = "#0288d1";
+            }
+        }
+        if (p.amenity === 'cafe' || p.amenity === 'fast_food' || p.amenity === 'restaurant' || p.shop === 'kiosk') {
+            iconName = "fastfood";
+            bgColor = "var(--color-buffet)";
+        }
+        if (p.amenity === 'microwave') {
+            iconName = "microwave";
+            bgColor = "#ff9800";
+        }
+        if (p.amenity === 'atm') {
+            iconName = "local_atm";
+            bgColor = "#4caf50";
+        }
+
+        if (iconName && !isFavorite(feature)) {
+            const center = (feature.geometry.type === "Point") 
+                ? [feature.geometry.coordinates[0], feature.geometry.coordinates[1]]
+                : turf.centroid(feature).geometry.coordinates;
+
+            const el = document.createElement('div');
+            el.className = 'map-icon';
+            if (p._featureIndex !== undefined) el.dataset.featureIndex = p._featureIndex;
+            if (p.ref || p.name) el.dataset.ref = p.ref || p.name;
+            el.dataset.coords = `${center[0].toFixed(6)},${center[1].toFixed(6)}`;
+            el.style.pointerEvents = 'none';
+
+            if (bgColor) {
+                el.style.pointerEvents = 'auto'; // Kattinthatóság bekapcsolása POI-knak
+                el.classList.add('clickable-poi');
+                el.innerHTML = `
+                    <div class="poi-bg-circle" style="background-color: ${bgColor}; cursor: pointer;">
+                        <span class="material-symbols-outlined">${iconName}</span>
+                    </div>
+                `;
+                
+                // Közvetlen kattintáskezelő a POI markerekhez
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Ne vigye át a kattintást a floor-fill rétegre
+                    
+                    if (window.clickTimeout) {
+                        clearTimeout(window.clickTimeout);
+                        window.clickTimeout = null;
+                    }
+                    openSheet(feature);
+                });
+            } else {
+                el.innerHTML = `<span class="material-symbols-outlined">${iconName}</span>`;
+            }
+
+            const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+                .setLngLat([center[0], center[1]])
+                .addTo(map);
+
+            if (!bgColor) {
+                marker.getElement().style.pointerEvents = 'none';
+            }
+
+            _roomIconMarkers.push(marker);
+        }
+    });
+}
+
+function drawLabels(level) {
+    _clearRoomLabelMarkers();
+    if (!geoJsonData || !geoJsonData.features || !_mapLayersInitialized) return;
+
+    geoJsonData.features.forEach(feature => {
+        const levels = getLevelsFromFeature(feature);
+        if (!levels.includes(level)) return;
+
+        const p = feature.properties;
         const isCorridor = p.indoor === 'corridor' || p.highway === 'corridor';
         const isToilet = p.amenity === 'toilets' || p.room === 'toilet' || p.room === 'toilets' || p.room === 'wc';
         const isStairs = p.highway === 'steps' || p.room === 'stairs' || p.indoor === 'staircase';
         const isElevator = p.highway === 'elevator' || p.room === 'elevator';
         const isPoi = p.amenity === 'vending_machine' || p.amenity === 'microwave' || p.amenity === 'atm' || p.amenity === 'cafe' || p.amenity === 'fast_food' || p.shop === 'kiosk';
 
-        // Ha az elem az előbbi kategóriák bármelyikébe esik, nem kap szöveges címkét a térképen
         if (isCorridor || isToilet || isStairs || isElevator || isPoi) return;
-        
 
-        const z = map.getZoom();
-        let labelText = "";
-        
-        if (z >= 21.5) {
-            // 1. Közeli zoom: kifér a ref+név
-            labelText = (p.ref && p.name) ? `${p.ref} - ${p.name}` : (p.name || p.ref);
-        } else if (z >= 20.5) {
-            // 2. Közepes zoom: kifér a név (ha van)
-            labelText = p.name || p.ref;
-        } else {
-            // 3. Távolabbi zoom: csak ref
-            // Ha nincs ref, megpróbáljuk a nevet, de szigorúbban levágva.
-            labelText = p.ref || (p.name && p.name.length < 20 ? p.name : "");
+        let shortName = "";
+        if (p.ref) {
+            shortName = p.ref;
+        } else if (p.name) {
+            // Ha nincs teremszám (ref), csak név (name), szavanként törjük több sorba, középre igazítva
+            const words = p.name.trim().split(/\s+/);
+            if (words.length > 3) {
+                shortName = words.slice(0, 3).join('<br>');
+            } else {
+                shortName = words.join('<br>');
+            }
         }
 
-        // Ha semmilyen érvényes feliratszöveg nem áll rendelkezésre, vagy az elem csak egy fal, továbblépünk
-        if (!labelText || p.indoor === 'wall') return;
+        let midName = p.name || p.ref || "";
+        let fullName = (p.ref && p.name) ? `${p.ref} - ${p.name}` : (p.name || p.ref || "");
 
-        // A felirat geometriai pozíciójának meghatározása
-        let centerLat, centerLon;
+        if ((!shortName && !midName && !fullName) || p.indoor === 'wall') return;
 
-        if (feature.geometry.type === "Point") {
-            // Pont geometria esetén a koordináták egyértelműek
-            centerLat = feature.geometry.coordinates[1];
-            centerLon = feature.geometry.coordinates[0];
-        } else {
-            // Poligon geometria (pl. L-alakú szoba) esetén a Turf.js 'pointOnFeature' függvénye 
-            // garantálja, hogy a számított középpont ténylegesen a poligon belső területére essen
-            const pointOnPoly = turf.pointOnFeature(feature);
-            centerLat = pointOnPoly.geometry.coordinates[1];
-            centerLon = pointOnPoly.geometry.coordinates[0];
-        }
+        const pos = feature.geometry.type === "Point" 
+            ? feature.geometry.coordinates 
+            : turf.pointOnFeature(feature).geometry.coordinates;
 
-        // A vizuális ikon (DivIcon) létrehozása a felirat számára a megfelelő HTML és CSS beállításokkal
-        const labelIcon = L.divIcon({
-            className: 'room-label',
-            html: escapeHTML(labelText), // Alap XSS védelem
-            iconSize: [40, 20],  // Alapértelmezett méret, a végső méretezést a CSS flexbox kezeli
-            iconAnchor: [20, 10] // A felirat középre igazítása a kiszámított koordinátához képest
-        });
+        const el = document.createElement('div');
+        el.className = 'room-label';
+        
+        el.innerHTML = `
+            <span class="label-short">${shortName}</span>
+            <span class="label-mid">${midName}</span>
+            <span class="label-full">${fullName}</span>
+        `;
 
-        // A marker hozzáadása a térképhez, kikapcsolt interaktivitással (kattinthatatlan), 
-        // a dedikált címke rétegen (labelPane)
-        L.marker([centerLat, centerLon], {
-            icon: labelIcon,
-            interactive: false,
-            pane: 'labelPane'
-        }).addTo(labelLayerGroup);
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([pos[0], pos[1]])
+            .addTo(map);
+
+        marker.getElement().style.pointerEvents = 'none';
+
+        _roomLabelMarkers.push(marker);
     });
 }
 
@@ -2634,217 +2976,60 @@ function triggerBlueprintAnimation() {
  * @param {boolean} animate - Indítsa-e el a Blueprint előtűnési animációt (alapból true).
  */
 function renderLevel(level, animate = true) {
-    // Korábbi rétegek tartalmának törlése az újrarenderelés előtt
-    indoorLayerGroup.clearLayers();
-    iconLayerGroup.clearLayers();
-    highlightLayerGroup.clearLayers();
-    
-    // Útvonalak és kiemelések állapotának frissítése a kiválasztott szintre
-    updateRouteVisibility(level);
-    updateSelectedHighlight(level); 
+    if (!geoJsonData || !_mapLayersInitialized || !map.getSource('indoor-geojson')) return;
 
-    L.geoJSON(geoJsonData, {
-        // A nagy teljesítményű SVG renderelő használata
-        renderer: smoothRenderer,
-
-        // Szűrőfüggvény a megfelelő szint elemeinek kiválasztására
-        filter: function(feature) {
-            const feats = getLevelsFromFeature(feature);
-            // Bejáratok és ajtók megjelenítése akkor is, ha nincs specifikus szintjük megadva
-            if (feats.length === 0 && (feature.properties.entrance || feature.properties.door)) return true; 
+    const levelFeatures = {
+        type: 'FeatureCollection',
+        features: geoJsonData.features.filter(f => {
+            const feats = getLevelsFromFeature(f);
+            if (feats.length === 0 && (f.properties.entrance || f.properties.door)) return true;
             return feats.includes(level);
-        },
+        })
+    };
 
-        // Stílusok alkalmazása az egyes térképi elemekre a tulajdonságaik alapján
-        style: function(feature) {
-            const p = feature.properties;
-            
-            // Alapértelmezett szobastílus meghatározása (külön kitöltés és körvonal színekkel)
-            let style = { 
-                color: "var(--color-room-stroke)", 
-                weight: 1, 
-                fillColor: "var(--color-room)", 
-                fillOpacity: 0.5, 
-                pane: 'overlayPane' 
-            };
-            
-            // 1. Épület alapja, strukturális falak és a padló
-            if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall' || p.building) {
-                style = { 
-                    color: "var(--color-outline)", 
-                    weight: 1, 
-                    fillColor: "var(--color-floor-fill)",
-                    fillOpacity: (p.indoor === 'wall') ? 0.0 : 0.1, // A falak nem kapnak kitöltést
-                    pane: 'floorPane' 
-                };
-            }
-            // 2. Folyosók és közlekedőterek
-            else if (p.indoor === 'corridor') {
-                style = { 
-                    color: "var(--color-corridor)", 
-                    weight: 0, 
-                    fillColor: "var(--color-corridor-fill)", 
-                    fillOpacity: 1, 
-                    stroke: false 
-                };
-            }
-            else if (p.highway === 'corridor') {
-                style = { color: "var(--color-corridor)", weight: 4, opacity: 0.5 };
-            }
-            // 3. Mosdók és mellékhelyiségek
-            else if (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets') {
-                style = { 
-                    fillColor: "var(--color-toilet-fill)", 
-                    color: "var(--color-toilet-stroke)", 
-                    weight: 2, 
-                    fillOpacity: 0.9 
-                };
-            }
-            // 4. Lépcsők és lépcsőházak
-            else if (p.room === 'stairs' || p.indoor === 'staircase' || p.highway === 'steps') {
-                style = { 
-                    fillColor: "var(--color-stairs)", 
-                    color: "var(--color-stairs-stroke)", 
-                    fillOpacity: 0.6, 
-                    weight: 1 
-                };
-            }
-            // 5. Liftek
-            else if (p.highway === 'elevator' || p.room === 'elevator') {
-                style = { 
-                    fillColor: "var(--color-elevator)", 
-                    color: "var(--color-elevator-stroke)", 
-                    fillOpacity: 0.6, 
-                    weight: 1 
-                };
-            }
-            // 6. Ajtók és bejáratok
-            else if (p.entrance || p.door) {
-                style = { color: "var(--color-door)", weight: 3, radius: 2, opacity: 0.8 };
-            }
-            
-            // 7. Különleges szolgáltatások (POI), mint automaták és büfék
-            else if (p.amenity === 'vending_machine') {
-                style = { color: "var(--color-coffee)", fillColor: "var(--color-coffee)", fillOpacity: 0.8, weight: 1 };
-            }
-            else if (p.amenity === 'cafe' || p.shop === 'kiosk' || p.amenity === 'fast_food') {
-                style = { color: "var(--color-buffet)", fillColor: "var(--color-buffet)", fillOpacity: 0.7, weight: 1 };
-            }
+    map.getSource('indoor-geojson').setData(levelFeatures);
 
-            // Kedvencként megjelölt helyszínek egyedi stílusa
-            if (isFavorite(feature)) {
-                style.color = "var(--color-fav)";
-                style.weight = 3;
-                style.fillOpacity = Math.max(style.fillOpacity, 0.6);
-            }
-            
-            return style;
-        },
-
-        // Pont típusú geometriák (pl. ajtók) egyedi renderelése
-        pointToLayer: function(feature, latlng) {
-                if (feature.properties.entrance || feature.properties.door) {
-                    return L.circleMarker(latlng, { 
-                        radius: 3, 
-                        color: 'white', 
-                        fillColor: 'black', 
-                        fillOpacity: 1,
-                        className: 'door-marker' 
-                    });
-                }
-                // Kék alapértelmezett Leaflet pin (L.marker) letiltása.
-                // Háttérkör a kattinthatósághoz (ami a POI-knál felveszi a kategória színét)
-                return L.circleMarker(latlng, { 
-                    radius: 15, /* Picit nagyobb kör az ikon alatt */ 
-                    opacity: 0, 
-                    fillOpacity: 0, 
-                    className: 'poi-bg-circle' 
-                });
-        },
-
-        // Eseménykezelők és ikonok hozzárendelése az egyes elemekhez
-        onEachFeature: function(feature, layer) {
-            const p = feature.properties;
-            
-            // Ikonok kiválasztásának logikája a helyiség típusa alapján
-            let iconName = null;
-            if (p.room === 'toilet' || p.room === 'toilets' || p.amenity === 'toilets') iconName = "wc";
-            if (p.room === 'stairs' || p.indoor === 'staircase') iconName = "stairs_2";
-            if (p.highway === 'elevator' || p.room === 'elevator') iconName = "elevator"; 
-            
-            // Új POI kategóriák dinamikus ikonjainak beállítása (CSAK A NÉV)
-            if (p.amenity === 'vending_machine') {
-                // Ha árul kávét (is), akkor elsődlegesen kávéscsésze ikont kap
-                if (p.vending && p.vending.includes('coffee')) iconName = "local_cafe";
-                else iconName = "water_bottle"; 
-            }
-            if (p.amenity === 'cafe' || p.amenity === 'fast_food' || p.amenity === 'restaurant' || p.shop === 'kiosk') iconName = "fastfood";
-            if (p.amenity === 'microwave') iconName = "microwave";
-            if (p.amenity === 'atm') iconName = "local_atm";
-            
-            // Az elem középpontjának meghatározása az ikon elhelyezéséhez
-            const center = (feature.geometry.type === "Point") 
-                ? [feature.geometry.coordinates[1], feature.geometry.coordinates[0]]
-                : [turf.centroid(feature).geometry.coordinates[1], turf.centroid(feature).geometry.coordinates[0]];
-
-            // Kedvenc helyszínek csillag ikonjának elhelyezése
-            if (isFavorite(feature)) {
-                L.marker(center, {
-                    icon: L.divIcon({ 
-                        className: 'map-icon', 
-                        html: `<span class="material-symbols-outlined" style="color: gold; text-shadow: 0 0 5px black; font-size: 24px;">star</span>` 
-                    }),
-                    interactive: false,
-                    zIndexOffset: 1000 
-                }).addTo(iconLayerGroup);
-            }
-
-            // Általános ikonok elhelyezése (Nincs inline szín, csak a tiszta HTML!)
-            if (iconName && !isFavorite(feature)) { 
-                    L.marker(center, {
-                    icon: L.divIcon({ className: 'map-icon', html: `<span class="material-symbols-outlined">${iconName}</span>` }),
-                    interactive: false 
-                }).addTo(iconLayerGroup);
-            }
-
-            // Kattintási eseménykezelő beállítása az információs panel (sheet) megnyitásához
-            layer.on('click', (e) => {
-                // Térkép interakció zárolásának ellenőrzése (pl. aktív zoomolási gesztus közben)
-                if (window.isMapInteractionLocked) return;
-
-                L.DomEvent.stopPropagation(e);
-
-                // Korábbi várakozó kattintási események tisztítása
-                if (window.clickTimeout) {
-                    clearTimeout(window.clickTimeout);
-                    window.clickTimeout = null;
-                }
-
-                // Késleltetett végrehajtás a nem kívánt interakciók (pl. dupla kattintás zoomoláshoz) szűrésére
-                window.clickTimeout = setTimeout(() => {
-                    // Ha nem az alaprétegre (padlóra) kattintottak, megnyílik az adatlap
-                    if (layer.options.pane !== 'floorPane') openSheet(feature);
-                    else closeSheet();
-                    
-                    window.clickTimeout = null; // Időzítő változó alaphelyzetbe állítása
-                }, 250); 
-            });
-        }
-    }).addTo(indoorLayerGroup);
-
-    // Szöveges feliratok (címkék) kirajzolása az aktuális szintre
+    updateRouteVisibility(level);
+    updateSelectedHighlight(level);
+    _drawRoomIcons(level);
+    _drawFavoriteIcons(level);
     drawLabels(level);
-    
-    // --- POI PINEK SZINTFÜGGŐ ÚJRARENDELÉSE ---
-    // Ha aktív egy POI keresés, a szintváltáskor automatikusan frissítjük a markereket
+
     if (typeof renderActivePoiCategory === 'function') {
         renderActivePoiCategory(level);
     }
-    
-    // --- BLUEPRINT ANIMÁCIÓ INDÍTÁSA ---
-    if (animate) {
-        if (typeof triggerBlueprintAnimation === 'function') triggerBlueprintAnimation();
+
+    if (animate && typeof triggerBlueprintAnimation === 'function') {
+        triggerBlueprintAnimation();
     }
+}
+
+function _drawFavoriteIcons(level) {
+    _clearFavoriteMarkers();
+    if (!geoJsonData) return;
+
+    geoJsonData.features.forEach(f => {
+        if (!isFavorite(f)) return;
+        const levels = getLevelsFromFeature(f);
+        if (!levels.includes(level)) return;
+
+        const center = f.geometry.type === 'Point' 
+            ? f.geometry.coordinates 
+            : turf.centroid(f).geometry.coordinates;
+
+        const el = document.createElement('div');
+        el.className = 'map-icon';
+        el.style.pointerEvents = 'none';
+        el.innerHTML = `<span class="material-symbols-outlined" style="color: gold; text-shadow: 0 0 5px black; font-size: 24px;">star</span>`;
+
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([center[0], center[1]])
+            .addTo(map);
+
+        marker.getElement().style.pointerEvents = 'none';
+
+        _favoriteMarkers.push(marker);
+    });
 }
 
 /**
@@ -2907,7 +3092,6 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
     for (const cand of candidates) {
         for (const dbKey of dbKeys) {
             if (normalizeRoomId(dbKey) === cand) {
-                console.log(`   ✅ TALÁLAT (Pontos): ${dbKey}`);
                 return ROOM_DATABASE[dbKey]; 
             }
         }
@@ -2933,14 +3117,12 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
                 // A maradéknak (pl. "150") PONTOSAN egyeznie kell, nem lehet csak a része (pl. "2150").
                 const withoutBuilding = cleanDbKey.replace(b, '');
                 if (withoutBuilding === cand || withoutBuilding.startsWith(cand + '_')) {
-                    console.log(`   ✅ TALÁLAT (Szigorú Fuzzy - Szám): ${dbKey}`);
                     return ROOM_DATABASE[dbKey];
                 }
             } else {
                 // Ha a keresett szóban van betű is (pl. "bf11" vagy "kf50"), az már elég specifikus
                 // ahhoz, hogy sima "includes" vizsgálattal is biztonságos legyen (mivel az épület már egyezik).
                 if (cleanDbKey.includes(cand)) {
-                    console.log(`   ✅ TALÁLAT (Szigorú Fuzzy - Szöveg): ${dbKey}`);
                     return ROOM_DATABASE[dbKey];
                 }
             }
@@ -2979,6 +3161,9 @@ function openSheet(feature) {
 
     // Az aktuálisan fókuszban lévő elem globális regisztrálása
     selectedFeature = feature;
+    
+    // Intelligens kameramozgatás a kiválasztott elemre
+    smartFlyTo(feature);
     
     // Csatlakozópontos (hálózat alapú) indulási pont (Pending Nav Source) kezelése
     // Ha a felhasználó a "Hova mész innen?" gombot nyomta meg korábban, 
@@ -3412,44 +3597,35 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
  * @param {string} level - A megtekinteni kívánt szint (emelet) azonosítója.
  */
 function focusOnRouteSegment(level) {
-    // Biztonsági ellenőrzés: ha nincs aktív útvonal, megszakítjuk a futást
     if (!currentRoutePath || currentRoutePath.length === 0) return;
 
-    // 1. Átváltás a vizsgálni kívánt szintre a térképen
     switchLevel(level);
 
-    // 2. Az adott szinthez tartozó útvonalpontok koordinátáinak kigyűjtése
     const routePoints = [];
     currentRoutePath.forEach(key => {
         const parts = key.split(','); // Formátum: lat, lon, level
         if (parts[2] === level) {
-            routePoints.push([parseFloat(parts[0]), parseFloat(parts[1])]);
+            routePoints.push([parseFloat(parts[1]), parseFloat(parts[0])]);
         }
     });
 
-    // Ha az adott szinten nincs útvonalszakasz, nincs mire fókuszálni
     if (routePoints.length === 0) return;
 
-    // 3. A pontokat magába foglaló geometriai határ (befoglaló téglalap) kiszámítása
-    const bounds = L.latLngBounds(routePoints);
+    const lons = routePoints.map(p => p[0]);
+    const lats = routePoints.map(p => p[1]);
 
-    // 4. Dinamikus margó (padding) számítása a felhasználói felülethez igazodva
     const sheet = document.getElementById('bottom-sheet');
-    
-    // Az alsó információs panel (sheet) aktuális magasságának lekérése.
-    // Ez az érték változó attól függően, hogy a panel épp 'peek' vagy 'open' állapotban van.
-    const sheetHeight = sheet.getBoundingClientRect().height;
+    const sheetHeight = sheet ? sheet.getBoundingClientRect().height : 100;
 
-    // A térkép nézetének beállítása a kiszámított határokra és dinamikus margókra
-    // Top-Left padding: 80px a felső keresőmező és fejléc elkerülésére
-    // Bottom-Right padding: A sheet magassága + 50px ráhagyás, hogy az útvonal a panel felett maradjon
-    map.fitBounds(bounds, {
-        paddingTopLeft: [50, 80], 
-        paddingBottomRight: [50, sheetHeight + 50], 
-        maxZoom: 21,  // Nagyítási limit: ne nagyítson be extrém módon rövid (pl. 1-2 méteres) szakaszoknál
-        animate: true,
-        duration: 1.0 // Sima, 1 másodperces animáció a felhasználói élmény javításáért
-    });
+    if (routePoints.length > 0) {
+        map.flyTo({
+            center: [lons[0], lats[0]],
+            zoom: 20,
+            padding: { top: 80, bottom: sheetHeight + 50, left: 50, right: 50 },
+            animate: true,
+            duration: 1000
+        });
+    }
 }
 
 /**
@@ -3492,65 +3668,81 @@ function startNavigationFromHere() {
  * @param {Object} feature - A kiemelni kívánt GeoJSON térképelem.
  */
 function drawSelectedHighlight(feature) {
-    // A korábban kiemelt elemek eltávolítása a dedikált rétegről
-    selectedHighlightLayer.clearLayers();
+    if (!_mapLayersInitialized) return;
     
-    // Új GeoJSON réteg létrehozása a kiemelési stílusokkal
-    const highlight = L.geoJSON(feature, {
-        // Poligonok (szobák) stílusbeállításai
-        style: { 
-            color: "var(--color-highlight)", 
-            weight: 5, 
-            fill: false, 
-            opacity: 0.8, 
-            pane: 'highlightPane' 
-        },
-        // Pont geometriák (pl. ajtók) stílusbeállításai
-        pointToLayer: function(f, latlng) { 
-            return L.circleMarker(latlng, { 
-                radius: 10, 
-                color: "var(--color-highlight)", 
-                fill: false 
-            }); 
+
+    document.querySelectorAll('.selected-poi').forEach(el => el.classList.remove('selected-poi'));
+
+    if (!feature) {
+        map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
+        return;
+    }
+
+    const p = feature.properties || {};
+    const targetIdx = p._featureIndex;
+    const targetRef = p.ref || p.name;
+
+    let targetCoords = null;
+    if (feature.geometry) {
+        const c = (feature.geometry.type === "Point") 
+            ? feature.geometry.coordinates 
+            : (typeof turf !== 'undefined' && turf.centroid ? turf.centroid(feature).geometry.coordinates : null);
+        if (c && c.length >= 2) {
+            targetCoords = `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
+        }
+    }
+
+    let matchCount = 0;
+
+    _roomIconMarkers.forEach(m => {
+        const el = m.getElement();
+        if (el && el.dataset) {
+            const matchesIndex = targetIdx !== undefined && el.dataset.featureIndex == targetIdx;
+            const matchesRef = targetRef && el.dataset.ref === targetRef;
+            const matchesCoord = targetCoords && el.dataset.coords === targetCoords;
+            if (matchesIndex || matchesRef || matchesCoord) {
+                matchCount++;
+                el.classList.add('selected-poi');
+                const circle = el.querySelector('.poi-bg-circle');
+                if (circle) circle.classList.add('selected-poi');
+            }
         }
     });
+
+    _poiMarkers.forEach(m => {
+        const el = m.getElement();
+        if (el && el.dataset) {
+            const matchesIndex = targetIdx !== undefined && el.dataset.featureIndex == targetIdx;
+            const matchesRef = targetRef && el.dataset.ref === targetRef;
+            const matchesCoord = targetCoords && el.dataset.coords === targetCoords;
+            if (matchesIndex || matchesRef || matchesCoord) {
+                matchCount++;
+                el.classList.add('selected-poi');
+                const shape = el.querySelector('.poi-pin-shape');
+                if (shape) shape.classList.add('selected-poi');
+            }
+        }
+    });
+
+
+    const data = feature.type === 'FeatureCollection' ? feature : { type: 'FeatureCollection', features: [feature] };
+    map.getSource('highlight-geojson').setData(data);
     
-    // A térképelem (feature) referenciájának hozzácsatolása a réteghez és a belső elemekhez 
-    // a későbbi szint alapú szűrés és azonosítás érdekében
-    highlight.feature = feature; 
-    highlight.eachLayer(l => l.feature = feature); 
-    
-    // A generált kiemelés hozzáadása a megjelenítési rétegcsoporthoz
-    selectedHighlightLayer.addLayer(highlight);
-    
-    // A kiemelés láthatóságának azonnali frissítése az aktuális szintre
     updateSelectedHighlight(currentLevel);
 }
 
-/**
- * Frissíti a kiválasztott elemet jelző kiemelés (highlight) láthatóságát az alapján,
- * hogy az elem megtalálható-e az aktuálisan megjelenített szinten (emeleten).
- * Megakadályozza, hogy egy másik szinten lévő szoba kiemelése zavaróan "átszűrődjön".
- * @param {string} level - Az aktuálisan vizsgált és megjelenített szint azonosítója.
- */
 function updateSelectedHighlight(level) {
-    // Végigiterálunk a kiemelési réteg összes elemén
-    selectedHighlightLayer.eachLayer(l => {
-        // Biztonsági ellenőrzés: ha nincs csatolt adat, figyelmen kívül hagyjuk
-        if (!l.feature) return;
-        
-        // Az elemhez tartozó szintek lekérése
-        const feats = getLevelsFromFeature(l.feature);
-        
-        // Láthatóság beállítása a szint egyezése alapján
-        if(feats.includes(level)) {
-            // Ha az elem az aktuális szinten van, a keret látható lesz (opacity: 0.8)
-            l.setStyle({opacity: 0.8, fillOpacity: 0});
-        } else {
-            // Ha az elem egy másik szinten van, a keretet teljesen elrejtjük (opacity: 0)
-            l.setStyle({opacity: 0, fillOpacity: 0});
-        }
-    });
+    if (!_mapLayersInitialized) return;
+    
+    const src = map.getSource('highlight-geojson');
+    if (!src || !src._data || !src._data.features || src._data.features.length === 0) return;
+    
+    const feature = src._data.features[0];
+    const feats = getLevelsFromFeature(feature);
+    const visible = feats.length === 0 || feats.includes(level);
+    
+    if (map.getLayer('highlight-line')) map.setPaintProperty('highlight-line', 'line-opacity', visible ? 0.8 : 0);
+    if (map.getLayer('highlight-circle')) map.setPaintProperty('highlight-circle', 'circle-stroke-opacity', visible ? 1 : 0);
 }
 
 /**
@@ -3559,88 +3751,67 @@ function updateSelectedHighlight(level) {
  * az alaphelyzetükbe.
  */
 function closeSheet() {
-    // Alaphelyzetbe állítjuk a közeli kereső menüt kilépéskor
     if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
 
-    // A panel elrejtése a CSS osztály eltávolításával
     document.getElementById('bottom-sheet').classList.remove('open');
     
-    // A térképi kiemelések (ideiglenes keresési és kiválasztási keretek) törlése
-    highlightLayerGroup.clearLayers();
-    selectedHighlightLayer.clearLayers();
+    document.querySelectorAll('.selected-poi').forEach(el => el.classList.remove('selected-poi'));
+
+    if (_mapLayersInitialized && map.getSource('highlight-geojson')) {
+        map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
+    }
     
-    // A globális kiválasztott elem (selectedFeature) nullázása
     selectedFeature = null;
 
-    // A POI markerek vizuális állapotának visszaállítása alapértelmezettre
-    if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
-        poiMarkersGroup.eachLayer(layer => {
-            if (layer._icon) {
-                layer._icon.style.opacity = '1';
-                layer._icon.style.filter = 'none';
-                layer._icon.style.transform = 'rotate(-45deg)'; // Eredeti CSS állapot
-                layer._icon.style.pointerEvents = 'auto'; // Kattinthatóság visszaállítása
-                layer.setZIndexOffset(0);
-            }
-        });
-    }
+    _poiMarkers.forEach(m => {
+        const el = m.getElement();
+        if (el) {
+            el.style.opacity = '1';
+            el.style.filter = 'none';
+            el.style.pointerEvents = 'auto';
+            const shape = el.querySelector('.poi-pin-shape');
+            if (shape) shape.style.transform = 'rotate(-45deg)';
+        }
+    });
 }
 
-/**
- * Teljes körű takarítás (cleanup) navigáció vagy keresés befejezésekor.
- * Eltávolítja az útvonalat jelző vonalakat, nyilakat és markereket a térképről,
- * visszaállítja a globális állapotváltozókat az alapértelmezett értékükre,
- * valamint az alsó információs panelt (Bottom Sheet) és a keresősávot is
- * visszaállítja a normál (nem navigációs) állapotába.
- */
 function clearRouteAndClose() {
-    // 1. Térképi rétegek (vizuális elemek) tisztítása
-    routeLayerGroup.clearLayers();           // Útvonal vonalának törlése
-    routeMarkersLayerGroup.clearLayers();    // Kezdő/végpont markerek törlése
-    routeArrowsLayerGroup.clearLayers();     // Irányjelző nyilak törlése
-    selectedHighlightLayer.clearLayers();    // Kiválasztott elem kiemelésének törlése
-
-    if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
-        poiMarkersGroup.clearLayers(); // Törli a POI pineket is a teljes kilépésnél
-        activePoiCategory = null; // Állapot törlése
+    if (_mapLayersInitialized) {
+        if (map.getSource('route-geojson')) map.getSource('route-geojson').setData({ type: 'FeatureCollection', features: [] });
+        if (map.getSource('highlight-geojson')) map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
     }
     
-    // 2. Globális útvonal- és navigációs változók alaphelyzetbe állítása (nullázása)
-    pendingNavSource = null;                 // Várakozó kezdőpont törlése
-    activeRouteData = null;                  // Aktuális útvonaladatok törlése
-    activeNavSource = null;                  // Aktuális indulási pont törlése
-    activeNavTarget = null;                  // Aktuális célpont törlése
+    _clearRouteMarkers();
+    _clearArrowMarkers();
+    _clearPoiMarkers();
+    activePoiCategory = null;
     
-    // 3. Felső keresősáv és gombok vizuális visszaállítása
+    pendingNavSource = null;
+    activeRouteData = null;
+    activeNavSource = null;
+    activeNavTarget = null;
+    
     const input = document.getElementById('search-input');
     input.placeholder = "Keress...";
     input.value = ""; 
-    updateRightButtonState();                // A kereső melletti ikon visszaállítása (pl. X-ből beállítások ikonra)
+    updateRightButtonState();
 
-    // --- 4. NAVIGÁCIÓS STÍLUS KIKAPCSOLÁSA A PANELEN ---
     const header = document.querySelector('.sheet-header');
     if (header) header.classList.remove('nav-mode');
 
-    // --- 5. UI ELEMEK LÁTHATÓSÁGÁNAK VISSZAÁLLÍTÁSA ---
-    
-    // A panel láblécének (amely az akciógombokat tartalmazza) ismételt megjelenítése
     const footer = document.querySelector('.sheet-footer');
     if (footer) footer.style.display = 'flex'; 
     
-    // A "Hova mész innen" és "Ide jövök" navigációs gombok ismételt megjelenítése
     const btnTo = document.querySelector('.btn-nav-to');
     const btnFrom = document.querySelector('.btn-nav-from');
     if (btnTo) btnTo.style.display = 'flex';
     if (btnFrom) btnFrom.style.display = 'flex';
     
-    // A navigációs itiner (lépésről lépésre útmutató) div elrejtése
     const itinerDiv = document.getElementById('nav-itinerary');
     if (itinerDiv) itinerDiv.style.display = 'none';
     
-    // A helyiségek általános adatait (férőhely, képek) tartalmazó konténer újbóli megjelenítése
     document.getElementById('room-data-container').style.display = 'block';
 
-    // 6. Az alsó információs panel tényleges bezárása és elrejtése a képernyőről
     closeSheet();
 }
 
@@ -3882,10 +4053,8 @@ function handleRightAction(e) {
         input.value = '';
 
         // POI markerek eltávolítása a térképről a keresés törlésekor
-        if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
-            poiMarkersGroup.clearLayers();
-            activePoiCategory = null; // Állapot törlése
-        }
+        _clearPoiMarkers();
+        activePoiCategory = null;
         
         // A gomb állapotának visszaállítása alapértelmezettre (tune ikon)
         updateRightButtonState(); 
@@ -3916,19 +4085,15 @@ function getPoiPositions(typeKey) {
     const positions = [];
 
     geoJsonData.features.forEach(feature => {
-        // Ellenőrizzük, hogy a feature megfelel-e a kategória szűrőjének
         if (config.filter(feature.properties)) {
             let coords;
 
             if (feature.geometry.type === 'Point') {
-                // Ha ez egy pont (pl. automata), simán átvesszük a koordinátákat
-                // Vigyázat: az OSM [lon, lat] sorrendet használ, a Leafletnek [lat, lon] kell
-                coords = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+                coords = [feature.geometry.coordinates[0], feature.geometry.coordinates[1]];
             } else if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
-                // Ha ez egy terület (pl. büfé, WC), kiszámoljuk a mértani közepét a Turf.js-sel
                 try {
                     const centroid = turf.centroid(feature);
-                    coords = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
+                    coords = [centroid.geometry.coordinates[0], centroid.geometry.coordinates[1]];
                 } catch (e) {
                     console.error("Hiba a centroid számításnál:", e);
                     return;
@@ -3965,29 +4130,24 @@ function showPoiCategory(typeKey) {
         
         activePoiCategory = null;
         
-        // Virtuális "X" gomb nyomás: Kereső ürítése és UI visszaállítása
         const input = document.getElementById('search-input');
         if (input) {
             input.value = '';
-            input.blur(); // Elvesszük a fókuszt, hogy lezárjon a billentyűzet
+            input.blur();
         }
         if (typeof updateRightButtonState === 'function') updateRightButtonState();
         
         return;
     }
 
-    // Megnézzük, van-e az aktuális emeleten találat
     const poisOnCurrentFloor = allPois.filter(poi => {
         const lvls = getLevelsFromFeature(poi.feature);
         return lvls.includes(currentLevel);
     });
 
     if (poisOnCurrentFloor.length > 0) {
-        // Ha van az aktuális emeleten, csak kirajzoltatjuk őket
         renderActivePoiCategory(currentLevel);
     } else {
-        // Ha NINCS az aktuális emeleten: megkeressük a fizikailag (2D-ben) legközelebbit
-        // A térkép aktuális közepét vesszük referenciának
         const mapCenter = map.getCenter();
         const centerPt = turf.point([mapCenter.lng, mapCenter.lat]);
         
@@ -3995,8 +4155,7 @@ function showPoiCategory(typeKey) {
         let minDist = Infinity;
 
         allPois.forEach(poi => {
-            // A getPoiPositions [lat, lon] formátumot ad, a Turf-nek [lon, lat] kell!
-            const poiPt = turf.point([poi.coords[1], poi.coords[0]]);
+            const poiPt = turf.point([poi.coords[0], poi.coords[1]]);
             const dist = turf.distance(centerPt, poiPt);
             
             if (dist < minDist) {
@@ -4007,14 +4166,12 @@ function showPoiCategory(typeKey) {
 
         if (closestPoi) {
             const poiLvls = getLevelsFromFeature(closestPoi.feature);
-            let targetLvl = poiLvls[0] || "0"; // Alapértelmezett, ha csak 1 szintje van
+            let targetLvl = poiLvls[0] || "0";
             
-            // Többszintes okosugrás (pl. lift, lépcső esetén)
             if (poiLvls.length > 1) {
                 const currentNum = parseFloat(currentLevel) || 0;
                 let minDiff = Infinity;
                 
-                // Megkeressük a POI emeletei közül azt, amelyik numerikusan a legközelebb van hozzánk
                 poiLvls.forEach(l => {
                     const lNum = parseFloat(l) || 0;
                     const diff = Math.abs(currentNum - lNum);
@@ -4044,11 +4201,10 @@ function showPoiCategory(typeKey) {
  */
 function renderActivePoiCategory(level) {
     if (!activePoiCategory) return;
-    if (poiMarkersGroup) poiMarkersGroup.clearLayers();
+    _clearPoiMarkers();
 
     const allPois = getPoiPositions(activePoiCategory);
     
-    // Szűrés kizárólag a jelenleg látható emeletre
     const poisOnLevel = allPois.filter(poi => {
         const lvls = getLevelsFromFeature(poi.feature);
         return lvls.includes(level);
@@ -4056,12 +4212,13 @@ function renderActivePoiCategory(level) {
 
     poisOnLevel.forEach(poi => renderPoiMarker(poi));
 
-    // Ha vannak pinek ezen az emeleten, ráigazítjuk a kamerát (csak ha sokat rajzoltunk ki)
     if (poisOnLevel.length > 0) {
-        const bounds = poiMarkersGroup.getBounds();
-        if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [50, 100], maxZoom: 20, animate: true, duration: 0.8 });
-        }
+        const lons = poisOnLevel.map(p => p.coords[0]);
+        const lats = poisOnLevel.map(p => p.coords[1]);
+        map.fitBounds(
+            [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+            { padding: { top: 50, bottom: 100, left: 50, right: 50 }, maxZoom: 20, animate: true, duration: 800 }
+        );
     }
 }
 
@@ -4073,53 +4230,67 @@ function renderActivePoiCategory(level) {
 function renderPoiMarker(poi) {
     const { coords, feature, config } = poi;
 
-    // 1. Megépítjük a HTML-t a markernek. A szín a config-ból jön.
-    const htmlContent = `
-        <div class="poi-marker" style="background-color: ${config.color};">
+    const el = document.createElement('div');
+    el.className = 'poi-marker poi-marker-container';
+    el.dataset.poiMarker = "true";
+    if (feature.properties && feature.properties._featureIndex !== undefined) {
+        el.dataset.featureIndex = feature.properties._featureIndex;
+    }
+    if (coords && coords.length >= 2) {
+        el.dataset.coords = `${coords[0].toFixed(6)},${coords[1].toFixed(6)}`;
+    }
+    el.style.pointerEvents = 'auto';
+    el.style.cursor = 'pointer';
+    
+    el.innerHTML = `
+        <div class="poi-pin-shape" style="background-color: ${config.color}; pointer-events: auto; cursor: pointer;">
             <span class="material-symbols-outlined">${config.icon}</span>
         </div>
     `;
 
-    // 2. Leaflet divIcon definiálása (hogy a saját CSS-ünket egye meg)
-    const customIcon = L.divIcon({
-        html: htmlContent,
-        className: 'custom-poi-wrapper', // Ezt üresen hagyhatjuk a Leaflet css-ben, a belső div formáz mindent
-        iconSize: [32, 32],
-        iconAnchor: [16, 32] // A 32px magas csepp alja pont a koordinátára mutasson
-    });
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([coords[0], coords[1]])
+        .addTo(map);
 
-    // 3. Marker példányosítása az egyedi rétegre (pane)
-    const marker = L.marker(coords, {
-        icon: customIcon,
-        pane: 'poiPane' // A 2. lépésben csináltuk, hogy a szobák felett lebegjen
-    });
+    // Szülő container (maplibregl-marker) pointer-events beállítása expliciten
+    const parentContainer = marker.getElement();
+    if (parentContainer) {
+        parentContainer.style.pointerEvents = 'auto';
+        parentContainer.style.cursor = 'pointer';
+    }
 
-    // 4. Interakció (Click)
-    marker.on('click', () => {
+    const handlePointerDown = (e) => {
+        e.stopPropagation();
+    };
+
+    const handleClick = (e) => {
+        e.stopPropagation();
+        if (e.cancelable) e.preventDefault();
+
         openSheet(feature);
         smartFlyTo(feature);
 
-        // --- VIZUÁLIS KIEMELÉS ÉS ELREJTÉS ---
-        poiMarkersGroup.eachLayer(layer => {
-            if (layer._icon) {
-                if (layer === marker) {
-                    // A kiválasztott marker (csepp) elrejtése, mivel az alap ikon és a sárga kiemelés átveszi a szerepét
-                    layer._icon.style.opacity = '0';
-                    layer._icon.style.pointerEvents = 'none'; // Megakadályozza a fantom kattintásokat a rejtett elemen
+        _poiMarkers.forEach(m => {
+            const mEl = m.getElement();
+            if (mEl) {
+                if (m === marker) {
+                    mEl.style.opacity = '0';
+                    mEl.style.pointerEvents = 'none';
                 } else {
-                    // A háttérbe szoruló többi marker elhalványítása
-                    layer._icon.style.opacity = '0.4';
-                    layer._icon.style.filter = 'grayscale(50%)';
-                    layer._icon.style.transform = 'rotate(-45deg) scale(0.85)';
-                    layer._icon.style.pointerEvents = 'auto'; // Ezek továbbra is kattinthatóak maradnak
-                    layer.setZIndexOffset(0);
+                    mEl.style.opacity = '0.4';
+                    mEl.style.filter = 'grayscale(50%)';
+                    mEl.style.pointerEvents = 'auto';
+                    const shape = mEl.querySelector('.poi-pin-shape');
+                    if (shape) shape.style.transform = 'rotate(-45deg) scale(0.85)';
                 }
             }
         });
-    });
+    };
 
-    // 5. Belekúrjuk a LayerGroup-ba, hogy megjelenjen a térképen
-    poiMarkersGroup.addLayer(marker);
+    el.addEventListener('pointerdown', handlePointerDown);
+    el.addEventListener('click', handleClick);
+
+    _poiMarkers.push(marker);
 }
 
 /**
@@ -4128,7 +4299,6 @@ function renderPoiMarker(poi) {
  * Ez a gráf szolgál az A* vagy Dijkstra útvonalkereső algoritmus alapjául.
  */
 function buildRoutingGraph() {
-    console.log(`Building Graph (${APP_SETTINGS.elevatorMode})...`);
     
     // A korábbi gráf teljes ürítése
     navigationGraph.clear();
@@ -4778,7 +4948,6 @@ function findNearestPOI(typeKey) {
     const bestTarget = targets.sort((a,b) => a._score - b._score)[0];
 
     if (bestTarget) {
-        console.log(`Navigálás ide: ${config.name} (Score: ${Math.round(bestTarget._score)})`);
         pendingNavSource = selectedFeature; 
         startNavigation(bestTarget, selectedFeature); 
     } else {
@@ -4803,10 +4972,8 @@ function startNavigation(targetFeature = null, fromFeature = null) {
 
     // --- TÉRKÉP LETISZTÍTÁSA NAVIGÁCIÓ ELŐTT ---
     // Eltávolítjuk a keresett POI pineket (cseppeket), hogy ne zavarják az útvonalat
-    if (typeof poiMarkersGroup !== 'undefined' && poiMarkersGroup) {
-        poiMarkersGroup.clearLayers();
-        activePoiCategory = null; // Állapot törlése
-    }
+    _clearPoiMarkers();
+    activePoiCategory = null;
     // A Bottom Sheet "Közelben" radar menüjét is bezárjuk, ha nyitva lenne
     if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
     
@@ -4944,7 +5111,6 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     let bestStartNode = null;
     let bestEndNode = null;
 
-    console.log(`Routing: ${startNodes.length} start (Lvl: ${startNodes[0]?.level}) x ${endNodes.length} end (Lvl: ${endNodes[0]?.level})`);
 
     // A legrövidebb útvonal meghatározása az összes lehetséges kezdő- és végpont kombináció vizsgálatával
     startNodes.forEach(sNode => {
@@ -5532,75 +5698,8 @@ function getVerticalMarkers(path) {
  * @param {Array<string>} pathKeys - Az útvonal csomópontjait tartalmazó kulcsok tömbje (formátum: 'lat,lon,level').
  */
 function drawDirectionArrows(pathKeys) {
-    // A korábban kirajzolt nyilak eltávolítása a dedikált rétegről az útvonal frissítésekor
-    routeArrowsLayerGroup.clearLayers();
-
-    // A nyers sztring kulcsok átalakítása feldolgozható koordináta és szint (level) objektumokká
-    const points = pathKeys.map(k => {
-        const p = k.split(',');
-        return { lat: parseFloat(p[0]), lon: parseFloat(p[1]), level: p[2] };
-    });
-
-    // Iteráció az útvonal egymást követő pontjain a szegmensek elemzéséhez
-    for (let i = 0; i < points.length - 1; i++) {
-        const p1 = points[i];
-        const p2 = points[i+1];
-
-        // Szűrés: Az irányjelző nyilakat kizárólag azonos szinten történő (horizontális) haladás esetén rajzoljuk ki
-        if (p1.level === p2.level) {
-            const pt1 = turf.point([p1.lon, p1.lat]);
-            const pt2 = turf.point([p2.lon, p2.lat]);
-            
-            // A két pont közötti távolság kiszámítása méterben a Turf.js segítségével
-            const dist = turf.distance(pt1, pt2) * 1000;
-
-            // Szűrés: Csak a 4 méternél hosszabb szakaszokon helyezünk el nyilat a vizuális zsúfoltság elkerülése végett
-            if (dist > 4.0) {
-                // Az irányszög (bearing) kiszámítása a nyíl megfelelő elforgatásához
-                const bearing = turf.bearing(pt1, pt2);
-                
-                // A szegmens felezőpontjának (midpoint) meghatározása, ide kerül majd a marker
-                const mid = turf.midpoint(pt1, pt2);
-                
-                // A nyilat reprezentáló SVG grafika dinamikus generálása a kiszámított irányszög alapján
-                const arrowSvg = `
-                    <svg viewBox="0 0 24 24" 
-                            style="width: 100%; height: 100%; transform: rotate(${bearing}deg) scale(0.7); overflow: visible; opacity: 1.0;"> <line x1="12" y1="22" x2="12" y2="8" 
-                                stroke="var(--color-arrow)" 
-                                stroke-width="2" 
-                                stroke-linecap="round" />
-                        
-                        <path d="M12 2 L9.5 8 L14.5 8 Z" 
-                                fill="var(--color-arrow)" 
-                                stroke="var(--color-arrow)" 
-                                stroke-width="1" 
-                                stroke-linejoin="round" /> 
-                    </svg>
-                `;
-
-                // A Leaflet DivIcon objektum létrehozása a formázott SVG tartalommal
-                const arrowIcon = L.divIcon({
-                    className: 'arrow-svg-icon',
-                    html: arrowSvg,
-                    iconSize: [24, 24], 
-                    iconAnchor: [12, 12] // A nyíl geometriai középpontjának illesztése a koordinátára
-                });
-
-                // A térképi marker inicializálása a felezőpont koordinátáin, kikapcsolt interakcióval
-                const marker = L.marker([mid.geometry.coordinates[1], mid.geometry.coordinates[0]], {
-                    icon: arrowIcon,
-                    interactive: false,
-                    pane: 'arrowPane'
-                });
-                
-                // A szint adat (level) hozzácsatolása a markerhez a térképi rétegek közötti szűréshez
-                marker.feature = { properties: { level: p1.level } };
-                
-                // A generált marker hozzáadása a megjelenítendő rétegcsoporthoz
-                routeArrowsLayerGroup.addLayer(marker);
-            }
-        }
-    }
+    _clearArrowMarkers();
+    // A nyilakat most már natív MapLibre 'symbol' réteg (route-arrows) kezeli!
 }
 
 /**
@@ -5612,189 +5711,142 @@ function drawDirectionArrows(pathKeys) {
  * @param {Array<string>} pathKeys - Az útvonal csomópontjait tartalmazó kulcsok tömbje (formátum: 'lat,lon,level').
  */
 function drawRoute(pathKeys) {
-    // A korábbi útvonalhoz tartozó vizuális rétegek (vonalak, markerek, nyilak) törlése az újrarenderelés előtt
-    routeLayerGroup.clearLayers();
-    routeMarkersLayerGroup.clearLayers(); 
-    routeArrowsLayerGroup.clearLayers();
+    _clearRouteMarkers();
+    _clearArrowMarkers();
     
     const latlngs = [];
+    const routeFeatures = [];
     const boundsPoints = [];
 
-    // A nyers azonosító kulcsok feldolgozása és átalakítása koordináta-objektumokká
     pathKeys.forEach(k => {
         const parts = k.split(',');
         const lat = parseFloat(parts[0]);
         const lon = parseFloat(parts[1]);
         latlngs.push({ lat: lat, lon: lon, level: parts[2] });
-        
-        // A kamera fókuszálásához (bounding box) szükséges pontok gyűjtése
-        boundsPoints.push([lat, lon]); 
+        boundsPoints.push([lon, lat]); 
     });
 
-    // --- 1. ÚTVONAL VONALAINAK KIRAJZOLÁSA ---
     for (let i = 0; i < latlngs.length - 1; i++) {
         const p1 = latlngs[i]; 
         const p2 = latlngs[i+1];
-        
-        // Szintváltás (lépcső/lift) detektálása a vonal stílusának meghatározásához
         const isStairs = p1.level !== p2.level;
         
-        // A vonalszakasz vizuális stílusának beállítása (szín, vastagság, szaggatás)
-        const style = { 
-            color: isStairs ? 'var(--color-route-secondary)' : 'var(--color-route-primary)', 
-            weight: 5, 
-            dashArray: isStairs ? '10, 10' : null, 
-            pane: 'routePane' 
-        };
-        
-        // A Leaflet polyline (törtvonal) objektum létrehozása
-        const polyline = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], style);
-        
-        // A szint(ek) adatának hozzácsatolása a vonalhoz a szintfüggő láthatóság kezeléséhez
-        polyline.feature = { properties: { level: p1.level, levels: isStairs ? [p1.level, p2.level] : null } };
-        
-        // A vonalszakasz hozzáadása a megjelenítési rétegcsoporthoz
-        routeLayerGroup.addLayer(polyline);
+        routeFeatures.push({
+            type: 'Feature',
+            geometry: {
+                type: 'LineString',
+                coordinates: [[p1.lon, p1.lat], [p2.lon, p2.lat]]
+            },
+            properties: {
+                routeType: isStairs ? 'transit' : 'walk',
+                level: p1.level,
+                levels: isStairs ? [p1.level, p2.level] : null
+            }
+        });
     }
 
-    // --- 2. VERTIKÁLIS MARKEREK (LIFT/LÉPCSŐ) GENERÁLÁSA ---
-    // A szintváltásokat jelző pontok kigyűjtése a megfelelő ikonok és feliratok megjelenítéséhez
+    if (_mapLayersInitialized && map.getSource('route-geojson')) {
+        map.getSource('route-geojson').setData({ type: 'FeatureCollection', features: routeFeatures });
+    }
+
     const vMarkers = getVerticalMarkers(latlngs);
     
     vMarkers.forEach(vm => {
-        let html = '';
-        
-        // A marker HTML struktúrájának összeállítása a vertikális elem típusa alapján
+        const el = document.createElement('div');
+        el.className = 'nav-marker-container';
+        el.dataset.level = vm.level;
+
         if (vm.type === 'elevator') {
-            html = `<div class="nav-marker-container">
-                        <div class="nav-badge-elevator">
-                            <span>${vm.targetLabel}</span>
-                        </div>
-                    </div>`;
+            el.innerHTML = `<div class="nav-badge-elevator"><span>${vm.targetLabel}</span></div>`;
         } else {
-            html = `<div class="nav-marker-container">
-                        <div class="nav-badge-stairs">
-                            <span class="material-symbols-outlined nav-arrow">${vm.icon}</span>
-                            <span>${vm.targetLabel}</span>
-                        </div>
-                    </div>`;
+            el.innerHTML = `<div class="nav-badge-stairs"><span class="material-symbols-outlined nav-arrow">${vm.icon}</span><span>${vm.targetLabel}</span></div>`;
         }
 
-        // A Leaflet DivIcon objektum létrehozása az egyedi HTML tartalommal
-        const icon = L.divIcon({
-            className: 'custom-div-icon', // Alapértelmezett háttér nélküli osztály
-            html: html,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20] // A marker geometriai középpontjának illesztése a vizsgált koordinátára
-        });
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([vm.lon, vm.lat])
+            .addTo(map);
 
-        // A térképi marker inicializálása kikapcsolt interakcióval a dedikált navigációs marker rétegen
-        const marker = L.marker([vm.lat, vm.lon], { 
-            icon: icon, 
-            interactive: false, 
-            pane: 'navMarkerPane'
-        });
-        
-        // A szint adat (level) hozzácsatolása a markerhez a térképi rétegek közötti szűrés biztosítására
-        marker.feature = { properties: { level: vm.level } };
-        
-        // A marker hozzáadása a megjelenítendő réteghez
-        routeMarkersLayerGroup.addLayer(marker);
+        marker.getElement().style.pointerEvents = 'none';
+
+        _routeMarkers.push({ marker: marker, level: vm.level });
     });
 
-    // --- 3. IRÁNYJELZŐ NYILAK KIRAJZOLÁSA ---
-    // Külön függvény meghívása a haladási irányt jelző grafikák elhelyezésére
     drawDirectionArrows(pathKeys);
 
-    // --- 4. KAMERA POZICIONÁLÁSA ÉS AUTOMATIKUS SZINTVÁLTÁS ---
     if (boundsPoints.length > 0) {
-        // A teljes útvonalat magába foglaló geometriai határ (bounding box) létrehozása
-        const bounds = L.latLngBounds(boundsPoints);
-        
-        // A térkép nézetének beállítása dinamikus margókkal (padding) a felületi elemek (UI) elkerülésére
-        map.fitBounds(bounds, {
-            paddingTopLeft: [50, 50],
-            paddingBottomRight: [50, 150], // Nagyobb alsó margó az információs panel (bottom sheet) helyigénye miatt
-            animate: true, 
-            duration: 1.0
-        });
+        const lons = boundsPoints.map(p => p[0]);
+        const lats = boundsPoints.map(p => p[1]);
+
+        map.fitBounds(
+            [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+            {
+                padding: { top: 50, bottom: 150, left: 50, right: 50 },
+                maxZoom: 21,
+                animate: true,
+                duration: 1000
+            }
+        );
     }
     
-    // A térkép automatikus átváltása az útvonal kezdő szintjére a logikus vizuális kiindulópontért
     switchLevel(latlngs[0].level);
 }
 
-/**
- * Kirajzol egy gyalogos összekötő vonalat (szaggatott vonal) két földrajzi pont között.
- * Jellemzően a térképelemek geometriai középpontja (centroid) és az útvonalhálózat 
- * legközelebbi csatlakozási pontja közötti (ún. "last mile") szakasz vizualizálására szolgál.
- *
- * @param {number} lat1 - Az indulási pont földrajzi szélessége.
- * @param {number} lon1 - Az indulási pont földrajzi hosszúsága.
- * @param {number} lat2 - Az érkezési pont földrajzi szélessége.
- * @param {number} lon2 - Az érkezési pont földrajzi hosszúsága.
- * @param {string} level - A szint (emelet) azonosítója, amelyhez a vonal tartozik.
- */
 function drawWalkLine(lat1, lon1, lat2, lon2, level) {
-    // A szaggatott vonal (polyline) inicializálása a megfelelő stílusjegyekkel
-    const polyline = L.polyline([[lat1, lon1], [lat2, lon2]], { 
-        color: 'white', 
-        weight: 2, 
-        dashArray: '5, 5', 
-        opacity: 0.7, 
-        pane: 'routePane' 
+    if (!_mapLayersInitialized) return;
+    const src = map.getSource('route-geojson');
+    if (!src) return;
+
+    const currentData = src._data || { type: 'FeatureCollection', features: [] };
+    const features = [...currentData.features];
+    
+    features.push({
+        type: 'Feature',
+        geometry: {
+            type: 'LineString',
+            coordinates: [[lon1, lat1], [lon2, lat2]]
+        },
+        properties: {
+            routeType: 'walkline',
+            level: level
+        }
     });
-    
-    // A szintinformáció hozzácsatolása az elemhez a láthatóság későbbi kezeléséhez
-    polyline.feature = { properties: { level: level } };
-    
-    // A vonalszakasz hozzáadása a megjelenítési rétegcsoporthoz
-    routeLayerGroup.addLayer(polyline);
+
+    src.setData({ type: 'FeatureCollection', features: features });
 }
 
-/**
- * Frissíti a navigációs elemek (útvonalak, markerek, irányjelző nyilak) láthatóságát
- * a paraméterben átadott aktuális szint alapján. A más szinteken lévő elemeket
- * elrejti vagy vizuálisan halványítja a térkép áttekinthetősége érdekében.
- *
- * @param {string} level - Az aktuálisan megjelenítendő szint (emelet) azonosítója.
- */
 function updateRouteVisibility(level) {
-    // --- 1. ÚTVONALAK (Vonalak) LÁTHATÓSÁGA ---
-    routeLayerGroup.eachLayer(layer => {
-        const p = layer.feature.properties;
-        // Ha a vonal része az adott szintnek (vagy átível rajta), teljes opacitással jelenik meg,
-        // ellenkező esetben erősen áttetszővé (opacity: 0.1) válik.
-        if ((p.levels && p.levels.includes(level)) || p.level === level) {
-            layer.setStyle({ opacity: 1 });
-        } else {
-            layer.setStyle({ opacity: 0.1 });
-        }
-    });
-    
-    // --- 2. VERTIKÁLIS MARKEREK (Lift/Lépcső) LÁTHATÓSÁGA ---
-    routeMarkersLayerGroup.eachLayer(layer => {
-        const p = layer.feature.properties;
-        if (p.level === level) {
-            layer.setOpacity(1);
-            // A DOM elem manuális megjelenítése, mivel a Leaflet opacity állítása 
-            // bizonyos esetekben nem elegendő a teljesen megbízható elrejtéshez.
-            if (layer._icon) layer._icon.style.display = 'block';
-        } else {
-            layer.setOpacity(0);
-            if (layer._icon) layer._icon.style.display = 'none';
+    if (!_mapLayersInitialized) return;
+
+    if (map.getLayer('route-walk')) {
+        map.setPaintProperty('route-walk', 'line-opacity', ['case', ['==', ['get', 'level'], level], 1, 0.1]);
+    }
+    if (map.getLayer('route-transit')) {
+        map.setPaintProperty('route-transit', 'line-opacity', 
+            ['case', 
+                ['any', 
+                    ['==', ['get', 'level'], level], 
+                    ['in', level, ['coalesce', ['get', 'levels'], ['literal', []]]]
+                ], 
+                1, 0.1
+            ]
+        );
+    }
+    if (map.getLayer('route-walkline')) {
+        map.setPaintProperty('route-walkline', 'line-opacity', ['case', ['==', ['get', 'level'], level], 0.7, 0.1]);
+    }
+    if (map.getLayer('route-arrows')) {
+        map.setPaintProperty('route-arrows', 'icon-opacity', ['case', ['==', ['get', 'level'], level], 1, 0.1]);
+    }
+
+    _routeMarkers.forEach(({ marker, level: mLevel }) => {
+        if (marker.getElement()) {
+            marker.getElement().style.display = mLevel === level ? 'block' : 'none';
         }
     });
 
-    // --- 3. IRÁNYJELZŐ NYILAK LÁTHATÓSÁGA ---
-    routeArrowsLayerGroup.eachLayer(layer => {
-        const p = layer.feature.properties;
-        if (p.level === level) {
-            layer.setOpacity(1);
-            if (layer._icon) layer._icon.style.display = 'block';
-        } else {
-            layer.setOpacity(0);
-            if (layer._icon) layer._icon.style.display = 'none';
+    _arrowMarkers.forEach(({ marker, level: mLevel }) => {
+        if (marker.getElement()) {
+            marker.getElement().style.display = mLevel === level ? 'block' : 'none';
         }
     });
 }
@@ -5862,54 +5914,31 @@ function processLevels() {
  * görgetés, érintés) továbbterjedésének megakadályozását a térkép felé.
  */
 function createLevelControls() {
-    // A korábban létrehozott szintválasztó UI elemek törlése a duplikációk elkerülése végett
     document.querySelectorAll('.level-control').forEach(e => e.remove());
     
-    // Új Leaflet vezérlőelem példányosítása a jobb felső sarokba
-    const control = L.control({ position: 'topright' });
+    const div = document.createElement('div');
+    div.className = 'level-control';
     
-    control.onAdd = function(map) {
-        // A vezérlő fő konténerének létrehozása a megfelelő CSS osztállyal
-        const div = L.DomUtil.create('div', 'level-control');
-        
-        // A térképi interakciók (görgetés, kattintás, érintés) letiltása a vezérlő felett
-        L.DomEvent.disableScrollPropagation(div);
-        L.DomEvent.disableClickPropagation(div);
-        L.DomEvent.on(div, 'touchstart', L.DomEvent.stopPropagation);
-        L.DomEvent.on(div, 'touchmove', L.DomEvent.stopPropagation);
+    ['wheel', 'touchstart', 'touchmove', 'mousedown', 'click'].forEach(evt => {
+        div.addEventListener(evt, e => e.stopPropagation());
+    });
 
-        // Gombok generálása az elérhető szintekből, fordított sorrendben (legfelső szint felül)
-        availableLevels.slice().reverse().forEach(lvl => {
-            const btn = document.createElement('button');
-            
-            // A technikai szint azonosítójának tárolása adattribútumként (pl. "1", "-1")
-            btn.dataset.level = lvl; 
-            
-            // A gomb feliratának meghatározása: ha van alias (pl. "MF"), azt használja, különben a nyers azonosítót
-            const label = levelAliases[lvl] || lvl;
-            btn.innerText = label;
-            
-            // Az alapértelmezett CSS osztályok beállítása, és az aktív állapot kijelölése
-            btn.className = 'level-btn ' + (lvl === currentLevel ? 'active' : '');
-            
-            // Kattintási eseménykezelő hozzárendelése a szintváltáshoz
-            btn.onclick = (e) => { 
-                // Megakadályozzuk, hogy a kattintás a térképre is hasson
-                L.DomEvent.stopPropagation(e); 
-                switchLevel(lvl); 
-            };
-            
-            div.appendChild(btn);
-        });
-        
-        return div;
-    };
+    availableLevels.slice().reverse().forEach(lvl => {
+        const btn = document.createElement('button');
+        btn.dataset.level = lvl; 
+        const label = levelAliases[lvl] || lvl;
+        btn.innerText = label;
+        btn.className = 'level-btn ' + (lvl === currentLevel ? 'active' : '');
+        btn.onclick = (e) => { 
+            e.stopPropagation(); 
+            switchLevel(lvl); 
+        };
+        div.appendChild(btn);
+    });
     
-    // A vezérlő hozzáadása a Leaflet térképpéldányhoz
-    control.addTo(map);
+    const container = map.getContainer ? map.getContainer() : document.getElementById('map');
+    container.appendChild(div);
     
-    // Miután a vezérlő bekerült a DOM-ba, futtatjuk a UI frissítést egy minimális
-    // késleltetéssel, hogy a böngésző biztosan ki tudja számolni a magasságokat a görgetéshez.
     setTimeout(() => {
         updateLevelUI();
     }, 50);
@@ -5962,7 +5991,6 @@ function switchLevel(level) {
     updateLevelUI();
     
     // A szintváltás tényének és paramétereinek naplózása hibakeresési célból
-    console.log("Switched to level:", currentLevel, "(Alias:", levelAliases[currentLevel] || "N/A", ")");
 }
 
 // === INTELLIGENS KAMERAMOZGATÁS (OFFSET LOGIKA) ===
@@ -5976,69 +6004,47 @@ function switchLevel(level) {
  * @param {Object} feature - A fókuszba helyezendő GeoJSON térképelem.
  */
 function smartFlyTo(feature) {
-    // Biztonsági ellenőrzés: érvénytelen vagy hiányzó paraméter esetén megszakítjuk a futást
     if (!feature) return;
 
-    // --- 1. A célpont földrajzi koordinátáinak (középpont) meghatározása ---
     let lat, lon;
-    
     if (feature.geometry.type === "Point") {
-        // Pont geometria esetén közvetlenül a koordinátákat használjuk
-        lat = feature.geometry.coordinates[1];
         lon = feature.geometry.coordinates[0];
+        lat = feature.geometry.coordinates[1];
     } else {
-        // Poligon vagy vonal esetén a Turf.js segítségével kiszámítjuk a geometriai középpontot
         const c = turf.centroid(feature);
-        lat = c.geometry.coordinates[1];
         lon = c.geometry.coordinates[0];
+        lat = c.geometry.coordinates[1];
     }
 
-    // --- 2. A felhasználói felület (UI) által kitakart alsó képernyőterület számítása ---
-    let bottomOffset = 0;
-    
+    let bottomOffset = 160;
     const sheet = document.getElementById('bottom-sheet');
     const settingsModal = document.getElementById('settings-modal');
-    
-    if (sheet.classList.contains('open')) {
-        // Az alsó információs panel (Bottom Sheet) magasságának lekérése, ha nyitva van
+
+    if (sheet && sheet.classList.contains('open')) {
         bottomOffset = sheet.getBoundingClientRect().height;
-    } else if (settingsModal.classList.contains('editor-mode')) {
-        // A témaszerkesztő (Theme Editor) kártya magasságának lekérése, ha az aktív
+    } else if (settingsModal && settingsModal.classList.contains('editor-mode')) {
         const card = settingsModal.querySelector('.settings-card');
         if (card) bottomOffset = card.getBoundingClientRect().height;
     }
 
-    // --- 3. A célzott nagyítási szint (zoom) meghatározása ---
-    const targetZoom = 20;
-
-    // --- 4. Pixel alapú eltolás (Offset) számítása ---
-    // A földrajzi koordináták képernyőpixelekké történő vetítése a célzott nagyítási szinten
-    const centerPoint = map.project([lat, lon], targetZoom);
-    
-    // Az Y tengely (függőleges) értékének növelése a kitakart terület felével. 
-    // Ezáltal a kamera fizikailag lejjebb céloz, így maga a vizsgált pont 
-    // vizuálisan feljebb kerül a látható térképernyő geometriai közepére.
-    centerPoint.y += (bottomOffset / 2); 
-
-    // A módosított pixelkoordináták visszavetítése szabványos földrajzi koordinátákká
-    const targetLatLng = map.unproject(centerPoint, targetZoom);
-
-    // --- 5. A kameramozgás (animáció) végrehajtása ---
-    map.flyTo(targetLatLng, targetZoom, {
-        animate: true,
-        duration: 0.8 // Optimalizált, dinamikus animációs sebesség
-    });
-    
-    // --- 6. Szintváltás ellenőrzése és végrehajtása ---
-    // Amennyiben a célpont egy másik emeleten található, automatikusan átváltjuk a nézetet
     const levels = getLevelsFromFeature(feature);
     if (levels.length > 0 && !levels.includes(currentLevel)) {
         switchLevel(levels[0]);
     }
+
+    map.flyTo({
+        center: [lon, lat],
+        zoom: 20,
+        padding: { top: 60, bottom: bottomOffset, left: 30, right: 30 },
+        duration: 800,
+        essential: true
+    });
+
+    drawSelectedHighlight(feature);
 }
 
 function zoomToFeature(feature) {
-        smartFlyTo(feature);
+    smartFlyTo(feature);
 }
 
 // === ALSÓ INFORMÁCIÓS PANEL (BOTTOM SHEET) MOZGATÁSI LOGIKA ===
@@ -6405,7 +6411,6 @@ async function processUrlParams() {
         }).join(''));
         
         const data = JSON.parse(jsonStr);
-        console.log("Deep Link Data:", data);
 
         // Megjegyzés: Az esetleges épületváltás logikáját (ha a link más épületre mutat, 
         // mint az alapértelmezett) az inicializációs fázisban, a térképadatok (loadOsmData) 
@@ -6529,25 +6534,19 @@ window.clickTimeout = null;
  * majd a második érintést lenyomva tartva fel-le húzza az ujját a térkép nagyításához 
  * vagy kicsinyítéséhez.
  *
- * @param {Object} map - A Leaflet térképpéldány, amelyen a gesztuskezelést implementáljuk.
+ * @param {Object} map - A MapLibre GL térképpéldány, amelyen a gesztuskezelést implementáljuk.
  */
 function enableOneFingerZoom(map) {
-    const container = map.getContainer();
+    const container = map.getCanvas();
     
-    // Belső állapotváltozók az érintések időzítéséhez és pozíciójának nyomon követéséhez
     let lastTap = 0;
     let startY = 0;
     let startZoom = 0;
     let isZooming = false;
 
-    // --- ÉRINTÉS KEZDETE (Touch Start) ---
     container.addEventListener('touchstart', (e) => {
-        // A gesztus kizárólag egyetlen ujj használatával érvényes
         if (e.touches.length !== 1) return;
 
-        // Konfliktuskezelés: Egy újabb érintés detektálásakor azonnal töröljük a várakozó 
-        // (késleltetett) kattintási eseményt. Ez garantálja, hogy a gesztus megkezdése 
-        // felülírja a szimpla kiválasztási szándékot.
         if (window.clickTimeout) {
             clearTimeout(window.clickTimeout);
             window.clickTimeout = null;
@@ -6555,66 +6554,42 @@ function enableOneFingerZoom(map) {
 
         const now = Date.now();
         
-        // Dupla érintés (koppintás) detektálása egy 300 milliszekundumos időablakon belül
         if (now - lastTap < 300) {
-            // A térképi interakciók (kattintások) zárolása a gesztus idejére
             window.isMapInteractionLocked = true;
             isZooming = true;
             
-            // A kiindulási Y koordináta és az aktuális nagyítási szint rögzítése
             startY = e.touches[0].clientY;
             startZoom = map.getZoom();
             
-            // Az alapértelmezett térképmozgatás (panning) letiltása, hogy ne csússzon el a nézet
-            map.dragging.disable();
+            map.dragPan.disable();
         }
-        // Az utolsó érintés idejének frissítése a következő vizsgálathoz
         lastTap = now;
     });
 
-    // --- FOLYAMATOS MOZGÁS (Touch Move) ---
     container.addEventListener('touchmove', (e) => {
-        // Ha nem aktív az egyujjas nagyítási gesztus, a rendszer ignorálja az eseményt
         if (!isZooming) return;
         
-        // A zárolási állapot megerősítése a mozgás teljes időtartama alatt
         window.isMapInteractionLocked = true;
 
         const y = e.touches[0].clientY;
-        // A függőleges elmozdulás kiszámítása a kiindulási ponthoz képest
         const delta = y - startY; 
         
-        // Holtjáték (deadzone) biztosítása: csak a 10 pixelnél nagyobb elmozdulást 
-        // tekintjük szándékos nagyításnak, kiszűrve az ujj apró remegéseit.
         if (Math.abs(delta) > 10) {
-            // A böngésző alapértelmezett görgetési viselkedésének megakadályozása
             if (e.cancelable) e.preventDefault();
             
-            // A nagyítás mértékének kiszámítása. 
-            // A sensitivity (érzékenység) konstans határozza meg, hogy hány pixel 
-            // elmozdulás eredményez egy teljes nagyítási szint változást.
             const sensitivity = 250; 
             const zoomChange = delta / sensitivity;
             
-            // A térkép nagyítási szintjének azonnali, animáció nélküli frissítése 
-            // a folyamatos (valós idejű) visszajelzés érdekében.
-            map.setZoom(startZoom + zoomChange, { animate: false });
+            map.setZoom(startZoom + zoomChange);
         }
     }, { passive: false });
 
-    // --- ÉRINTÉS VÉGE (Touch End) ---
     container.addEventListener('touchend', (e) => {
-        // A gesztus vagy a zárolási állapot befejezésének lekezelése
         if (isZooming || window.isMapInteractionLocked) {
             isZooming = false;
             
-            // Az alapértelmezett térképmozgatás (panning) ismételt engedélyezése
-            map.dragging.enable();
+            map.dragPan.enable();
 
-            // --- KÉSLELTETETT FELOLDÁS ---
-            // A mobilböngészők gyakran generálnak egy szintetikus 'click' eseményt 
-            // a 'touchend' után. A 400 milliszekundumos késleltetés megakadályozza, 
-            // hogy ez a "szellemkattintás" véletlenül kiválasszon egy térképelemet a gesztus végén.
             setTimeout(() => {
                 window.isMapInteractionLocked = false;
             }, 400);
@@ -6622,76 +6597,59 @@ function enableOneFingerZoom(map) {
     });
 }
 
-// A gesztuskezelő modul inicializálása a globális térképpéldányon
-enableOneFingerZoom(map);
-
-
 // === ALKALMAZÁS INICIALIZÁLÁSA ===
+map.on('load', () => {
+    _initMapSources();
+    _initMapLayers();
+    _mapLayersInitialized = true;
 
-// Alapvető konfigurációk és a vizuális téma (UI) előkészítése
-initBuildings();
-renderThemeSelector();
-applyTheme();
+    enableOneFingerZoom(map);
 
-// --- 1. URL PARAMÉTEREK VIZSGÁLATA (ÉPÜLET AZONOSÍTÁSA) ---
-const params = new URLSearchParams(window.location.search);
-const shareCode = params.get('share');
-const buildingParam = params.get('building') || params.get('b'); // Támogatja a ?building=k és a rövid ?b=k formátumot is
+    initBuildings();
+    renderThemeSelector();
+    applyTheme();
 
-// Alapértelmezett épület azonosítójának beállítása
-let buildingToLoad = "K"; 
+    const params = new URLSearchParams(window.location.search);
+    const shareCode = params.get('share');
+    const buildingParam = params.get('building') || params.get('b');
 
-// Egyszerű épület-paraméter (deep link) feldolgozása (kis/nagybetű független)
-if (buildingParam) {
-    const searchKey = buildingParam.trim().toUpperCase();
-    
-    // Végigiterálunk a konfigurált épületeken, hogy megtaláljuk a pontos egyezést.
-    // Ez biztosítja, hogy a többkarakteres vagy speciális karakteres (pl. "KÖ") azonosítók is működjenek.
-    const matchedKey = Object.keys(BUILDINGS).find(key => key.toUpperCase() === searchKey);
-    
-    if (matchedKey) {
-        buildingToLoad = matchedKey;
-        console.log("URL paraméterből kiválasztott épület:", buildingToLoad);
-    } else {
-        console.warn("Ismeretlen épület paraméter az URL-ben:", buildingParam);
-    }
-}
+    let buildingToLoad = "K"; 
 
-// Megosztási kód (deep link) jelenlétének ellenőrzése és előfeldolgozása.
-// (Ez magasabb prioritású, felülírja a sima 'building' paramétert, ha a megosztás máshova mutat).
-if (shareCode) {
-    try {
-        // A kódolt adatcsomag gyors visszafejtése (Base64 -> UTF-8 -> JSON)
-        // Célja kizárólag a célépület azonosítása a teljes adatbetöltés előtt
-        const jsonStr = decodeURIComponent(atob(shareCode).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+    if (buildingParam) {
+        const searchKey = buildingParam.trim().toUpperCase();
+        const matchedKey = Object.keys(BUILDINGS).find(key => key.toUpperCase() === searchKey);
         
-        const data = JSON.parse(jsonStr);
-        
-        // Érvényesítés a globális épület-konfiguráció (BUILDINGS) alapján
-        if (data.b && BUILDINGS[data.b]) {
-            buildingToLoad = data.b;
-            console.log("Deep Link Building Switch:", buildingToLoad);
+        if (matchedKey) {
+            buildingToLoad = matchedKey;
+        } else {
+            console.warn("Ismeretlen épület paraméter az URL-ben:", buildingParam);
         }
-    } catch(e) { 
-        // Hibakezelés érvénytelen, sérült vagy manipulált megosztási kód esetén
-        console.warn("Invalid Share Code"); 
     }
-}
 
-// --- 2. ÉPÜLET BEÁLLÍTÁSA ÉS ADATOK BETÖLTÉSE ---
-if (buildingToLoad !== currentBuildingKey) {
-    // Ha a hivatkozás eltérő épületre mutat, a rendszer automatikusan végrehajtja a váltást
-    changeBuilding(buildingToLoad); 
-} else {
-    // Alapértelmezett egyezés esetén elindul a térképadatok közvetlen feldolgozása
-    loadOsmData(); 
-}
+    if (shareCode) {
+        try {
+            const jsonStr = decodeURIComponent(atob(shareCode).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            
+            const data = JSON.parse(jsonStr);
+            
+            if (data.b && BUILDINGS[data.b]) {
+                buildingToLoad = data.b;
+            }
+        } catch(e) { 
+            console.warn("Invalid Share Code"); 
+        }
+    }
 
-// --- 3. GPS ALAPÚ HELYZETMEGHATÁROZÁS ---
-// Aszinkron háttérfolyamat indítása a felhasználóhoz legközelebbi épület detektálására
-detectClosestBuilding();
+    if (buildingToLoad !== currentBuildingKey) {
+        changeBuilding(buildingToLoad); 
+    } else {
+        loadOsmData(); 
+    }
+
+    detectClosestBuilding();
+});
 
 
 // === PWA & SERVICE WORKER REGISZTRÁCIÓ ===
@@ -6700,9 +6658,7 @@ detectClosestBuilding();
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then((registration) => {
-            console.log('ServiceWorker sikeresen regisztrálva: ', registration.scope);
         }).catch((err) => {
-            console.log('ServiceWorker regisztráció sikertelen: ', err);
         });
     });
 }
@@ -6730,7 +6686,6 @@ if (installBtn) {
             // Megvárjuk a felhasználó döntését
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
-                console.log('User accepted the install prompt');
                 installSection.style.display = 'none'; // Eltüntetjük a gombot
             }
             // A promptot csak egyszer lehet használni

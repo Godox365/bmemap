@@ -5,7 +5,7 @@ Interaktív beltéri navigációs és teremkereső alkalmazás a Budapesti Műsz
 ## 🛠 Technológiai stack
 
 * **Frontend:** HTML5, CSS3 (Custom Variables), JavaScript (Vanilla ES6).
-* **Térkép motor:** Leaflet.js.
+* **Térkép motor:** MapLibre GL JS.
 * **Geometria:** Turf.js (térbeli számítások), osmtogeojson.
 * **Adatforrás:** OpenStreetMap (OSM).
 * **Automatizáció:** GitHub Actions (napi adatfrissítés), Node.js.
