@@ -1184,8 +1184,23 @@ function _clearRoomLabelMarkers() {
 }
 
 function _resetMapPadding() {
-    if (_mapLayersInitialized && map && typeof map.setPadding === 'function') {
-        map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+    if (_mapLayersInitialized && map) {
+        try {
+            const container = map.getContainer();
+            if (container && typeof map.unproject === 'function' && typeof map.jumpTo === 'function') {
+                const centerLngLat = map.unproject([container.clientWidth / 2, container.clientHeight / 2]);
+                map.jumpTo({
+                    center: centerLngLat,
+                    padding: { top: 0, bottom: 0, left: 0, right: 0 }
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn("Silent padding reset error:", e);
+        }
+        if (typeof map.setPadding === 'function') {
+            map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+        }
     }
 }
 
