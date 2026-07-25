@@ -1080,38 +1080,37 @@ map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-rig
 
 // Forgatás engedélyezése 2 ujjal és Ctrl + egérhúzással
 // Automatikus igazítás (snapping) 0°, 90°, 180°, -90° irányokba forgatás után
-let _snapTimeout = null;
+let _bearingSnapTimer = null;
+let _isBearingSnapping = false;
 
-const _cancelSnap = () => {
-    if (_snapTimeout !== null) {
-        clearTimeout(_snapTimeout);
-        _snapTimeout = null;
-    }
-    map.stop(); // Megszakít minden folyamatban lévő easeTo/flyTo animációt
-};
-
-// Ha a felhasználó interakcióba kezd, azonnal leállítjuk a snap-animációt
-map.getCanvas().addEventListener('mousedown', _cancelSnap, { passive: true });
-map.getCanvas().addEventListener('touchstart', _cancelSnap, { passive: true });
+// Ha a felhasználó bármilyen interakcióba kezd, azonnal leállítjuk a futó snap animációt
+['dragstart', 'rotatestart', 'touchstart'].forEach(evt => {
+    map.on(evt, () => {
+        if (_bearingSnapTimer) { clearTimeout(_bearingSnapTimer); _bearingSnapTimer = null; }
+        if (_isBearingSnapping) { map.stop(); _isBearingSnapping = false; }
+    });
+});
 
 map.on('rotateend', () => {
-    _cancelSnap(); // Töröljük az esetleg előző, még függőben lévő snap-et
+    // Ha ez egy programozott snap befejezése, ne indítsunk újat (rekurzió elkerülése)
+    if (_isBearingSnapping) { _isBearingSnapping = false; return; }
     
-    const bearing = map.getBearing();
-    const snapAngles = [0, 90, 180, -90, -180];
-    const threshold = 15;
-    
-    for (const target of snapAngles) {
-        if (Math.abs(bearing - target) < threshold && Math.abs(bearing - target) > 0.1) {
-            // Kis késleltetéssel indítjuk, hogy a rotateend után az esetleges
-            // mouseup/touchend esemény már lefuthasson, mielőtt mozgunk
-            _snapTimeout = setTimeout(() => {
-                _snapTimeout = null;
-                map.easeTo({ bearing: target, duration: 280, essential: false });
-            }, 50);
-            break;
+    // Debounce: rövid várakozás, hogy az ujjak elengedésével járó mikro-forgatások lecsengjenek
+    if (_bearingSnapTimer) clearTimeout(_bearingSnapTimer);
+    _bearingSnapTimer = setTimeout(() => {
+        _bearingSnapTimer = null;
+        const bearing = map.getBearing();
+        const snapAngles = [0, 90, 180, -90, -180];
+        const threshold = 15;
+        
+        for (const target of snapAngles) {
+            if (Math.abs(bearing - target) < threshold && Math.abs(bearing - target) > 0.1) {
+                _isBearingSnapping = true;
+                map.easeTo({ bearing: target, duration: 250, easing: t => t * (2 - t) });
+                break;
+            }
         }
-    }
+    }, 80);
 });
 
 /**
