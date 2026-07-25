@@ -1183,6 +1183,12 @@ function _clearRoomLabelMarkers() {
     _roomLabelMarkers = [];
 }
 
+function _resetMapPadding() {
+    if (_mapLayersInitialized && map && typeof map.setPadding === 'function') {
+        map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+    }
+}
+
 function _initMapSources() {
     map.addSource('indoor-geojson', {
         type: 'geojson',
@@ -1485,6 +1491,9 @@ let doorNodes = new Set();
 function toggleSettings() {
     const modal = document.getElementById('settings-modal');
     modal.classList.toggle('visible');
+    if (!modal.classList.contains('visible')) {
+        _resetMapPadding();
+    }
     updateSettingsUI();
 }
 
@@ -1853,6 +1862,8 @@ function closeThemeEditor(saved = false) {
     // A szerkesztő nézet elrejtése és a fő beállítások nézet megjelenítése.
     viewEditor.style.display = 'none';
     viewMain.style.display = 'flex';
+    
+    _resetMapPadding();
     
     // Visszaállítási logika: Ha a felhasználó mentés nélkül zárt be, visszatöltjük a korábban mentett témát.
     if (!saved) {
@@ -2276,6 +2287,16 @@ function toggleBuildingMenu() {
 function changeBuilding(key, autoSearchTerm = null) {
     if (!BUILDINGS[key]) return;
     
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal) {
+        if (settingsModal.classList.contains('editor-mode')) {
+            closeThemeEditor(false);
+        }
+        settingsModal.classList.remove('visible');
+    }
+    if (typeof closeSheet === 'function') closeSheet();
+    _resetMapPadding();
+
     currentBuildingKey = key;
     currentBuilding = BUILDINGS[key];
     
@@ -2482,6 +2503,7 @@ function alignMapToBuildingCenter() {
     if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) return;
 
     try {
+        _resetMapPadding();
         const bbox = turf.bbox(geoJsonData); 
         
         if (bbox) {
@@ -3760,6 +3782,7 @@ function closeSheet() {
     if (_mapLayersInitialized && map.getSource('highlight-geojson')) {
         map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
     }
+    _resetMapPadding();
     
     selectedFeature = null;
 
@@ -3776,6 +3799,7 @@ function closeSheet() {
 }
 
 function clearRouteAndClose() {
+    _resetMapPadding();
     if (_mapLayersInitialized) {
         if (map.getSource('route-geojson')) map.getSource('route-geojson').setData({ type: 'FeatureCollection', features: [] });
         if (map.getSource('highlight-geojson')) map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
@@ -6125,16 +6149,93 @@ function collapseToPeek() {
  * Inicializálja az állapotváltozókat és kikapcsolja a CSS animációkat az azonnali, 
  * késleltetés nélküli ujjkövetés (1:1 tracking) érdekében.
  */
-handle.addEventListener('touchstart', (e) => {
+let didSheetDrag = false;
+
+function _onSheetDragStart(clientY) {
     isDragging = true;
-    startY = e.touches[0].clientY;
+    didSheetDrag = false;
+    startY = clientY;
     lastY = startY;
     velocity = 0;
     startHeight = sheet.getBoundingClientRect().height;
     
     // Animáció letiltása a sima, azonnali reakcióhoz a húzás alatt
     sheet.style.transition = 'none'; 
+    handle.style.cursor = 'grabbing';
+}
+
+function _onSheetDragMove(clientY) {
+    if (!isDragging) return;
+    
+    const deltaY = startY - clientY;
+    if (Math.abs(deltaY) > 5) {
+        didSheetDrag = true;
+    }
+    const newHeight = startHeight + deltaY;
+    
+    velocity = clientY - lastY; 
+    lastY = clientY;
+
+    const peekH = getPeekHeight();
+    const maxH = window.innerHeight * 0.9;
+
+    if (newHeight >= peekH * 0.8 && newHeight <= maxH) {
+        sheet.style.height = `${newHeight}px`;
+    }
+}
+
+function _onSheetDragEnd() {
+    if (!isDragging) return;
+    
+    isDragging = false;
+    handle.style.cursor = 'grab';
+    
+    // Ruganyos (spring) animációs görbe alkalmazása a természetesebb fizikai hatásért
+    sheet.style.transition = 'height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; 
+    
+    const currentHeight = sheet.getBoundingClientRect().height;
+    const peekH = getPeekHeight();
+    const autoH = getAutoHeight();
+    const maxH = window.innerHeight * 0.85;
+
+    if (velocity > 10) {
+        sheet.style.height = `${peekH}px`;
+    }
+    else if (velocity < -10) {
+        if (currentHeight < autoH) {
+            sheet.style.height = `${autoH}px`;
+        } else {
+            sheet.style.height = `${maxH}px`;
+        }
+    }
+    else {
+        const distToPeek = Math.abs(currentHeight - peekH);
+        const distToAuto = Math.abs(currentHeight - autoH);
+        const distToMax = Math.abs(currentHeight - maxH);
+
+        if (distToPeek < distToAuto && distToPeek < distToMax) {
+            sheet.style.height = `${peekH}px`;
+        } else if (distToMax < distToAuto) {
+            sheet.style.height = `${maxH}px`;
+        } else {
+            sheet.style.height = `${autoH}px`;
+        }
+    }
+    
+    if (sheet.style.height === `${peekH}px`) {
+        content.scrollTop = 0;
+    }
+}
+
+handle.addEventListener('touchstart', (e) => {
+    _onSheetDragStart(e.touches[0].clientY);
 }, {passive: true});
+
+handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    _onSheetDragStart(e.clientY);
+});
 
 /**
  * Globális eseménykezelő a keresőmezőn kívüli kattintások (focus lost) detektálására.
@@ -6152,90 +6253,17 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/**
- * Eseménykezelő a panel folyamatos húzásának (touchmove) lekövetésére.
- * Kiszámítja a pozícióváltozást (deltaY) és az aktuális mozgási sebességet (velocity) 
- * a gesztusok (pl. pöccintés) későbbi értelmezéséhez, majd korlátozott keretek 
- * között frissíti a panel magasságát.
- */
 document.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    
-    const currentY = e.touches[0].clientY;
-    const deltaY = startY - currentY; // Felfelé történő mozgás esetén pozitív érték
-    const newHeight = startHeight + deltaY;
-    
-    // A mozgási sebesség kiszámítása a későbbi lendület (momentum) alapú döntésekhez.
-    // Pozitív érték: lefelé haladó mozgás; Negatív érték: felfelé haladó mozgás.
-    velocity = currentY - lastY; 
-    lastY = currentY;
-
-    const peekH = getPeekHeight();
-    const maxH = window.innerHeight * 0.9;
-
-    // A panel magasságának frissítése, biztosítva, hogy a mozgatás a logikai és 
-    // fizikai határokon (képernyőméret) belül maradjon
-    if (newHeight >= peekH * 0.8 && newHeight <= maxH) {
-        sheet.style.height = `${newHeight}px`;
-    }
+    _onSheetDragMove(e.touches[0].clientY);
 }, {passive: true});
 
-/**
- * Eseménykezelő a panel elengedésére (touchend).
- * Visszaállítja a CSS animációkat egy finom, ruganyos (spring) effekttel, majd 
- * a mozgás sebessége (pöccintés) vagy a végpozíció alapján kiszámítja a legideálisabb 
- * rögzítési pontot (snap point: peek, auto vagy max), és oda igazítja a panelt.
- */
-document.addEventListener('touchend', () => {
-    if (!isDragging) return;
-    
-    isDragging = false;
-    
-    // Ruganyos (spring) animációs görbe alkalmazása a természetesebb fizikai hatásért
-    sheet.style.transition = 'height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; 
-    
-    const currentHeight = sheet.getBoundingClientRect().height;
-    const peekH = getPeekHeight();
-    const autoH = getAutoHeight();
-    const maxH = window.innerHeight * 0.85;
-
-    // --- RÖGZÍTÉSI PONT (SNAP) LOGIKA ---
-    
-    // 1. Lefelé irányuló, magas sebességű mozdulat (pöccintés lefelé) -> Betekintő (PEEK) állapot
-    if (velocity > 10) {
-        sheet.style.height = `${peekH}px`;
-    }
-    // 2. Felfelé irányuló, magas sebességű mozdulat (pöccintés felfelé) -> AUTO vagy MAX állapot
-    else if (velocity < -10) {
-        if (currentHeight < autoH) {
-            sheet.style.height = `${autoH}px`;
-        } else {
-            sheet.style.height = `${maxH}px`;
-        }
-    }
-    // 3. Alacsony sebességű mozgás (lassú húzás) esetén a legközelebbi rögzítési ponthoz igazítás
-    else {
-        // A panel aktuális magasságának távolsága a lehetséges végpontoktól
-        const distToPeek = Math.abs(currentHeight - peekH);
-        const distToAuto = Math.abs(currentHeight - autoH);
-        const distToMax = Math.abs(currentHeight - maxH);
-
-        // A legkisebb távolság kiválasztása a végleges rögzítési ponthoz
-        if (distToPeek < distToAuto && distToPeek < distToMax) {
-            sheet.style.height = `${peekH}px`;
-        } else if (distToMax < distToAuto) {
-            sheet.style.height = `${maxH}px`;
-        } else {
-            sheet.style.height = `${autoH}px`;
-        }
-    }
-    
-    // Belső nézet takarítása: ha a panel a betekintő (peek) állapotba került, 
-    // a tartalom görgetését visszaállítjuk az alaphelyzetbe
-    if (sheet.style.height === `${peekH}px`) {
-        content.scrollTop = 0;
-    }
+document.addEventListener('mousemove', (e) => {
+    _onSheetDragMove(e.clientY);
 });
+
+document.addEventListener('touchend', _onSheetDragEnd);
+document.addEventListener('mouseup', _onSheetDragEnd);
+window.addEventListener('blur', _onSheetDragEnd);
 
 /**
  * Eseménykezelő a húzófogantyúra (handle) történő normál kattintásra.
@@ -6243,6 +6271,10 @@ document.addEventListener('touchend', () => {
  * az optimális nyitott (auto) és a betekintő (peek) állapotok között.
  */
 handle.addEventListener('click', () => {
+    if (didSheetDrag) {
+        didSheetDrag = false;
+        return;
+    }
     const currentH = sheet.getBoundingClientRect().height;
     const peekH = getPeekHeight();
     const autoH = getAutoHeight();
