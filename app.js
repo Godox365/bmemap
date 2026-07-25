@@ -1069,16 +1069,29 @@ const map = new maplibregl.Map({
     center: [currentBuilding.center[1], currentBuilding.center[0]], // MapLibre: [lon, lat]!
     zoom: currentBuilding.zoom,
     attributionControl: false,
-    dragRotate: false,
+    dragRotate: true,
     pitchWithRotate: false,
+    bearingSnap: 20,
     maxZoom: 22
 });
 
 // Attribution hozzáadása manuálisan (jobb alsó sarok)
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
-// Forgatás letiltása érintésvezérléskor (épülettérképen nem kell)
-map.touchZoomRotate.disableRotation();
+// Forgatás engedélyezése 2 ujjal és Ctrl + egérhúzással
+// Automatikus igazítás (snapping) 0°, 90°, 180°, -90° irányokba forgatás után
+map.on('rotateend', () => {
+    const bearing = map.getBearing();
+    const snapAngles = [0, 90, 180, -90, -180];
+    const threshold = 15;
+    
+    for (const target of snapAngles) {
+        if (Math.abs(bearing - target) < threshold && Math.abs(bearing - target) > 0.1) {
+            map.easeTo({ bearing: target, duration: 300 });
+            break;
+        }
+    }
+});
 
 /**
  * Eseményfigyelő regisztrálása a térkép nagyítási műveletének befejezésére ('zoomend').
