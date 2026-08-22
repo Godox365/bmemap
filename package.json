@@ -1,0 +1,18 @@
+{
+  "name": "bmemap",
+  "version": "0.0.0",
+  "description": "BME teremkereső és navigációs térkép.",
+  "repository": {
+    "type": "git",
+    "url": "git@git.sch.bme.hu:kszk/hat/bme-map.git"
+  },
+  "author": "KSZK HaT",
+  "type": "commonjs",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "osmtogeojson": "^3.0.0-beta.5"
+  }
+}
