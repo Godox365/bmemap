@@ -1,5 +1,6 @@
 const fs = require('fs');
 const osmtogeojson = require('osmtogeojson');
+const dataFolder = process.env.BMEMAP_DATA_FOLDER || "./data"
 
 // Az épületek koordinátái
 const BUILDINGS = {
@@ -23,7 +24,7 @@ async function fetchWithFallback(query) {
     for (let i = 0; i < OVERPASS_SERVERS.length; i++) {
         const server = OVERPASS_SERVERS[i];
         console.log(`\n📡 Próbálkozás a(z) ${server} szerverrel...`);
-        
+
         try {
             const response = await fetch(server, {
                 method: "POST",
@@ -38,12 +39,12 @@ async function fetchWithFallback(query) {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.log(`❌ Hiba a szerveren (HTTP ${response.status}): ${errorText.substring(0, 100).replace(/\n/g, " ")}... Ugrás a következőre...`);
-                continue; 
+                continue;
             }
 
             const data = await response.json();
             console.log(`✅ Sikeres letöltés innen: ${server}`);
-            return data; 
+            return data;
         } catch (error) {
             console.log(`⚠️ Hálózati hiba vagy időtúllépés: ${error.message}`);
         }
@@ -53,8 +54,8 @@ async function fetchWithFallback(query) {
 
 async function updateMaps() {
     // Létrehozzuk a data mappát, ha nincs
-    if (!fs.existsSync('./data')) {
-        fs.mkdirSync('./data');
+    if (!fs.existsSync(dataFolder)) {
+        fs.mkdirSync(dataFolder);
         console.log("📁 'data' mappa létrehozva.");
     }
 
@@ -67,10 +68,10 @@ async function updateMaps() {
                             way(around:5, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
                             relation(around:5, ${center[0]}, ${center[1]})["building"]["building"!="bridge"]["building"!="roof"];
                         )->.targetBuilding;
-                        
+
                         // 2. Ezt a halmazt alakítjuk keresési területté
                         .targetBuilding map_to_area -> .searchArea;
-                        
+
                         // 3. Jöhetnek a belső adatok
                         (
                             // Meglévő geometriai adatok
@@ -81,10 +82,10 @@ async function updateMaps() {
                             node["door"](area.searchArea);
                             way["building:part"](area.searchArea);
                             way["room"~"stairs|toilet|toilets"](area.searchArea);
-                            
+
                             // Maga az épület körvonala a térképhez
                             .targetBuilding;
-                            
+
                             // POI ADATOK
                             node["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
                             way["amenity"~"vending_machine|microwave|atm|cafe|fast_food|restaurant"](area.searchArea);
@@ -97,7 +98,7 @@ async function updateMaps() {
 
         try {
             const osmData = await fetchWithFallback(query);
-            
+
             console.log(`⚙️  Konvertálás GeoJSON formátumba...`);
             const geoJson = osmtogeojson(osmData);
 
