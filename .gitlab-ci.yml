@@ -24,7 +24,7 @@ helm-deploy:
   image: harbor.sch.bme.hu/proxy-docker.io/dtzar/helm-kubectl:4.2.3
   before_script:
     - chmod 600 $KUBECONFIG
-    - helm registry login --username=$REGISTRY_USER --password=$REGISTRY_PASSWORD https://$DOCKER_REGISTRY/kszk-hat
+    - helm registry login --username=$REGISTRY_USER --password=$REGISTRY_PASSWORD $DOCKER_REGISTRY
   script:
     - helm upgrade $CI_PROJECT_NAME helm --install --atomic -f helm/values.yaml --namespace kszk-bmemap --set image.tag=$CI_COMMIT_SHA
   needs: ['kaniko-build']
