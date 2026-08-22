@@ -1,4 +1,4 @@
-const dataFolder = process.env.BMEMAP_DATA_FOLDER || "./data"
+const dataFolder = "./data"
 
 /**
  * Biztonsági ellenőrzés a külső adatbázis betöltésére.
