@@ -1,0 +1,30 @@
+stages:
+  - build
+  # - deploy
+
+variables:
+  RELEASE_ID: $CI_PROJECT_NAME@$CI_COMMIT_SHORT_SHA
+
+kaniko-build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: ['']
+  variables:
+    DOCKERFILE: $CI_PROJECT_DIR/Dockerfile
+    CONTAINER_IMAGE: $DOCKER_REGISTRY/kszk-hat/$CI_PROJECT_NAME:$CI_COMMIT_TAG
+  script:
+    - echo "{\"auths\":{\"$DOCKER_REGISTRY\":{\"username\":\"$REGISTRY_USER\",\"password\":\"$REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $DOCKERFILE --destination $CONTAINER_IMAGE
+  when: manual
+
+# helm-deploy:
+#   stage: deploy
+#   image: harbor.sch.bme.hu/proxy-docker.io/dtzar/helm-kubectl:4.2.3
+#   before_script:
+#     - chmod 600 $KUBECONFIG
+#     - helm registry login --username=$REGISTRY_USER --password=$REGISTRY_PASSWORD https://harbor.sch.bme.hu/kszk-hat
+#   script:
+#     - helm upgrade $CI_PROJECT_NAME oci://harbor.sch.bme.hu/kszk-adminsch/adminsch-service --install --atomic -f contrib/values.yaml --namespace kszk-bmemap --set image.tag=$CI_COMMIT_SHA
+#   needs: ['kaniko-build']
+#   tags: [k9r]
