@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-update-job
+spec:
+  schedule: "0 6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+          - name: {{ .Release.Name }}-update
+            image: {{ .Values.image.updater.name }}:{{ default "latest" .Values.image.updater.tag }}
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - name: data
+                mountPath: "/opt/bmemap/data"
+          containers:
+          - name: {{ .Release.Name }}-restart
+            image: harbor.sch.bme.hu/proxy-docker.io/dtzar/helm-kubectl:4.2.3
+            imagePullPolicy: IfNotPresent
+            command: ["kubectl", "rollout", "restart", "deploy/{{ .Release.Name }}"]
+          restartPolicy: OnFailure
+          serviceAccountName: restart-user
+          imagePullSecrets:
+            - name: {{ .Values.imagePullSecret }}
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ .Release.Name }}-data
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: restart-user
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restart
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: ["apps", "extensions"]
+    resources: ["deployments"]
+    verbs: ["get", "patch", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restart
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restart
+subjects:
+  - kind: ServiceAccount
+    name: restart-user
+    namespace: {{ .Release.Namespace }}

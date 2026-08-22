@@ -1,0 +1,20 @@
+image:
+  app:
+    name: harbor.sch.bme.hu/kszk-hat/bme-map-app
+    tag: latest
+  updater:
+    name: harbor.sch.bme.hu/kszk-hat/bme-map-updater
+    tag: latest
+
+imagePullSecret: harbor
+
+ingress:
+  className: traefik
+  host: bmemap.kszk.bme.hu
+  clusterIssuer: dns-issuer
+
+dataPvc:
+  storageClass: memory-ssd-rwx
+  size: 1Gi
+
+extraDeploy: {}
