@@ -20,6 +20,122 @@ function escapeHTML(str) {
 }
 
 /**
+ * Központi Tag Katalógus a terem felszerelésekhez, szolgáltatásokhoz és funkció-címkékhez.
+ * A kisbetűs keresőkulcsokhoz hozzárendeli a Material Symbols ikont és a szép megjelenítési nevet.
+ */
+const TAG_CATALOG = {
+    // --- Felszereltség / Infrastruktúra ---
+    "projector":        { icon: "videocam",         label: "Projektor" },
+    "key":              { icon: "vpn_key",          label: "Kulcsos" },
+    "ac":               { icon: "ac_unit",          label: "Légkondicionált" },
+    "print":            { icon: "print",            label: "Nyomtatás" },
+    "scan":             { icon: "scanner",          label: "Szkennelés" },
+    "pc":               { icon: "desktop_windows",  label: "Számítógép" },
+    "luggage":          { icon: "luggage",          label: "Csomagmegőrző" },
+
+    // --- Szolgáltatások / Funkciók / Teremtípusok ---
+    "quiet_study":      { icon: "local_library",    label: "Csendes tanulás" },
+    "study":            { icon: "menu_book",        label: "Tanuló" },
+    "eat":              { icon: "restaurant",       label: "Étkezés" },
+    "reserve":          { icon: "event_available",  label: "Foglalható" },
+    "accessible":       { icon: "accessible",       label: "Akadálymentes" },
+    "social":           { icon: "groups_2",       label: "Közösségi tér" },
+
+    // --- Könyvtár ---
+    "szakirodalom":     { icon: "book",             label: "Szakirodalom" },
+    "szépirodalom":     { icon: "book",             label: "Szépirodalom" },
+    "útikönyvek":       { icon: "book",             label: "Útikönyvek" },
+    "szótárak":         { icon: "dictionary",       label: "Szótárak" },
+    "tankönyvek":       { icon: "book",             label: "Tankönyvek" },
+    "olvasójegy":       { icon: "person_book",      label: "Olvasójegy" },
+    "kölcsönzés":       { icon: "bookmark",         label: "Kölcsönzés" },
+
+    // --- Általános ---
+    "info":             { icon: "info",             label: "Információ" }
+};
+
+const TAG_CATALOG_FALLBACK = { icon: "label", label: null };
+
+/**
+ * Dinamikusan rendereli a szoba meta címkéit (kapacitás, címkék, felszereltség, funkciók).
+ * Támogatja a string-alapú tageket, az objektumként definiált egyedi tageket ({icon, label}),
+ * valamint az automatikus OSM akadálymentességet és a visszamenőleges kompatibilitást.
+ * @param {Object|null} roomData - A belső szoba adatbázis bejegyzése
+ * @param {boolean} isAccessible - OSM akadálymentességi jelző
+ */
+function renderRoomMeta(roomData, isAccessible) {
+    const metaContainer = document.querySelector('.room-meta');
+    if (!metaContainer) return;
+
+    metaContainer.innerHTML = '';
+    let hasAnyChip = false;
+
+    // 1. Kapacitás (férőhely) chip
+    if (roomData && roomData.capacity) {
+        const capEl = document.createElement('div');
+        capEl.className = 'meta-tag';
+        capEl.id = 'meta-capacity';
+        capEl.innerHTML = `<span class="material-symbols-outlined">group</span> ${escapeHTML(roomData.capacity)} fő`;
+        metaContainer.appendChild(capEl);
+        hasAnyChip = true;
+    }
+
+    // 2. Tagek összegyűjtése
+    const rawTags = [];
+    if (roomData) {
+        if (Array.isArray(roomData.tags)) {
+            rawTags.push(...roomData.tags);
+        }
+        // Visszafelé kompatibilitás régi formátumhoz
+        if (roomData.key && !rawTags.some(t => typeof t === 'string' && t.toLowerCase().includes('kulcs'))) {
+            rawTags.push('kulcsos');
+        }
+        if (roomData.projector && !rawTags.some(t => typeof t === 'string' && t.toLowerCase().includes('projektor'))) {
+            rawTags.push('projektor');
+        }
+    }
+
+    // 3. OSM akadálymentesség hozzáadása
+    if (isAccessible && !rawTags.some(t => typeof t === 'string' && t.toLowerCase().includes('akadálymentes'))) {
+        rawTags.push('akadálymentes');
+    }
+
+    // 4. Tag chipek előállítása
+    rawTags.forEach(tagItem => {
+        let icon = TAG_CATALOG_FALLBACK.icon;
+        let label = '';
+
+        if (typeof tagItem === 'object' && tagItem !== null) {
+            // Egyedi objektum: { icon: "...", label: "..." } vagy { icon: "...", name: "..." }
+            icon = tagItem.icon || TAG_CATALOG_FALLBACK.icon;
+            label = tagItem.label || tagItem.name || '';
+        } else if (typeof tagItem === 'string') {
+            const raw = tagItem.trim();
+            if (!raw) return;
+            const clean = raw.toLowerCase();
+            if (TAG_CATALOG[clean]) {
+                icon = TAG_CATALOG[clean].icon;
+                label = TAG_CATALOG[clean].label || (raw.charAt(0).toUpperCase() + raw.slice(1));
+            } else {
+                // Ismeretlen tag: fallback ikon + az eredeti név (első betű nagyítva, ha kisbetűs volt)
+                icon = TAG_CATALOG_FALLBACK.icon;
+                label = raw.charAt(0).toUpperCase() + raw.slice(1);
+            }
+        }
+
+        if (label) {
+            const chip = document.createElement('div');
+            chip.className = 'meta-tag';
+            chip.innerHTML = `<span class="material-symbols-outlined">${escapeHTML(icon)}</span> ${escapeHTML(label)}`;
+            metaContainer.appendChild(chip);
+            hasAnyChip = true;
+        }
+    });
+
+    metaContainer.style.display = hasAnyChip ? 'flex' : 'none';
+}
+
+/**
  * Meghatározza egy adott épület és szint alapján a lehetséges szintazonosító karaktereket.
  * Kombinálja a nyers szintszámot, a dinamikusan betöltött aliasokat (pl. OSM-ből származó adatok),
  * valamint az épület-specifikus, fixen kódolt (hardcoded) kivételszabályokat.
@@ -3422,49 +3538,34 @@ function openSheet(feature) {
     }
 
     // --- TEREM-ADATBÁZIS SPECIFIKUS ELEMEK KEZELÉSE ---
-    const metaContainer = document.querySelector('.room-meta');
     const noteEl = document.getElementById('room-note');
     const galleryEl = document.getElementById('room-gallery');
 
-    // Akadálymentes meta-tag dinamikus beszúrása a JS-ből, hogy ne kelljen a HTML-hez nyúlni
-    let accessEl = document.getElementById('meta-accessible');
-    if (!accessEl) {
-        accessEl = document.createElement('div');
-        accessEl.id = 'meta-accessible';
-        accessEl.className = 'meta-tag';
-        accessEl.innerHTML = '<span class="material-symbols-outlined">accessible</span> Akadálymentes';
-        if (metaContainer) metaContainer.appendChild(accessEl);
-    }
-    accessEl.style.display = isAccessible ? 'flex' : 'none';
+    // Chipek (kapacitás, címkék, felszereltség, funkciók, akadálymentesség) dinamikus kirajzolása
+    renderRoomMeta(roomData, isAccessible);
 
     if (roomData || isAccessible) {
-        if (metaContainer) metaContainer.style.display = 'flex';
-        if (noteEl) noteEl.style.display = roomData ? 'block' : 'none';
-        if (galleryEl) galleryEl.style.display = roomData ? 'flex' : 'none';
+        if (noteEl) {
+            noteEl.innerText = (roomData && roomData.note) ? roomData.note : "";
+            noteEl.style.display = (roomData && roomData.note) ? 'block' : 'none';
+        }
         
-        const capEl = document.getElementById('meta-capacity');
-        if (capEl) capEl.style.display = roomData ? 'flex' : 'none';
-        if (roomData) capEl.innerHTML = `<span class="material-symbols-outlined">group</span> ${roomData.capacity} fő`;
-        
-        const projEl = document.getElementById('meta-projector');
-        const keyEl = document.getElementById('meta-key');
-        if (projEl) projEl.style.display = (roomData && roomData.projector) ? 'flex' : 'none';
-        if (keyEl) keyEl.style.display = (roomData && roomData.key) ? 'flex' : 'none';
-        
-        if (noteEl && roomData) noteEl.innerText = roomData.note || "";
-        
-        if (galleryEl) galleryEl.innerHTML = ""; 
-        if (roomData && roomData.images && roomData.images.length > 0) {
-            roomData.images.forEach(url => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.className = 'gallery-img';
-                img.onclick = () => window.open(url, '_blank');
-                galleryEl.appendChild(img);
-            });
+        if (galleryEl) {
+            galleryEl.innerHTML = ""; 
+            if (roomData && roomData.images && roomData.images.length > 0) {
+                galleryEl.style.display = 'flex';
+                roomData.images.forEach(url => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'gallery-img';
+                    img.onclick = () => window.open(url, '_blank');
+                    galleryEl.appendChild(img);
+                });
+            } else {
+                galleryEl.style.display = 'none';
+            }
         }
     } else {
-        if (metaContainer) metaContainer.style.display = 'none';
         if (noteEl) noteEl.style.display = 'none';
         if (galleryEl) galleryEl.style.display = 'none';
     }

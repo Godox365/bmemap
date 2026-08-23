@@ -2,8 +2,10 @@ const ROOM_DATABASE = {
     "ch201": {
         "name": "CH201",
         "capacity": "78",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE kari - kulcsos! Projektoros, LégkondicionáltVegyész Dékáni Hivatal (Régen CH205)",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images0/ch201.jpg",
@@ -14,8 +16,9 @@ const ROOM_DATABASE = {
     "ch301": {
         "name": "CH301",
         "capacity": "32",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "VE-kari kulcsos VE DH Légkondicionált, projektoros",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images9/ch301.jpg"
@@ -24,8 +27,10 @@ const ROOM_DATABASE = {
     "ch302": {
         "name": "CH302",
         "capacity": "32",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE-kari kulcsos VE DH Projektoros, Légkondicionált",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images8/ch302.jpg"
@@ -34,8 +39,9 @@ const ROOM_DATABASE = {
     "ch304": {
         "name": "CH304",
         "capacity": "30",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "VE kari kulcsos, Légkondicionált",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images7/ch304.jpg"
@@ -44,8 +50,10 @@ const ROOM_DATABASE = {
     "ch305": {
         "name": "CH305",
         "capacity": "24",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE kari kulcsos, Légkondicionált",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images10/ch305.jpg"
@@ -54,8 +62,9 @@ const ROOM_DATABASE = {
     "ch306": {
         "name": "CH306",
         "capacity": "18",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "VE-kari kulcsos, Légkondicionált",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images6/ch306.jpg"
@@ -64,8 +73,10 @@ const ROOM_DATABASE = {
     "ch307": {
         "name": "CH307",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE-kari kulcsos projektoros",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images5/ch307.jpg"
@@ -74,8 +85,10 @@ const ROOM_DATABASE = {
     "ch308": {
         "name": "CH308",
         "capacity": "60",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE-kari -kulcsos projektoros, Légkondicionált",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images4/ch308.jpg"
@@ -84,8 +97,10 @@ const ROOM_DATABASE = {
     "cha10": {
         "name": "CHA10",
         "capacity": "80",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE kari -kulcsos projektoros(Régen CHA20)",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images3/cha10.jpg"
@@ -94,8 +109,10 @@ const ROOM_DATABASE = {
     "cha11": {
         "name": "CHA11",
         "capacity": "45",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE-kari kulcsos projektoros(Régen CHA21)",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images1/cha111.jpg",
@@ -107,8 +124,10 @@ const ROOM_DATABASE = {
     "chc14": {
         "name": "CHC14",
         "capacity": "300",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE kozp kulcsos-projektor-hangosítás VE DH",
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images2/chc14.jpg"
@@ -117,16 +136,16 @@ const ROOM_DATABASE = {
     "chfmax": {
         "name": "CHFMAX",
         "capacity": "540",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "UZO kozp",
         "images": []
     },
     "e1a": {
         "name": "E1A",
         "capacity": "221",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "GT kozp kulcsos GT DH",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images0/e1a1.jpg",
@@ -140,24 +159,25 @@ const ROOM_DATABASE = {
     "e1b": {
         "name": "E1B",
         "capacity": "408",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "VI kozp kulcsos VI DH",
         "images": []
     },
     "e1c": {
         "name": "E1C",
         "capacity": "221",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "VIK-foglalási prioritás  kulcsos  VIK-DH",
         "images": []
     },
     "e201": {
         "name": "E201",
         "capacity": "48",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images1/e201_2.jpg",
@@ -167,8 +187,7 @@ const ROOM_DATABASE = {
     "e202": {
         "name": "E202",
         "capacity": "72",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images2/e202_1.jpg",
@@ -178,8 +197,7 @@ const ROOM_DATABASE = {
     "e203": {
         "name": "E203",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images3/e203_1.jpg",
@@ -189,8 +207,7 @@ const ROOM_DATABASE = {
     "e204": {
         "name": "E204",
         "capacity": "72",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images4/e204_1.jpg",
@@ -200,8 +217,7 @@ const ROOM_DATABASE = {
     "e205": {
         "name": "E205",
         "capacity": "90",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images5/e205_1.jpg",
@@ -211,8 +227,7 @@ const ROOM_DATABASE = {
     "e301": {
         "name": "E301",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images6/e301_1.jpg",
@@ -222,8 +237,7 @@ const ROOM_DATABASE = {
     "e302": {
         "name": "E302",
         "capacity": "48",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images7/e302_1.jpg",
@@ -233,8 +247,7 @@ const ROOM_DATABASE = {
     "e303": {
         "name": "E303",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images8/e303_1.jpg",
@@ -244,8 +257,7 @@ const ROOM_DATABASE = {
     "e304": {
         "name": "E304",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images9/e304_1.jpg",
@@ -255,8 +267,10 @@ const ROOM_DATABASE = {
     "e305ab": {
         "name": "E305ab",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images10/e305ab_1.jpg",
@@ -267,24 +281,30 @@ const ROOM_DATABASE = {
     "e305c": {
         "name": "E305c",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK",
         "images": []
     },
     "e306ab": {
         "name": "E306ab",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK",
         "images": []
     },
     "e306cd": {
         "name": "E306cd",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images11/e306cd1.jpg",
@@ -295,8 +315,10 @@ const ROOM_DATABASE = {
     "e401": {
         "name": "E401",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images12/e401_1.jpg",
@@ -307,24 +329,30 @@ const ROOM_DATABASE = {
     "e402": {
         "name": "E402",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": []
     },
     "e403": {
         "name": "E403",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": []
     },
     "e404": {
         "name": "E404",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images13/e4041.jpg",
@@ -336,8 +364,10 @@ const ROOM_DATABASE = {
     "e405": {
         "name": "E405",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images14/e4051.jpg",
@@ -348,8 +378,10 @@ const ROOM_DATABASE = {
     "e406": {
         "name": "E406",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images15/e4061.jpg",
@@ -360,8 +392,10 @@ const ROOM_DATABASE = {
     "e407": {
         "name": "E407",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GTK (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images16/e4071.jpg",
@@ -372,8 +406,7 @@ const ROOM_DATABASE = {
     "e501": {
         "name": "E501",
         "capacity": "48",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images17/e501_2.jpg",
@@ -383,8 +416,7 @@ const ROOM_DATABASE = {
     "e502": {
         "name": "E502",
         "capacity": "48",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images18/e502_1.jpg",
@@ -394,8 +426,7 @@ const ROOM_DATABASE = {
     "e503": {
         "name": "E503",
         "capacity": "48",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images19/e503_1.jpg",
@@ -405,8 +436,7 @@ const ROOM_DATABASE = {
     "e504": {
         "name": "E504",
         "capacity": "48",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images20/e504_1.jpg"
@@ -415,8 +445,7 @@ const ROOM_DATABASE = {
     "e505": {
         "name": "E505",
         "capacity": "110",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images21/e5051.jpg",
@@ -426,8 +455,10 @@ const ROOM_DATABASE = {
     "f29": {
         "name": "F29",
         "capacity": "372",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE ,kozp kulcsos.A kulcsot a Bertalan Lajos u. 7. sz. tehergépjármű portán lehet felvenni.",
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images1/f291.jpg",
@@ -438,8 +469,9 @@ const ROOM_DATABASE = {
     "f2e": {
         "name": "F2E",
         "capacity": "244",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "Átkerült a KancelláriáhozKulcsot a Bertalan Lajos u. 7. sz. tehergépjármű portán lehet felvenni.",
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images4/f2e1.jpg",
@@ -450,8 +482,10 @@ const ROOM_DATABASE = {
     "f3213": {
         "name": "F3213",
         "capacity": "60",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TEX-TEV-S-KX-XXXX-FizikaTsz",
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images2/f32131.jpg",
@@ -461,8 +495,10 @@ const ROOM_DATABASE = {
     "f3m01": {
         "name": "F3M01",
         "capacity": "20",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TEO-TEV-T-KX-XXXX-FizInt - Csak az Elméleti Fizika Tanszék engedélyével \n    foglalható! Kérjük, hogy foglalás előtt egyeztessenek a tanszéki titkárságon \n    (41 07).",
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images0/f3m011.jpg",
@@ -473,8 +509,10 @@ const ROOM_DATABASE = {
     "f31sem": {
         "name": "F31SEM",
         "capacity": "36",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE - Fizikai Intézet, Szemináriumi szoba, csak \n    intézeti engedéllyel foglalható",
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images5/f31sem1.jpg",
@@ -486,8 +524,10 @@ const ROOM_DATABASE = {
     "fasem": {
         "name": "FASEM",
         "capacity": "8",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TEO-TEV-T-KX-XXXX-AtomfizikaTsz",
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images3/fasem1.jpg",
@@ -498,8 +538,10 @@ const ROOM_DATABASE = {
     "h207": {
         "name": "H207",
         "capacity": "28",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TEO-TEV-S-KX-XXXX-MatIntSzgLabor",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images11/h27uj.jpg"
@@ -508,8 +550,7 @@ const ROOM_DATABASE = {
     "2emeletielőtér": {
         "name": "2. emeleti előtér",
         "capacity": "14",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "nincs benne a neptunban",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images0/h2eloter1.jpg",
@@ -519,8 +560,10 @@ const ROOM_DATABASE = {
     "h306": {
         "name": "H306",
         "capacity": "20",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images8/h3062.jpg",
@@ -531,16 +574,17 @@ const ROOM_DATABASE = {
     "3emeletielőtér": {
         "name": "3. emeleti előtér",
         "capacity": "14",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "nincs benne a neptunban",
         "images": []
     },
     "h405a": {
         "name": "H405A",
         "capacity": "35",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE-kari - nem adható ki -Tanszéki Matematika Int.",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images5/h45a2.jpg",
@@ -553,8 +597,10 @@ const ROOM_DATABASE = {
     "h406": {
         "name": "H406",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images6/h462.jpg",
@@ -568,8 +614,7 @@ const ROOM_DATABASE = {
     "4emeletielőtér": {
         "name": "4. emeleti előtér",
         "capacity": "14",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "nincs benne a neptunban",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images1/h4eloter1.jpg",
@@ -579,8 +624,10 @@ const ROOM_DATABASE = {
     "h507": {
         "name": "H507",
         "capacity": "24",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TEO-TEV-S-KX-XXXX-MatIntSzgLabor",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images12/h57uj.jpg"
@@ -589,8 +636,7 @@ const ROOM_DATABASE = {
     "5emeletielőtér": {
         "name": "5. emeleti előtér",
         "capacity": "14",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "nincs benne a neptunban",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images2/h5eloter1.jpg",
@@ -600,8 +646,10 @@ const ROOM_DATABASE = {
     "h601": {
         "name": "H601",
         "capacity": "30",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images13/h601uj.jpg"
@@ -610,8 +658,10 @@ const ROOM_DATABASE = {
     "h607": {
         "name": "H607",
         "capacity": "60",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images10/h6072.jpg",
@@ -623,8 +673,7 @@ const ROOM_DATABASE = {
     "6emeletielőtér": {
         "name": "6. emeleti előtér",
         "capacity": "16",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "nincs benne a neptunban",
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images3/h6eloter1.jpg",
@@ -634,24 +683,27 @@ const ROOM_DATABASE = {
     "ib025": {
         "name": "IB025",
         "capacity": "200",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VI kozp",
         "images": []
     },
     "ib026": {
         "name": "IB026",
         "capacity": "200",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VI kozp",
         "images": []
     },
     "ib027": {
         "name": "IB027",
         "capacity": "200",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VI kozp",
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images0/ib027_1.jpg",
@@ -665,8 +717,9 @@ const ROOM_DATABASE = {
     "ib028": {
         "name": "IB028",
         "capacity": "400",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VI kozp",
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images1/ib0281.jpg",
@@ -678,8 +731,9 @@ const ROOM_DATABASE = {
     "ie007": {
         "name": "IE007",
         "capacity": "200",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VI kozp",
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images2/ie007_1.jpg",
@@ -691,8 +745,7 @@ const ROOM_DATABASE = {
     "ie219": {
         "name": "IE219",
         "capacity": "25",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VI-kari, csak VIK használhatja",
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images3/ie219_1.jpg",
@@ -702,8 +755,10 @@ const ROOM_DATABASE = {
     "j102": {
         "name": "J102",
         "capacity": "65",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "KO-kari",
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images2/j1021.jpg",
@@ -715,8 +770,10 @@ const ROOM_DATABASE = {
     "j202": {
         "name": "J202",
         "capacity": "60",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "KO-kari kulcsos KO DH",
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images1/j2021.jpg",
@@ -727,24 +784,30 @@ const ROOM_DATABASE = {
     "j207": {
         "name": "J207",
         "capacity": "54",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "KO-kari kulcsos KO DH",
         "images": []
     },
     "j208": {
         "name": "J208",
         "capacity": "56",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "KO-kari kulcsos KO DH",
         "images": []
     },
     "j209": {
         "name": "J209",
         "capacity": "27",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "KO-kari kulcsos KO DH",
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images3/j2091.jpg",
@@ -757,8 +820,10 @@ const ROOM_DATABASE = {
     "j210": {
         "name": "J210",
         "capacity": "56",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "KO-kari kulcsos KO DH",
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images0/j2101.jpg",
@@ -769,16 +834,20 @@ const ROOM_DATABASE = {
     "k134": {
         "name": "K134",
         "capacity": "196",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "VE kozp régen: K121; projektoros, kulcsos",
         "images": []
     },
     "k150": {
         "name": "K150",
         "capacity": "178",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GE központi, projektoros. Kulcsos terem. Régen: K133",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images18/k1501.jpg",
@@ -788,16 +857,20 @@ const ROOM_DATABASE = {
     "k155": {
         "name": "K155",
         "capacity": "218",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GE központi, projektoros. Kulcsos terem. Régen: K140",
         "images": []
     },
     "k174": {
         "name": "K174",
         "capacity": "224",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "EO-kozp-kulcs régen K148 projektoros",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images17/k1741.jpg",
@@ -808,24 +881,26 @@ const ROOM_DATABASE = {
     "k210": {
         "name": "K210",
         "capacity": "100",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "EP-kari rendezvényterem -- kulcsos -- régen K201. Foglalást a Dékáni \n    Hivatalban kell intézni. Tel: 35-21.Kulcsot a Dékániban lehet felvenni. (nincsenek asztalok)",
         "images": []
     },
     "k221": {
         "name": "K221",
         "capacity": "56",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "EP-kari terem (előadó) -- Kulcsos (EPDH)projektor, vetítővászon",
         "images": []
     },
     "k222": {
         "name": "K222",
         "capacity": "35",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok) felújított",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images20/k2221.jpg",
@@ -836,16 +911,17 @@ const ROOM_DATABASE = {
     "k234": {
         "name": "K234",
         "capacity": "540",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kozp régen: K221",
         "images": []
     },
     "k250": {
         "name": "K250",
         "capacity": "221",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "EP kozp régen: K232",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images16/k2501.jpg",
@@ -856,16 +932,16 @@ const ROOM_DATABASE = {
     "k255": {
         "name": "K255",
         "capacity": "208",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "EP kozp régen. K240 projektoros",
         "images": []
     },
     "k275": {
         "name": "K275",
         "capacity": "252",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari (számítógép csatlakozás) régen K253",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images15/k2751.jpg",
@@ -875,8 +951,7 @@ const ROOM_DATABASE = {
     "k285": {
         "name": "K285",
         "capacity": "64",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (előadó) régen: K264",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images14/k2852.jpg",
@@ -888,40 +963,35 @@ const ROOM_DATABASE = {
     "k342": {
         "name": "K342",
         "capacity": "34",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (dupla asztalok) felújítottvetítőfelület",
         "images": []
     },
     "k343": {
         "name": "K343",
         "capacity": "24",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (dupla asztalok) felújítottvetítőfelület",
         "images": []
     },
     "k344": {
         "name": "K344",
         "capacity": "42",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok) új asztalokvetítőfelület, világos függöny",
         "images": []
     },
     "k345": {
         "name": "K345",
         "capacity": "35",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok)vetítőfelület",
         "images": []
     },
     "k350": {
         "name": "K350",
         "capacity": "99",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (előadó) nagy asztalok, székek, vetítőfelület",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images13/k3501.jpg",
@@ -932,32 +1002,28 @@ const ROOM_DATABASE = {
     "k351": {
         "name": "K351",
         "capacity": "35",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok) felújítottvetítőfelület",
         "images": []
     },
     "k352": {
         "name": "K352",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok), kb. 40 székvetítőfelület, világos függöny",
         "images": []
     },
     "k353": {
         "name": "K353",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok), kb. 40 székvetítőfelület falon, világos függöny",
         "images": []
     },
     "k363": {
         "name": "K363",
         "capacity": "25",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok) régen K326",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images21/k3631.jpg",
@@ -967,8 +1033,7 @@ const ROOM_DATABASE = {
     "k371": {
         "name": "K371",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K332",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images12/k3711.jpg",
@@ -979,8 +1044,7 @@ const ROOM_DATABASE = {
     "k372": {
         "name": "K372",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K333",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images11/k3721.jpg",
@@ -991,8 +1055,7 @@ const ROOM_DATABASE = {
     "k373": {
         "name": "K373",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K334",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images10/k3731.jpg",
@@ -1003,8 +1066,7 @@ const ROOM_DATABASE = {
     "k374": {
         "name": "K374",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K335",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images9/k3741.jpg",
@@ -1015,8 +1077,7 @@ const ROOM_DATABASE = {
     "k375": {
         "name": "K375",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K336",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images8/k3751.jpg",
@@ -1027,8 +1088,7 @@ const ROOM_DATABASE = {
     "k376": {
         "name": "K376",
         "capacity": "25",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K337",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images7/k3761.jpg",
@@ -1039,32 +1099,31 @@ const ROOM_DATABASE = {
     "k391": {
         "name": "K391",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok)vetítővászon",
         "images": []
     },
     "k392": {
         "name": "K392",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok)vetítővászon",
         "images": []
     },
     "k393": {
         "name": "K393",
         "capacity": "32",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EP-kari terem (nagy asztalok)vetítővászon",
         "images": []
     },
     "kf38": {
         "name": "KF38",
         "capacity": "360",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GE központi, projektoros. Kulcsos terem. Kulcsfelvétel miatt a GPK Dékáni \n    Hivatalvezetőnek kell írni. régen KA26",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images6/kf38_2.jpg",
@@ -1074,24 +1133,27 @@ const ROOM_DATABASE = {
     "kf51(audmax)": {
         "name": "KF51(AUD.MAX)",
         "capacity": "594",
-        "key": true,
-        "projector": true,
-        "note": "GE központi, projektoros. Kulcsos terem. Régen KAAUD",
+        "tags": [
+            "key",
+            "projector"
+        ],
+        "note": "GE központi, projektoros. Kulcsos terem. Régen KAAUD. Az Aud. Max. hétköznapokon 18:00 – 20:00 között könyvtári olvasóhely, amelyet igény szerint, a látógatói számtól függően nyitunk meg tanulás céljából.",
         "images": []
     },
     "kf76": {
         "name": "KF76",
         "capacity": "392",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "UZO kozp felülvilágítós régen KA51, kulcsos",
         "images": []
     },
     "kf81": {
         "name": "KF81",
         "capacity": "104",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA60)",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images5/kf811.jpg",
@@ -1103,8 +1165,10 @@ const ROOM_DATABASE = {
     "kf82": {
         "name": "KF82",
         "capacity": "80",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA61)",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images4/kf821.jpg",
@@ -1114,8 +1178,10 @@ const ROOM_DATABASE = {
     "kf83": {
         "name": "KF83",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA62)",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images19/kf835.jpg",
@@ -1126,16 +1192,20 @@ const ROOM_DATABASE = {
     "kf84": {
         "name": "KF84",
         "capacity": "32",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos",
         "images": []
     },
     "kf85": {
         "name": "KF85",
         "capacity": "32",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images3/kf851.jpg",
@@ -1146,8 +1216,10 @@ const ROOM_DATABASE = {
     "kf86": {
         "name": "KF86",
         "capacity": "48",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA65)",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images1/kf861.jpg",
@@ -1158,8 +1230,10 @@ const ROOM_DATABASE = {
     "kf87": {
         "name": "KF87",
         "capacity": "80",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA66)",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images0/kf872.jpg",
@@ -1171,16 +1245,17 @@ const ROOM_DATABASE = {
     "kf88": {
         "name": "KF88",
         "capacity": "104",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "EO-kari   EODH régen KA67",
         "images": []
     },
     "km34": {
         "name": "KM34",
         "capacity": "182",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GE központi, projektoros. Kulcsos terem. Régen: KM21",
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images2/km341.jpg",
@@ -1193,8 +1268,10 @@ const ROOM_DATABASE = {
     "mgfea": {
         "name": "MGFEA",
         "capacity": "110",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari, projektoros, kulcsos terem.",
         "images": [
             "https://www.ttdh.bme.hu/kari/MG_epulet_files/vlb_images0/mgfea1.jpg",
@@ -1205,24 +1282,21 @@ const ROOM_DATABASE = {
     "qi": {
         "name": "Q-I",
         "capacity": "456",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK - VIK",
         "images": []
     },
     "qii": {
         "name": "Q-II",
         "capacity": "380",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK - VIK",
         "images": []
     },
     "qa202": {
         "name": "QA202",
         "capacity": "67",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images7/qa202_1.jpg",
@@ -1233,8 +1307,7 @@ const ROOM_DATABASE = {
     "qa240": {
         "name": "QA240",
         "capacity": "67",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images8/qa240_1.jpg",
@@ -1245,8 +1318,9 @@ const ROOM_DATABASE = {
     "qaf14": {
         "name": "QAF14",
         "capacity": "189",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "GTK foglalási prioritás",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images0/qaf14_1.jpg",
@@ -1257,8 +1331,9 @@ const ROOM_DATABASE = {
     "qaf15": {
         "name": "QAF15",
         "capacity": "189",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "GTK foglalási prioritása",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images1/qaf15_1.jpg",
@@ -1269,8 +1344,9 @@ const ROOM_DATABASE = {
     "qaf16": {
         "name": "QAF16",
         "capacity": "104",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "GTK foglalási prioritás",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images6/qaf16_1.jpg",
@@ -1281,8 +1357,9 @@ const ROOM_DATABASE = {
     "qb104": {
         "name": "QB104",
         "capacity": "45",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images10/qb104_1.jpg",
@@ -1293,8 +1370,9 @@ const ROOM_DATABASE = {
     "qb105": {
         "name": "QB105",
         "capacity": "30",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "GTK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images11/qb105_1.jpg",
@@ -1305,8 +1383,9 @@ const ROOM_DATABASE = {
     "qbf08": {
         "name": "QBF08",
         "capacity": "95",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VIK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images5/qbf081.jpg"
@@ -1315,8 +1394,9 @@ const ROOM_DATABASE = {
     "qbf09": {
         "name": "QBF09",
         "capacity": "105",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VIK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images9/qbf09_1.jpg",
@@ -1327,8 +1407,9 @@ const ROOM_DATABASE = {
     "qbf10": {
         "name": "QBF10",
         "capacity": "54",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VIK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images4/qbf101.jpg",
@@ -1339,8 +1420,9 @@ const ROOM_DATABASE = {
     "qbf11": {
         "name": "QBF11",
         "capacity": "54",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VIK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images2/qbf11_1.jpg",
@@ -1352,8 +1434,9 @@ const ROOM_DATABASE = {
     "qbf13": {
         "name": "QBF13",
         "capacity": "104",
-        "key": false,
-        "projector": true,
+        "tags": [
+            "projector"
+        ],
         "note": "VIK",
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images3/qbf13_3.jpg",
@@ -1364,8 +1447,10 @@ const ROOM_DATABASE = {
     "r108": {
         "name": "R108",
         "capacity": "120",
-        "key": true,
-        "projector": true,
+        "tags": [
+            "key",
+            "projector"
+        ],
         "note": "GPK kari, projektoros, kulcsos terem.",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images15/r1081.jpg",
@@ -1376,8 +1461,7 @@ const ROOM_DATABASE = {
     "r501": {
         "name": "R501",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GE központi",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images0/r5011.jpg",
@@ -1387,8 +1471,7 @@ const ROOM_DATABASE = {
     "r504": {
         "name": "R504",
         "capacity": "42",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VE kozp (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images1/r5041.jpg",
@@ -1398,8 +1481,7 @@ const ROOM_DATABASE = {
     "r505": {
         "name": "R505",
         "capacity": "42",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VE kozp (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images2/r5051.jpg",
@@ -1409,8 +1491,7 @@ const ROOM_DATABASE = {
     "r506": {
         "name": "R506",
         "capacity": "36",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VE kozp (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images3/r5061.jpg",
@@ -1420,8 +1501,7 @@ const ROOM_DATABASE = {
     "r507": {
         "name": "R507",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VE kozp (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images4/r5071.jpg",
@@ -1431,8 +1511,7 @@ const ROOM_DATABASE = {
     "r508": {
         "name": "R508",
         "capacity": "36",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VE kozp (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images5/r5081.jpg",
@@ -1442,8 +1521,7 @@ const ROOM_DATABASE = {
     "r509": {
         "name": "R509",
         "capacity": "24",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "VE kozp (VIK foglalási prioritás)",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images6/r5091.jpg"
@@ -1452,8 +1530,7 @@ const ROOM_DATABASE = {
     "r510": {
         "name": "R510",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GE központi",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images7/r5101.jpg",
@@ -1464,8 +1541,7 @@ const ROOM_DATABASE = {
     "r511": {
         "name": "R511",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GE központi",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images8/r5111.jpg",
@@ -1475,8 +1551,7 @@ const ROOM_DATABASE = {
     "r512": {
         "name": "R512",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GE központi",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images9/r5121.jpg",
@@ -1486,8 +1561,7 @@ const ROOM_DATABASE = {
     "r513": {
         "name": "R513",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GE központi",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images10/r5131.jpg",
@@ -1497,8 +1571,7 @@ const ROOM_DATABASE = {
     "r514": {
         "name": "R514",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "GE központi",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images11/r5141.jpg",
@@ -1508,8 +1581,7 @@ const ROOM_DATABASE = {
     "r515": {
         "name": "R515",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "központi, prioritás nélküli tanterem",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images12/r5151.jpg",
@@ -1519,8 +1591,7 @@ const ROOM_DATABASE = {
     "r516": {
         "name": "R516",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "központi, prioritás nélküli tanterem",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images13/r5161.jpg",
@@ -1530,8 +1601,7 @@ const ROOM_DATABASE = {
     "r517": {
         "name": "R517",
         "capacity": "38",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "központi, prioritás nélküli tanterem",
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images14/r5172.jpg"
@@ -1540,56 +1610,57 @@ const ROOM_DATABASE = {
     "st319": {
         "name": "ST319",
         "capacity": "24",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "KO-kari",
         "images": []
     },
     "st320": {
         "name": "ST320",
         "capacity": "24",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "KO-kari (filc toll)",
         "images": []
     },
     "st321a": {
         "name": "ST321A",
         "capacity": "52",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "KO-kari kulcsos KO DH",
         "images": []
     },
     "st321b": {
         "name": "ST321B",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "KO-kari",
         "images": []
     },
     "stfkis": {
         "name": "STFKIS",
         "capacity": "128",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "KO kozp kulcsos KO DH",
         "images": []
     },
     "stfnagy": {
         "name": "STFNAGY",
         "capacity": "374",
-        "key": true,
-        "projector": false,
+        "tags": [
+            "key"
+        ],
         "note": "KO kozp kulcsos KO DH",
         "images": []
     },
     "t601/2": {
         "name": "T601/2",
         "capacity": "70",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "TTK kari",
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images0/t60121.jpg",
@@ -1600,8 +1671,7 @@ const ROOM_DATABASE = {
     "t603": {
         "name": "T603",
         "capacity": "30",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "TTK-kari",
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images1/t6031.jpg",
@@ -1611,8 +1681,7 @@ const ROOM_DATABASE = {
     "t604": {
         "name": "T604",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "TTK-kari",
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images2/t6041.jpg",
@@ -1622,8 +1691,7 @@ const ROOM_DATABASE = {
     "t605": {
         "name": "T605",
         "capacity": "36",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "TTK-kari",
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images3/t6051.jpg",
@@ -1633,12 +1701,70 @@ const ROOM_DATABASE = {
     "t606": {
         "name": "T606",
         "capacity": "40",
-        "key": false,
-        "projector": false,
+        "tags": [],
         "note": "TTK-kari",
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images4/t6061.jpg",
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images4/t6062.jpg"
         ]
+    },
+    "nagyolvasó": {
+        "name": "Nagyolvasó",
+        "capacity": "200",
+        "tags": [
+            "quiet_study"
+        ],
+        "note": "Csendes tanulótér helyben használható dokumentumokkal. Vizsgaidőszakban hétfőtől csütörtökig 22:00-ig tart nyitva.",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Nagyolvaso.JPG"
+        ]
+    },
+    "Műszaki és Természettudományi Olvasó": {
+        "name": "Műszaki és Természettudományi Olvasó",
+        "capacity": "20",
+        "tags": [
+            "quiet_study",
+            "szakirodalom",
+            "útikönyvek"
+        ],
+        "note": "Természettudományokhoz, mérnöki tudományokhoz és építészethez kapcsolódó szakirodalom, valamint útikönyvek és szabadidős témájú könyvek egy része található itt. Itt érhetők el a Springer Nature-kiadványok is.",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Muszaki_es_Termeszettudomanyi_Olvaso_2.JPG"
+        ]
+    },
+    "Gazdaság- és Társadalomtudományi Olvasó": {
+        "name": "Gazdaság- és Társadalomtudományi Olvasó",
+        "capacity": "80",
+        "tags": [
+            "quiet_study",
+            "szakirodalom",
+            "szépirodalom"
+        ],
+        "note": "Csendes tanulótér gazdasági, társadalomtudományi, kulturális, művészeti, történelmi, jogi és ismeretterjesztő szakirodalommal, valamint többnyelvű szépirodalommal. Az olvasó 19:30-kor zár.",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/inline-images/BME_OMIKK_Gazdasag_es_Tarsadalomtudomanyi_Olvaso_belso_terem.jpg"
+        ]
+    },
+    "Előcsarnok": {
+        "name": "Könyvtári aula és folyosó",
+        "tags": [
+            "social",
+            "eat",
+            "luggage"
+        ],
+        "note": "Beszélgetésre és étkezésre is alkalmas közösségi tér. A főbejáratnál snack- és italautomaták, valamint csomagmegőrző szekrények találhatók. A szekrények használatához kulcs a központi kölcsönzésben kérhető.",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/inline-images/584454034_1145002631131661_8462621410852841836_n.jpg",
+            "https://www.omikk.bme.hu/sites/default/files/inline-images/586249200_1145002531131671_3643488702133157689_n.jpg"
+        ]
+    },
+    "kt004": {
+        "name": "Számítógépterem",
+        "tags": [
+            "pc",
+            "scan",
+            "print"
+        ],
+        "note": "Könyvtárunk fszt. 1-es szobája szabadon használható számítógépes kutatóterem. Szolgáltatások: 8 db számítógép használata (katalógus, LibreOffice), adatbázisok használata, e-folyóiratok és e-könyvek használata, nyomtatás, 1 db A/4-es, 1 db A/3-as szkenner használata."
     }
 };

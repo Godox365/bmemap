@@ -1,5 +1,4 @@
-// Átírtuk v2-re, hogy a böngésző észrevegye a változást és lecserélje a régi bugos workert!
-const CACHE_NAME = 'bmemap-shell-v3';
+const CACHE_NAME = 'bmemap-shell-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
