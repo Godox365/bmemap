@@ -1732,7 +1732,7 @@ const ROOM_DATABASE = {
             "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Muszaki_es_Termeszettudomanyi_Olvaso_2.JPG"
         ]
     },
-    "Gazdaság- és Társadalomtudományi Olvasó": {
+    "k050": {
         "name": "Gazdaság- és Társadalomtudományi Olvasó",
         "capacity": "80",
         "tags": [
@@ -1745,7 +1745,7 @@ const ROOM_DATABASE = {
             "https://www.omikk.bme.hu/sites/default/files/inline-images/BME_OMIKK_Gazdasag_es_Tarsadalomtudomanyi_Olvaso_belso_terem.jpg"
         ]
     },
-    "Előcsarnok": {
+    "kt018": {
         "name": "Könyvtári aula és folyosó",
         "tags": [
             "social",
@@ -1758,7 +1758,7 @@ const ROOM_DATABASE = {
             "https://www.omikk.bme.hu/sites/default/files/inline-images/586249200_1145002531131671_3643488702133157689_n.jpg"
         ]
     },
-    "kt004": {
+    "kt01": {
         "name": "Számítógépterem",
         "tags": [
             "pc",
@@ -1766,5 +1766,52 @@ const ROOM_DATABASE = {
             "print"
         ],
         "note": "Könyvtárunk fszt. 1-es szobája szabadon használható számítógépes kutatóterem. Szolgáltatások: 8 db számítógép használata (katalógus, LibreOffice), adatbázisok használata, e-folyóiratok és e-könyvek használata, nyomtatás, 1 db A/4-es, 1 db A/3-as szkenner használata."
-    }
+    },
+    "k053": {
+        "name": "Tankönyvolvasó",
+        "capacity": "45",
+        "tags": [
+            "quiet_study",
+            "tankönyvek",
+            "szótárak",
+            "luggage"
+        ],
+        "note": "Csendes tanulótér a BME képzéseihez kapcsolódó tankönyvekkel és szótárakkal. A dokumentumok szakcsoportok szerint rendezve érhetők el. A térben csomagmegőrző szekrények is találhatók.",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Tankonyvolvaso_belso_terem.jpg"
+        ]
+    },
+    "kt02": {
+        "name": "Földszinti közösségi terem",
+        "capacity": "20",
+        "tags": [
+            "social",
+            "eat",
+            "reserve"
+        ],
+        "note": "Megközelítése: a földszint 1-es Kutatótermen keresztül. Foglalható, kötetlenebb használatú tér csoportos munkához, beszélgetéshez és étkezéshez. https://appointments.omikk.bme.hu/",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_fszt_2_Kozossegi_terem.jpg"
+        ]
+    },
+    "kmf51": {
+        "name": "Emeleti közösségi terem",
+        "capacity": "26",
+        "tags": [
+            "study",
+            "eat",
+            "reserve"
+        ],
+        "note": "Tanulásra, halk beszélgetésre és étkezésre alkalmas tér. Megközelítése a könyvtár központi épületén keresztül lehetséges. Egyetemi és szakmai rendezvények helyszíneként is működik. https://appointments.omikk.bme.hu/",
+        "images": [
+            "https://www.omikk.bme.hu/sites/default/files/inline-images/K_epulet_kozossegi_terem_belso_szoba_3.jpg"
+        ]
+    },
+    "Sóhajok Hídja": {
+        "name": "Sóhajok Hídja",
+        "tags": [
+            "social"
+        ],
+        "note": "Beszélgetésre és kikapcsolódásra is alkalmas közösségi tér."
+    },
 };
