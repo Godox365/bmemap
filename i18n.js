@@ -288,11 +288,6 @@ const t = (key, params) => i18n.t(key, params);
 if (typeof window !== 'undefined') {
     window.i18n = i18n;
     window.t = t;
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => i18n.init());
-    } else {
-        i18n.init();
-    }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

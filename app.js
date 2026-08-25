@@ -6947,11 +6947,6 @@ function enableOneFingerZoom(map) {
 
 // === ALKALMAZÁS INICIALIZÁLÁSA ===
 map.on('load', async () => {
-    if (typeof i18n !== 'undefined') {
-        await i18n.init();
-        APP_SETTINGS.language = i18n.currentLanguage;
-    }
-
     _initMapSources();
     _initMapLayers();
     _mapLayersInitialized = true;
@@ -6961,6 +6956,14 @@ map.on('load', async () => {
     initBuildings();
     renderThemeSelector();
     applyTheme();
+
+    // Az i18n inicializálása a térkép és UI elkészülése UTÁN történik,
+    // így a languageChanged esemény már minden elemet és réteget készen talál.
+    if (typeof i18n !== 'undefined') {
+        await i18n.init();
+        APP_SETTINGS.language = i18n.currentLanguage;
+    }
+
     updateSettingsUI();
 
     const params = new URLSearchParams(window.location.search);
