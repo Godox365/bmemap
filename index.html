@@ -377,6 +377,33 @@
 
 <main id="map" role="application" data-i18n-aria="meta.map_aria" aria-label="Interaktív BME Térkép"></main>
 
+<!-- EMBED MÓD ELEMEK -->
+<a id="embed-brand-pill" class="embed-brand-pill" href="https://bmemap.hu/" target="_blank" rel="noopener noreferrer" data-i18n-title="embed.brand_title" title="BMEmap - Megnyitás új lapon">
+    <span class="embed-brand-logo">🧭</span>
+    <span class="embed-brand-text">BMEmap</span>
+    <span class="material-symbols-outlined embed-brand-icon">open_in_new</span>
+</a>
+
+<div id="embed-info-bar" class="embed-info-bar">
+    <div class="embed-info-content">
+        <div class="embed-info-text">
+            <span id="embed-info-title" class="embed-title">Szoba</span>
+            <span id="embed-info-sub" class="embed-subtitle">Szint</span>
+        </div>
+        <div class="embed-info-actions">
+            <a id="embed-nav-btn" class="embed-btn embed-btn-nav" href="#" target="_blank" rel="noopener noreferrer" data-i18n-title="embed.nav_to" data-i18n-aria="embed.nav_to_aria" title="Útvonal ide" aria-label="Útvonal ide">
+                <span class="material-symbols-outlined">directions</span>
+            </a>
+            <a id="embed-open-full" class="embed-btn embed-btn-open" href="#" target="_blank" rel="noopener noreferrer" data-i18n-title="embed.open_full" data-i18n-aria="embed.open_full_aria" title="Megnyitás teljes nézetben" aria-label="Megnyitás teljes nézetben">
+                <span class="material-symbols-outlined">open_in_new</span>
+            </a>
+            <button id="embed-info-close" class="embed-btn embed-btn-close" onclick="closeEmbedInfo()" data-i18n-title="embed.close" data-i18n-aria="common.close" title="Bezárás" aria-label="Bezárás">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- FOOTER (Láthatatlan linkstruktúra a robotoknak) -->
 <footer class="sr-only">
     <nav>

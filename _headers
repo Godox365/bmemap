@@ -1,0 +1,11 @@
+# Netlify Headers Configuration
+
+# Beágyazható útvonalak: minden domainről engedélyezett az iframe beágyazás (BME oldalak, Neptun, cikkek stb.)
+/embed*
+  Content-Security-Policy: frame-ancestors *
+  X-Frame-Options: ALLOWALL
+
+# Főoldal: biztonsági fejlécek
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

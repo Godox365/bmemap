@@ -293,5 +293,13 @@
     "olvasójegy": "Olvasójegy",
     "kölcsönzés": "Kölcsönzés",
     "info": "Információ"
+  },
+  "embed": {
+    "open_full": "Megnyitás teljes nézetben",
+    "open_full_aria": "Megnyitás a BMEmap weboldalon új lapon",
+    "nav_to": "Útvonal ide",
+    "nav_to_aria": "Útvonaltervezés indítása a teremhez új lapon",
+    "close": "Bezárás",
+    "brand_title": "BMEmap - Megnyitás új lapon"
   }
 }

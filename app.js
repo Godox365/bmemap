@@ -20,6 +20,23 @@ function escapeHTML(str) {
 }
 
 /**
+ * EMBED MÓD DETEKTÁLÁS ÉS BEÁLLÍTÁS
+ * Támogatja az /embed útvonalat, a ?mode=embed és a ?embed=true paramétereket.
+ */
+const IS_EMBED_MODE = (() => {
+    if (typeof window === 'undefined' || !window.location) return false;
+    const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    return path.startsWith('/embed') || params.get('mode') === 'embed' || params.get('embed') === 'true';
+})();
+
+if (IS_EMBED_MODE && typeof document !== 'undefined') {
+    if (document.documentElement) document.documentElement.classList.add('embed-mode');
+    if (document.body) document.body.classList.add('embed-mode');
+    else window.addEventListener('DOMContentLoaded', () => document.body.classList.add('embed-mode'));
+}
+
+/**
  * Központi Tag Katalógus a terem felszerelésekhez, szolgáltatásokhoz és funkció-címkékhez.
  * A kisbetűs keresőkulcsokhoz hozzárendeli a Material Symbols ikont és a szép megjelenítési nevet.
  */
@@ -3449,6 +3466,12 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
  * @param {Object} feature - A felhasználó által kiválasztott GeoJSON térképelem.
  */
 function openSheet(feature) {
+    // EMBED MÓD KEZELÉSE: A mini floating info bar megjelenítése a bottom sheet helyett
+    if (IS_EMBED_MODE) {
+        openEmbedInfo(feature);
+        return;
+    }
+
     // Alaphelyzetbe állítjuk a közeli kereső menüt, ha esetleg nyitva maradt volna egy előző keresésből
     if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
 
@@ -4069,6 +4092,11 @@ function updateSelectedHighlight(level) {
  * az alaphelyzetükbe.
  */
 function closeSheet() {
+    if (IS_EMBED_MODE) {
+        closeEmbedInfo();
+        return;
+    }
+
     if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
 
     document.getElementById('bottom-sheet').classList.remove('open');
@@ -6357,14 +6385,19 @@ function smartFlyTo(feature) {
     }
 
     let bottomOffset = 160;
-    const sheet = document.getElementById('bottom-sheet');
-    const settingsModal = document.getElementById('settings-modal');
+    if (IS_EMBED_MODE) {
+        const embedBar = document.getElementById('embed-info-bar');
+        bottomOffset = (embedBar && embedBar.classList.contains('visible')) ? 80 : 30;
+    } else {
+        const sheet = document.getElementById('bottom-sheet');
+        const settingsModal = document.getElementById('settings-modal');
 
-    if (sheet && sheet.classList.contains('open')) {
-        bottomOffset = sheet.getBoundingClientRect().height;
-    } else if (settingsModal && settingsModal.classList.contains('editor-mode')) {
-        const card = settingsModal.querySelector('.settings-card');
-        if (card) bottomOffset = card.getBoundingClientRect().height;
+        if (sheet && sheet.classList.contains('open')) {
+            bottomOffset = sheet.getBoundingClientRect().height;
+        } else if (settingsModal && settingsModal.classList.contains('editor-mode')) {
+            const card = settingsModal.querySelector('.settings-card');
+            if (card) bottomOffset = card.getBoundingClientRect().height;
+        }
     }
 
     const levels = getLevelsFromFeature(feature);
@@ -6375,7 +6408,12 @@ function smartFlyTo(feature) {
     map.flyTo({
         center: [lon, lat],
         zoom: 20,
-        padding: { top: 60, bottom: bottomOffset, left: 30, right: 30 },
+        padding: { 
+            top: IS_EMBED_MODE ? 30 : 60, 
+            bottom: bottomOffset, 
+            left: IS_EMBED_MODE ? 20 : 30, 
+            right: IS_EMBED_MODE ? 20 : 30 
+        },
         duration: 800,
         essential: true
     });
@@ -6859,11 +6897,233 @@ async function processUrlParams() {
         // --- URL TISZTÍTÁSA ---
         // A megosztási paraméter eltávolítása a böngésző címsorából a History API segítségével.
         // Ez megakadályozza az állapot ismételt feldolgozását egy esetleges oldalfrissítés során.
-        window.history.replaceState({}, document.title, window.location.pathname);
+        if (!IS_EMBED_MODE) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
     } catch (e) {
         // Hibakezelés a dekódolási vagy parsing hibák naplózására
         console.error("Deep Link Error:", e);
+    }
+}
+
+// === EMBED MÓD SEGÉDFÜGGVÉNYEK ===
+
+/**
+ * Megjeleníti a mini info bar-t embed módban a kiválasztott terem/helyiség adataival.
+ * Beállítja a mélyhivatkozásokat a megnyitás és a navigáció gombokhoz.
+ * @param {Object} feature - A kiválasztott GeoJSON térképelem.
+ */
+function openEmbedInfo(feature) {
+    if (!feature) return;
+
+    selectedFeature = feature;
+    smartFlyTo(feature);
+    drawSelectedHighlight(feature);
+
+    const p = feature.properties || {};
+
+    // 1. Típus meghatározása
+    let typeName = getHungarianType(p);
+    typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
+
+    // 2. Megjelenítendő név (displayName)
+    let displayName = "";
+    if (p.name && p.ref) {
+        const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
+        const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
+        displayName = cleanName.includes(cleanRef) ? p.name : `${p.ref} - ${p.name}`;
+    } else {
+        displayName = p.name || p.ref;
+    }
+
+    if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
+        let matchedPoiName = null;
+        if (typeof POI_TYPES !== 'undefined') {
+            for (const key in POI_TYPES) {
+                if (POI_TYPES[key].filter(p)) {
+                    matchedPoiName = POI_TYPES[key].name;
+                    break;
+                }
+            }
+        }
+        displayName = matchedPoiName || typeName;
+    }
+
+    // 3. Szint szöveg
+    let displayLevelString = "";
+    if (p['level:ref']) {
+        displayLevelString = p['level:ref'];
+    } else {
+        const rawLevels = getLevelsFromFeature(feature);
+        const mappedLevels = rawLevels.map(lvl => levelAliases[lvl] || lvl);
+        displayLevelString = mappedLevels.join(', ');
+    }
+
+    let extraInfo = "";
+    if (p.amenity === 'vending_machine' && p.vending) {
+        const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
+        const types = p.vending.split(';');
+        const translated = types.map(tKey => {
+            const raw = tKey.trim();
+            if (typeof t === 'function') {
+                const trans = t(`vending.${raw}`);
+                if (trans && trans !== `vending.${raw}`) return trans;
+            }
+            return vDict[raw] || raw;
+        });
+        extraInfo = translated.join(', ');
+    } else if (p.operator) {
+        extraInfo = p.operator;
+    }
+
+    const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
+    let subText = "";
+    if (extraInfo) {
+        subText = `${lvlPrefix}: ${displayLevelString} | ${extraInfo}`;
+    } else if (displayName === typeName) {
+        subText = `${lvlPrefix}: ${displayLevelString}`;
+    } else {
+        subText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
+    }
+
+    // DOM elemek frissítése
+    const titleEl = document.getElementById('embed-info-title');
+    const subEl = document.getElementById('embed-info-sub');
+    if (titleEl) titleEl.innerText = displayName;
+    if (subEl) subEl.innerText = subText;
+
+    // --- Linkek generálása az új lapon való megnyitáshoz ---
+    const origin = (window.location.origin && window.location.origin.startsWith('http')) 
+        ? window.location.origin 
+        : 'https://bmemap.hu';
+
+    // A) Helyszín megnyitása teljes nézetben (loc mód)
+    const locPayload = {
+        b: currentBuildingKey,
+        mode: 'loc',
+        t: getFeatureId(feature)
+    };
+    const locJsonStr = JSON.stringify(locPayload);
+    const locEncoded = btoa(encodeURIComponent(locJsonStr).replace(/%([0-9A-F]{2})/g,
+        (match, p1) => String.fromCharCode('0x' + p1)));
+    
+    const openFullBtn = document.getElementById('embed-open-full');
+    if (openFullBtn) {
+        openFullBtn.href = `${origin}/?share=${locEncoded}`;
+    }
+
+    // B) Útvonal megnyitása új lapon (route mód, főbejárattól ide)
+    const routePayload = {
+        b: currentBuildingKey,
+        mode: 'route',
+        s: null, // Főbejárat
+        e: getFeatureId(feature)
+    };
+    const routeJsonStr = JSON.stringify(routePayload);
+    const routeEncoded = btoa(encodeURIComponent(routeJsonStr).replace(/%([0-9A-F]{2})/g,
+        (match, p1) => String.fromCharCode('0x' + p1)));
+
+    const navBtn = document.getElementById('embed-nav-btn');
+    if (navBtn) {
+        navBtn.href = `${origin}/?share=${routeEncoded}`;
+    }
+
+    // Floating card megjelenítése
+    const embedBar = document.getElementById('embed-info-bar');
+    if (embedBar) embedBar.classList.add('visible');
+}
+
+/**
+ * Bezárja az embed info bar-t és törli a kijelölést.
+ */
+function closeEmbedInfo() {
+    const embedBar = document.getElementById('embed-info-bar');
+    if (embedBar) embedBar.classList.remove('visible');
+    selectedFeature = null;
+    drawSelectedHighlight(null);
+}
+
+/**
+ * Feldolgozza az embed mód specifikus URL paramétereit:
+ * room / r, id, level / floor, theme.
+ */
+function processEmbedParams() {
+    if (!IS_EMBED_MODE) return;
+
+    const params = new URLSearchParams(window.location.search);
+
+    // 1. Téma felülbírálása, ha az URL-ben meg van adva
+    const themeParam = params.get('theme');
+    if (themeParam === 'dark' || themeParam === 'light') {
+        setThemeMode(themeParam);
+    }
+
+    // 2. Szint beállítása
+    const levelParam = params.get('level') || params.get('floor');
+    if (levelParam && typeof switchLevel === 'function') {
+        switchLevel(levelParam);
+    }
+
+    // 3. Terem vagy POI keresése és megnyitása
+    const roomParam = params.get('room') || params.get('r');
+    const idParam = params.get('id');
+
+    if (!roomParam && !idParam) return;
+
+    if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) {
+        let retries = 0;
+        const checkDataInterval = setInterval(() => {
+            retries++;
+            if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+                clearInterval(checkDataInterval);
+                _selectEmbedFeature(roomParam, idParam, levelParam);
+            } else if (retries > 50) {
+                clearInterval(checkDataInterval);
+            }
+        }, 100);
+    } else {
+        _selectEmbedFeature(roomParam, idParam, levelParam);
+    }
+}
+
+function _selectEmbedFeature(roomParam, idParam, levelParam) {
+    if (!geoJsonData || !geoJsonData.features) return;
+
+    let target = null;
+
+    // A) ID alapú keresés
+    if (idParam) {
+        const numId = parseInt(idParam, 10);
+        target = geoJsonData.features.find(f => f.id === numId || f.id === idParam);
+    }
+
+    // B) Teremnév / ref alapú keresés
+    if (!target && roomParam) {
+        const cleanQuery = roomParam.trim();
+        // 1. Pontos ref egyezés
+        target = geoJsonData.features.find(f => f.properties && f.properties.ref && f.properties.ref.toLowerCase() === cleanQuery.toLowerCase());
+        // 2. Pontos név egyezés
+        if (!target) {
+            target = geoJsonData.features.find(f => f.properties && f.properties.name && f.properties.name.toLowerCase() === cleanQuery.toLowerCase());
+        }
+        // 3. smartFilter algoritmus használata
+        if (!target && typeof smartFilter === 'function') {
+            const hits = smartFilter(cleanQuery);
+            if (hits.length > 0) {
+                if (levelParam) {
+                    target = hits.find(h => getLevelsFromFeature(h).includes(levelParam)) || hits[0];
+                } else {
+                    target = hits[0];
+                }
+            }
+        }
+    }
+
+    if (target) {
+        setTimeout(() => {
+            openEmbedInfo(target);
+        }, 300);
     }
 }
 
@@ -6964,7 +7224,9 @@ map.on('load', async () => {
         APP_SETTINGS.language = i18n.currentLanguage;
     }
 
-    updateSettingsUI();
+    if (!IS_EMBED_MODE) {
+        updateSettingsUI();
+    }
 
     const params = new URLSearchParams(window.location.search);
     const shareCode = params.get('share');
@@ -7005,28 +7267,38 @@ map.on('load', async () => {
         loadOsmData(); 
     }
 
-    detectClosestBuilding();
+    if (!IS_EMBED_MODE) {
+        detectClosestBuilding();
+    } else {
+        processEmbedParams();
+    }
 });
 
 // Nyelvváltás eseményfigyelő
 window.addEventListener('languageChanged', () => {
-    updateSettingsUI();
-    renderThemeSelector();
+    if (!IS_EMBED_MODE) {
+        updateSettingsUI();
+        renderThemeSelector();
+    }
     if (typeof initBuildings === 'function') initBuildings();
     if (activeRouteData && activeNavTarget && activeNavSource && currentRoutePath) {
         const stats = calculateRouteStats(currentRoutePath);
         const itinerary = generateItinerary(currentRoutePath);
         updateSheetForNavigation(activeNavTarget, stats, itinerary, activeNavSource);
-    } else if (selectedFeature && document.getElementById('bottom-sheet') && document.getElementById('bottom-sheet').classList.contains('open')) {
-        openSheet(selectedFeature);
+    } else if (selectedFeature) {
+        if (IS_EMBED_MODE) {
+            openEmbedInfo(selectedFeature);
+        } else if (document.getElementById('bottom-sheet') && document.getElementById('bottom-sheet').classList.contains('open')) {
+            openSheet(selectedFeature);
+        }
     }
 });
 
 
 // === PWA & SERVICE WORKER REGISZTRÁCIÓ ===
 
-// 1. Service Worker regisztrálása (Offline működéshez)
-if ('serviceWorker' in navigator) {
+// 1. Service Worker regisztrálása (Offline működéshez - csak normál módban)
+if ('serviceWorker' in navigator && !IS_EMBED_MODE) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then((registration) => {
         }).catch((err) => {

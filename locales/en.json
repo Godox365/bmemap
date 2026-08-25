@@ -293,5 +293,13 @@
     "olvasójegy": "Library card",
     "kölcsönzés": "Borrowing",
     "info": "Information"
+  },
+  "embed": {
+    "open_full": "Open in full view",
+    "open_full_aria": "Open on BMEmap website in a new tab",
+    "nav_to": "Directions",
+    "nav_to_aria": "Start directions to this room in a new tab",
+    "close": "Close",
+    "brand_title": "BMEmap - Open in new tab"
   }
 }

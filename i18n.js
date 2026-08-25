@@ -24,12 +24,19 @@ class I18nManager {
      */
     detectLanguage() {
         if (typeof window !== 'undefined' && window.location) {
-            // 1. URL Path: pl. /en vagy /hu
+            // 1. URL Path: pl. /en vagy /hu vagy /embed/en vagy /embed/hu
             const pathParts = window.location.pathname.split('/').filter(Boolean);
             if (pathParts.length > 0) {
                 const first = pathParts[0].toLowerCase();
                 if (this.supportedLanguages.includes(first)) {
                     return first;
+                }
+                // Támogatja az /embed/en formátumot is
+                if (first === 'embed' && pathParts.length > 1) {
+                    const second = pathParts[1].toLowerCase();
+                    if (this.supportedLanguages.includes(second)) {
+                        return second;
+                    }
                 }
             }
 
@@ -111,6 +118,15 @@ class I18nManager {
         try {
             const url = new URL(window.location.href);
             const pathParts = url.pathname.split('/').filter(Boolean);
+
+            // Ha embed módban vagyunk, ne írjuk át a /embed útvonalat
+            if (pathParts.length > 0 && pathParts[0].toLowerCase() === 'embed') {
+                if (url.searchParams.has('lang') || lang !== this.defaultLanguage) {
+                    url.searchParams.set('lang', lang);
+                }
+                window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+                return;
+            }
 
             if (pathParts.length > 0 && this.supportedLanguages.includes(pathParts[0].toLowerCase())) {
                 // Ha eredetileg /en vagy /hu volt az útvonal

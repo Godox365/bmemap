@@ -1258,3 +1258,267 @@
     color: #2196F3; /* Kék szöveg és ikon */
     border-color: #2196F3;
 }
+
+/* ================================================================
+   EMBED MODE (BEÁGYAZOTT NÉZET)
+   Aktiválódik: body.embed-mode vagy html.embed-mode
+   ================================================================ */
+
+/* Normál vezérlők és overlay-ek elrejtése embed módban */
+body.embed-mode #top-bar,
+body.embed-mode #bottom-sheet,
+body.embed-mode #settings-modal,
+body.embed-mode #impressum-modal,
+body.embed-mode #custom-modal,
+body.embed-mode #loader,
+body.embed-mode #toast-notification,
+body.embed-mode .sr-only,
+body.embed-mode footer {
+    display: none !important;
+}
+
+/* A térkép kitölti a teljes iframe területet */
+body.embed-mode #map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Szintváltó (Level Control) pozíciója embed módban */
+body.embed-mode .level-control {
+    top: 14px;
+    right: 14px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Attribúció (MapLibre compact button) jobb alsó sarokban */
+body.embed-mode .maplibregl-ctrl-attrib {
+    margin-right: 8px !important;
+    margin-bottom: 8px !important;
+    z-index: 1000;
+}
+
+/* --- Brand Pill (Bal felső 'BMEmap' megnyitás gomb) --- */
+.embed-brand-pill {
+    display: none;
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 3000;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    user-select: none;
+}
+
+body.embed-mode .embed-brand-pill {
+    display: inline-flex;
+}
+
+.embed-brand-pill:hover {
+    background: var(--bg-element);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.embed-brand-pill:active {
+    transform: scale(0.96);
+}
+
+.embed-brand-logo {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.embed-brand-icon {
+    font-size: 14px !important;
+    color: var(--text-sub);
+    transition: color 0.2s;
+}
+
+.embed-brand-pill:hover .embed-brand-icon {
+    color: var(--text-main);
+}
+
+/* --- Mini Floating Info Bar --- */
+.embed-info-bar {
+    display: none;
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    max-width: 440px;
+    margin: 0 auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    z-index: 3000;
+    padding: 8px 10px 8px 16px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transform: translateY(140%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+                opacity 0.25s ease;
+}
+
+body.embed-mode .embed-info-bar.visible {
+    display: block;
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.embed-info-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.embed-info-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.embed-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+}
+
+.embed-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-sub);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.embed-info-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Elegáns kör alakú gombok */
+.embed-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.embed-btn .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.embed-btn:hover {
+    transform: scale(1.08);
+}
+
+.embed-btn:active {
+    transform: scale(0.92);
+}
+
+/* Navigáció gomb */
+.embed-btn-nav {
+    background: var(--color-ui-active);
+    color: var(--color-ui-active-text);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.embed-btn-nav:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* Megnyitás teljes nézetben gomb */
+.embed-btn-open {
+    background: var(--bg-button-glass);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}
+
+.embed-btn-open:hover {
+    background: var(--bg-button-glass-hover);
+}
+
+/* Bezárás gomb */
+.embed-btn-close {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    color: var(--text-sub);
+}
+
+.embed-btn-close .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.embed-btn-close:hover {
+    background: var(--bg-button-glass);
+    color: var(--text-main);
+}
+
+/* Nem embed módban ne jelenjenek meg */
+body:not(.embed-mode) .embed-brand-pill,
+body:not(.embed-mode) .embed-info-bar {
+    display: none !important;
+}
+
+/* --- Reszponzív nézetek keskeny beágyazáshoz --- */
+@media (max-width: 360px) {
+    .embed-brand-pill {
+        padding: 4px 8px;
+        font-size: 11px;
+        top: 8px;
+        left: 8px;
+    }
+    .embed-info-bar {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        padding: 6px 8px 6px 12px;
+        border-radius: 16px;
+    }
+    .embed-title { font-size: 13px; }
+    .embed-subtitle { font-size: 11px; }
+    .embed-btn { width: 34px; height: 34px; }
+    .embed-btn .material-symbols-outlined { font-size: 18px; }
+}
