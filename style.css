@@ -1260,6 +1260,23 @@
 }
 
 /* ================================================================
+   DEV MODE (FEJLESZTŐI MÓD)
+   Aktiválódik: ?dev=true vagy localStorage.bmemap_dev_mode
+   ================================================================ */
+
+.dev-only {
+    display: none !important;
+}
+
+body.dev-mode .dev-only {
+    display: inline-flex !important;
+}
+
+body.dev-mode .settings-section.dev-only {
+    display: block !important;
+}
+
+/* ================================================================
    EMBED MODE (BEÁGYAZOTT NÉZET)
    Aktiválódik: body.embed-mode vagy html.embed-mode
    ================================================================ */
@@ -1340,8 +1357,12 @@ body.embed-mode .embed-brand-pill {
 }
 
 .embed-brand-logo {
-    font-size: 15px;
-    line-height: 1;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: inline-block;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .embed-brand-icon {

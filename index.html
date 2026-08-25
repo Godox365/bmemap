@@ -210,6 +210,17 @@
                         <span class="material-symbols-outlined">delete_forever</span> <span data-i18n="settings.cache_clear">Gyorsítótár ürítése</span>
                     </button>
                 </div>
+
+                <div class="settings-section dev-only" id="dev-tools-section">
+                    <label>🛠️ Fejlesztői Eszközök</label>
+                    <a href="./embed-demo/index.html" target="_blank" rel="noopener noreferrer" class="btn-theme-edit" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span class="material-symbols-outlined">tune</span>
+                        <span>Iframe Konfigurátor & Embed Eszköz</span>
+                    </a>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <span class="reset-link" onclick="toggleDevMode(false)" style="color: #e57373; font-size: 12px; cursor: pointer;">Fejlesztői mód kikapcsolása</span>
+                    </div>
+                </div>
     
                 <div class="settings-footer">
                     <button class="btn-bug-report" onclick="window.open('https://forms.gle/cvfTFWLUU3nTXNmv9', '_blank')">
@@ -335,6 +346,9 @@
             <button class="btn-icon" onclick="shareCurrentState()" data-i18n-title="sheet.share_title" data-i18n-aria="sheet.share_aria" title="Megosztás" aria-label="Hely megosztása">
                 <span class="material-symbols-outlined">share</span>
             </button>
+            <button id="btn-embed-code" class="btn-icon dev-only" onclick="copyEmbedCode()" data-i18n-title="sheet.embed_title" data-i18n-aria="sheet.embed_aria" title="Iframe beágyazási kód másolása" aria-label="Beágyazási kód">
+                <span class="material-symbols-outlined">code</span>
+            </button>
             <button class="btn-close" onclick="clearRouteAndClose()" data-i18n-aria="common.close" aria-label="Bezárás">
                 <span class="material-symbols-outlined">close</span>
             </button>
@@ -383,7 +397,7 @@
 
 <!-- EMBED MÓD ELEMEK -->
 <a id="embed-brand-pill" class="embed-brand-pill" href="https://bmemap.hu/" target="_blank" rel="noopener noreferrer" data-i18n-title="embed.brand_title" title="BMEmap - Megnyitás új lapon">
-    <span class="embed-brand-logo">🧭</span>
+    <img src="icon-192.png" alt="BMEmap" class="embed-brand-logo" width="16" height="16" />
     <span class="embed-brand-text">BMEmap</span>
     <span class="material-symbols-outlined embed-brand-icon">open_in_new</span>
 </a>
@@ -395,9 +409,9 @@
             <span id="embed-info-sub" class="embed-subtitle">Szint</span>
         </div>
         <div class="embed-info-actions">
-            <a id="embed-nav-btn" class="embed-btn embed-btn-nav" href="#" target="_blank" rel="noopener noreferrer" data-i18n-title="embed.nav_to" data-i18n-aria="embed.nav_to_aria" title="Útvonal ide" aria-label="Útvonal ide">
+            <button id="embed-nav-btn" class="embed-btn embed-btn-nav" onclick="handleEmbedNavClick()" data-i18n-title="embed.nav_to" data-i18n-aria="embed.nav_to_aria" title="Útvonal ide" aria-label="Útvonal ide">
                 <span class="material-symbols-outlined">directions</span>
-            </a>
+            </button>
             <a id="embed-open-full" class="embed-btn embed-btn-open" href="#" target="_blank" rel="noopener noreferrer" data-i18n-title="embed.open_full" data-i18n-aria="embed.open_full_aria" title="Megnyitás teljes nézetben" aria-label="Megnyitás teljes nézetben">
                 <span class="material-symbols-outlined">open_in_new</span>
             </a>

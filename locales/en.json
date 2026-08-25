@@ -65,26 +65,29 @@
     "favorite_title": "Save as favorite",
     "share_aria": "Share location",
     "share_title": "Share",
+    "embed_aria": "Embed code",
+    "embed_title": "Copy iframe embed code",
     "website": "Website",
     "nav_to": "To here",
     "nav_from": "From here",
     "nearby": "Search nearby",
-    "level_prefix": "Floor",
-    "capacity": "{capacity} seats"
+    "level_prefix": "Level",
+    "capacity": "{capacity} people"
   },
   "toasts": {
-    "cache_disabled": "Cache disabled. No new data will be saved.",
+    "cache_disabled": "Cache disabled. No new data will be stored.",
     "cache_enabled": "Cache enabled. 💾",
-    "cache_cleared": "Cache cleared successfully! 🧹",
+    "cache_cleared": "Cache successfully cleared! 🧹",
     "fav_added": "Added to favorites! ⭐",
     "fav_removed": "Removed from favorites! 🗑️",
-    "building_detected": "✨ Building {building} detected",
+    "building_detected": "✨ {building} detected",
     "offline_fallback": "Offline mode: Failed to update from server.",
     "no_search_results": "No results found for this query.",
-    "poi_not_in_building": "No {poi} found in Building {building}! 🚫",
-    "poi_switch_level": "Not on this floor. Switching to Floor {level}...",
+    "poi_not_in_building": "No {poi} found in {building} building! 🚫",
+    "poi_switch_level": "Not on this floor. Switching to level {level}...",
     "link_copied": "Link copied! 📋",
-    "installed": "BMEmap installed successfully! 📱"
+    "embed_copied": "Iframe embed code copied! 📋",
+    "installed": "BMEmap successfully installed! 📱"
   },
   "alerts": {
     "place_not_found": "This place cannot be found in this building (or has not loaded yet).",

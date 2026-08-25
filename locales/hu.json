@@ -65,6 +65,8 @@
     "favorite_title": "Mentés kedvencként",
     "share_aria": "Hely megosztása",
     "share_title": "Megosztás",
+    "embed_aria": "Beágyazási kód",
+    "embed_title": "Iframe beágyazási kód másolása",
     "website": "Weboldal",
     "nav_to": "Ide",
     "nav_from": "Innen",
@@ -84,6 +86,7 @@
     "poi_not_in_building": "Nincs {poi} a(z) {building} épületben! 🚫",
     "poi_switch_level": "Nincs ezen a szinten. Átváltás a(z) {level}. szintre...",
     "link_copied": "Link másolva! 📋",
+    "embed_copied": "Iframe beágyazási kód másolva! 📋",
     "installed": "BMEmap sikeresen telepítve! 📱"
   },
   "alerts": {
