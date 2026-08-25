@@ -371,14 +371,18 @@
             font-size: 13px;
         }
         .flag-icon {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            object-fit: cover;
+            width: 18px !important;
+            height: 18px !important;
+            min-width: 18px !important;
+            min-height: 18px !important;
+            max-width: 18px !important;
+            max-height: 18px !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
             box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-            display: inline-block;
-            flex-shrink: 0;
-            vertical-align: middle;
+            display: inline-block !important;
+            flex-shrink: 0 !important;
+            vertical-align: middle !important;
         }
         
         /* Colored Toilets */
