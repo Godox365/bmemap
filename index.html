@@ -2,6 +2,7 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
+    <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- META -->
@@ -67,20 +68,20 @@
 <body>
 
 <!-- REJTETT FŐCÍM A ROBOTOKNAK -->
-<h1 class="sr-only">BME Térkép - Tekergők Térképe: Egyetemi Teremkereső és Navigáció</h1>
+<h1 class="sr-only" data-i18n="meta.sr_heading">BME Térkép - Tekergők Térképe: Egyetemi Teremkereső és Navigáció</h1>
 
 <div id="loader">
-    Adatok betöltése...
-    <div style="font-size:12px; margin-top:5px; opacity:0.7" id="loader-status">Connecting...</div>
+    <span data-i18n="common.loading">Adatok betöltése...</span>
+    <div style="font-size:12px; margin-top:5px; opacity:0.7" id="loader-status" data-i18n="common.connecting">Connecting...</div>
 </div>
 
 <div id="custom-modal">
     <div class="modal-content">
-        <h3 id="modal-title">Épület váltás</h3>
+        <h3 id="modal-title" data-i18n="modal.switch_building_title">Épület váltás</h3>
         <p id="modal-text">...</p>
         <div class="modal-buttons">
-            <button class="modal-btn btn-no" onclick="closeModal()">Mégse</button>
-            <button class="modal-btn btn-yes" id="modal-confirm">Átváltás</button>
+            <button class="modal-btn btn-no" onclick="closeModal()" data-i18n="common.cancel">Mégse</button>
+            <button class="modal-btn btn-yes" id="modal-confirm" data-i18n="common.switch">Átváltás</button>
         </div>
     </div>
 </div>
@@ -90,12 +91,31 @@
         
         <div id="settings-view-main">
             <div class="settings-header">
-                <h3>Beállítások</h3>
-                <button class="btn-close-settings" onclick="toggleSettings()"><span class="material-symbols-outlined">close</span></button>
+                <h3 data-i18n="settings.title">Beállítások</h3>
+                <button class="btn-close-settings" onclick="toggleSettings()" data-i18n-aria="common.close" aria-label="Bezárás"><span class="material-symbols-outlined">close</span></button>
             </div>
     
-            <div id="settings-content-body"> <div class="settings-section">
-                    <label>Mozgás & Lift</label>
+            <div id="settings-content-body"> 
+                <div class="settings-section">
+                    <label data-i18n="settings.language">Nyelv</label>
+                    <div class="segmented-control" id="seg-language">
+                        <button class="seg-btn" data-val="hu" onclick="setLanguageMode('hu')">
+                            <span class="seg-lang-content">
+                                <img src="assets/flags/hu.svg" alt="HU" class="flag-icon" />
+                                <span>Magyar</span>
+                            </span>
+                        </button>
+                        <button class="seg-btn" data-val="en" onclick="setLanguageMode('en')">
+                            <span class="seg-lang-content">
+                                <img src="assets/flags/gb.svg" alt="EN" class="flag-icon" />
+                                <span>English</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <label data-i18n="settings.movement_elevator">Mozgás & Lift</label>
                     <div class="segmented-control" id="seg-elevator">
                         <button class="seg-btn" data-val="stairs" onclick="setElevatorMode('stairs')">
                             <span class="material-symbols-outlined">hiking</span>
@@ -114,7 +134,7 @@
                 </div>
     
                 <div class="settings-section">
-                    <label>Mosdó típusa</label>
+                    <label data-i18n="settings.toilet_type">Mosdó típusa</label>
                     <div class="segmented-control" id="seg-toilet">
                         <button class="seg-btn female-btn" data-val="female" onclick="setToiletMode('female')">
                             <span class="material-symbols-outlined">woman</span>
@@ -128,12 +148,12 @@
                     </div>
                     <button id="btn-toilet-acc" class="pill-btn" onclick="toggleToiletAccessible()">
                         <span class="material-symbols-outlined">accessible</span>
-                        <span>Akadálymentes</span>
+                        <span data-i18n="settings.accessible">Akadálymentes</span>
                     </button>
                 </div>
     
                 <div class="settings-section">
-                    <label>Megjelenés</label>
+                    <label data-i18n="settings.appearance">Megjelenés</label>
                     
                     <div class="segmented-control" id="seg-theme" style="margin-bottom: 15px;">
                         <button class="seg-btn" data-val="dark" onclick="setThemeMode('dark')">
@@ -144,31 +164,31 @@
                         </button>
                     </div>
                     
-                    <label style="margin-top: 15px; font-size: 12px; opacity: 0.8;">Színtéma</label>
+                    <label style="margin-top: 15px; font-size: 12px; opacity: 0.8;" data-i18n="settings.color_theme">Színtéma</label>
                     <div id="color-theme-list" class="theme-list"></div>
     
                     <button class="btn-theme-edit" onclick="openThemeEditor()">
                         <span class="material-symbols-outlined">palette</span>
-                        Téma szerkesztése
+                        <span data-i18n="settings.edit_theme">Téma szerkesztése</span>
                     </button>
                 </div>
 
                 <div class="settings-section" id="pwa-install-section" style="display: none;">
-                    <label>Alkalmazás telepítése</label>
+                    <label data-i18n="settings.install_app">Alkalmazás telepítése</label>
                     <button class="btn-theme-edit" id="btn-install-app" style="background: var(--color-ui-active); color: var(--color-ui-active-text);">
                         <span class="material-symbols-outlined">download</span>
-                        Telepítés kezdőképernyőre
+                        <span data-i18n="settings.install_button">Telepítés kezdőképernyőre</span>
                     </button>
-                    <div class="settings-hint">Teljes képernyős, gyorsabb, offline mód.</div>
+                    <div class="settings-hint" data-i18n="settings.install_hint">Teljes képernyős, gyorsabb, offline mód.</div>
                 </div>
 
                 <div class="settings-section">
-                    <label>Cache</label>
+                    <label data-i18n="settings.cache">Cache</label>
                     
                     <div class="switch-container">
                         <div>
-                            <span style="font-size:14px; font-weight:bold;">Térképek cachelése</span><br>
-                            <div class="settings-hint" style="text-align: left;">Letöltés a gyors betöltéshez (a háttérben frissül).</div>
+                            <span style="font-size:14px; font-weight:bold;" data-i18n="settings.cache_title">Térképek cachelése</span><br>
+                            <div class="settings-hint" style="text-align: left;" data-i18n="settings.cache_hint">Letöltés a gyors betöltéshez (a háttérben frissül).</div>
                         </div>
                         
                         <label class="m3-switch">
@@ -179,20 +199,20 @@
 
                     <div class="cache-info">
                         <span class="material-symbols-outlined" style="font-size:16px;">sd_storage</span>
-                        <span id="cache-size-display">Számítás...</span>
+                        <span id="cache-size-display" data-i18n="settings.cache_calculating">Számítás...</span>
                     </div>
 
                     <button class="btn-cache-clear" onclick="clearAllCache()">
-                        <span class="material-symbols-outlined">delete_forever</span> Gyorsítótár ürítése
+                        <span class="material-symbols-outlined">delete_forever</span> <span data-i18n="settings.cache_clear">Gyorsítótár ürítése</span>
                     </button>
                 </div>
     
                 <div class="settings-footer">
                     <button class="btn-bug-report" onclick="window.open('https://forms.gle/cvfTFWLUU3nTXNmv9', '_blank')">
-                        <span class="material-symbols-outlined">bug_report</span> Hiba jelentése
+                        <span class="material-symbols-outlined">bug_report</span> <span data-i18n="settings.bug_report">Hiba jelentése</span>
                     </button>
-                    <span class="reset-link" onclick="resetSettings()">Beállítások alaphelyzetbe állítása</span>
-                    <span class="impressum-link" onclick="toggleImpressum()">Impresszum & Jogi Nyilatkozat</span>
+                    <span class="reset-link" onclick="resetSettings()" data-i18n="settings.reset_settings">Beállítások alaphelyzetbe állítása</span>
+                    <span class="impressum-link" onclick="toggleImpressum()" data-i18n="settings.impressum_link">Impresszum & Jogi Nyilatkozat</span>
                 </div>
             </div>
         </div>
@@ -206,61 +226,61 @@
 <div id="impressum-modal" class="modal-overlay">
     <div class="settings-card" style="max-width: 500px;"> 
         <div class="settings-header">
-            <h3>Rólam & Impresszum</h3>
-            <button class="btn-close-settings" onclick="toggleImpressum()" aria-label="Bezárás"><span class="material-symbols-outlined">close</span></button>
+            <h3 data-i18n="impressum.title">Rólam & Impresszum</h3>
+            <button class="btn-close-settings" onclick="toggleImpressum()" data-i18n-aria="impressum.close_aria" aria-label="Bezárás"><span class="material-symbols-outlined">close</span></button>
         </div>
         
         <div class="impressum-content">
             
-            <h4>Mi ez az app?</h4>
-            <p>A BMEmap (Tekergők Térképe) egy ingyenes, hobbi fejlesztésű egyetemi navigációs térkép és teremkereső szolgáltatás. Kifejezetten a Budapesti Műszaki és Gazdaságtudományi Egyetem hallgatói, oktatói és látogatói számára készült, hogy segítse a tájékozódást a campuson.</p>
+            <h4 data-i18n="impressum.what_is_title">Mi ez az app?</h4>
+            <p data-i18n="impressum.what_is_p1">A BMEmap (Tekergők Térképe) egy ingyenes, hobbi fejlesztésű egyetemi navigációs térkép és teremkereső szolgáltatás. Kifejezetten a Budapesti Műszaki és Gazdaságtudományi Egyetem hallgatói, oktatói és látogatói számára készült, hogy segítse a tájékozódást a campuson.</p>
             
-            <p>Az alkalmazás részletes beltéri térképeket tartalmaz a BME legfontosabb épületeiről, beleértve a Központi (K) épületet, a Q épületet, valamint az E és I épületeket (cél az összes épület elérhetővé tétele). A rendszer célja, hogy a gólyák és a rutinos hallgatók is könnyen megtalálják az előadótermeket, laborokat, büféket és mosdókat.</p>
+            <p data-i18n="impressum.what_is_p2">Az alkalmazás részletes beltéri térképeket tartalmaz a BME legfontosabb épületeiről, beleértve a Központi (K) épületet, a Q épületet, valamint az E és I épületeket (cél az összes épület elérhetővé tétele). A rendszer célja, hogy a gólyák és a rutinos hallgatók is könnyen megtalálják az előadótermeket, laborokat, büféket és mosdókat.</p>
 
-            <h4>Gyakori Kérdések (GYIK)</h4>
-            <p><em>Hogyan működik az útvonaltervezés?</em><br>
-            A rendszer Dijkstra-algoritmust használ, hogy megtalálja a legrövidebb utat két pont között. Képes kezelni a szintek közötti váltást, figyelembe véve a lifteket és lépcsőket. Beállítható akadálymentes útvonal is kerekesszékesek számára.</p>
+            <h4 data-i18n="impressum.faq_title">Gyakori Kérdések (GYIK)</h4>
+            <p><em><span data-i18n="impressum.faq_q1">Hogyan működik az útvonaltervezés?</span></em><br>
+            <span data-i18n="impressum.faq_a1">A rendszer Dijkstra-algoritmust használ, hogy megtalálja a legrövidebb utat két pont között. Képes kezelni a szintek közötti váltást, figyelembe véve a lifteket és lépcsőket. Beállítható akadálymentes útvonal is kerekesszékesek számára.</span></p>
 
-            <p><em>Milyen épületek érhetőek el?</em><br>
-            Jelenleg a K, Q és E épületek használhatóak (nem 100%-osan kész), de idővel az összes épület elérhető lesz. Az én időm is véges</p>
+            <p><em><span data-i18n="impressum.faq_q2">Milyen épületek érhetőek el?</span></em><br>
+            <span data-i18n="impressum.faq_a2">Jelenleg a K, Q és E épületek használhatóak (nem 100%-osan kész), de idővel az összes épület elérhető lesz. Az én időm is véges</span></p>
             
-            <p><em>Honnan származnak az adatok?</em><br>
-            A térkép alapjait az OpenStreetMap (OSM) adatbázisából kérjük le (ahova szintén én csináltam az összes épület térképeit, egyesével). Így innen az adatokat bárki lekérheti, használható saját projektekhez, stb (azért egy creditet dobjatok valahova). A képek és egyéb teremadatok (pl. férőhelyek száma) a BME teremadatbázisából származnak (https://www.ttdh.bme.hu/kari/teremadatbazis.htm).</p>
+            <p><em><span data-i18n="impressum.faq_q3">Honnan származnak az adatok?</span></em><br>
+            <span data-i18n="impressum.faq_a3">A térkép alapjait az OpenStreetMap (OSM) adatbázisából kérjük le (ahova szintén én csináltam az összes épület térképeit, egyesével). Így innen az adatokat bárki lekérheti, használható saját projects-hez, stb (azért egy creditet dobjatok valahova). A képek és egyéb teremadatok (pl. férőhelyek száma) a BME teremadatbázisából származnak (https://www.ttdh.bme.hu/kari/teremadatbazis.htm).</span></p>
 
-            <h4>Hasznos Linkek</h4>
+            <h4 data-i18n="impressum.links_title">Hasznos Linkek</h4>
             <ul style="list-style: none; padding: 0;">
-                <li><a href="https://www.bme.hu" target="_blank" rel="noopener noreferrer">BME Hivatalos Honlap</a> - Az egyetem központi oldala.</li>
-                <li><a href="https://ehk.bme.hu" target="_blank" rel="noopener noreferrer">Egyetemi Hallgatói Képviselet (EHK)</a> - Hírek és érdekvédelem.</li>
-                <li><a href="https://www.vik.bme.hu" target="_blank" rel="noopener noreferrer">BME VIK</a> - Villamosmérnöki és Informatikai Kar.</li>
-                <li><a href="https://www.kth.bme.hu" target="_blank" rel="noopener noreferrer">Központi Tanulmányi Hivatal (KTH)</a> - Ügyintézés és Neptun információk.</li>
+                <li><a href="https://www.bme.hu" target="_blank" rel="noopener noreferrer" data-i18n="impressum.link_bme">BME Hivatalos Honlap</a> - <span data-i18n="impressum.link_bme_desc">Az egyetem központi oldala.</span></li>
+                <li><a href="https://ehk.bme.hu" target="_blank" rel="noopener noreferrer" data-i18n="impressum.link_ehk">Egyetemi Hallgatói Képviselet (EHK)</a> - <span data-i18n="impressum.link_ehk_desc">Hírek és érdekvédelem.</span></li>
+                <li><a href="https://www.vik.bme.hu" target="_blank" rel="noopener noreferrer" data-i18n="impressum.link_vik">BME VIK</a> - <span data-i18n="impressum.link_vik_desc">Villamosmérnöki és Informatikai Kar.</span></li>
+                <li><a href="https://www.kth.bme.hu" target="_blank" rel="noopener noreferrer" data-i18n="impressum.link_kth">Központi Tanulmányi Hivatal (KTH)</a> - <span data-i18n="impressum.link_kth_desc">Ügyintézés és Neptun információk.</span></li>
             </ul>
             
 
-            <h4>1. Az oldal üzemeltetője</h4>
-            <p>Ez egy nem üzleti célú, közösségi információs oldal.</p>
+            <h4 data-i18n="impressum.operator_title">1. Az oldal üzemeltetője</h4>
+            <p data-i18n="impressum.operator_desc">Ez egy nem üzleti célú, közösségi információs oldal.</p>
             <ul>
-                <li><strong>Név:</strong> Egyházi Godó</li>
-                <li><strong>Kapcsolat:</strong> godox@duck.com</li>
+                <li><strong data-i18n="impressum.operator_name_label">Név:</strong> <span data-i18n="impressum.operator_name_val">Egyházi Godó</span></li>
+                <li><strong data-i18n="impressum.operator_contact_label">Kapcsolat:</strong> godox@duck.com</li>
             </ul>
 
-            <h4>2. Tárhelyszolgáltató (Hosting)</h4>
-            <p>Az oldal a Netlify felhőalapú szolgáltatásán keresztül érhető el.</p>
+            <h4><span data-i18n="impressum.hosting_title">2. Tárhelyszolgáltató (Hosting)</span></h4>
+            <p data-i18n="impressum.hosting_desc">Az oldal a Netlify felhőalapú szolgáltatásán keresztül érhető el.</p>
             <ul>
-                <li><strong>Név:</strong> Netlify, Inc.</li>
-                <li><strong>Cím:</strong> 512 2nd Street, Suite 200, San Francisco, CA 94107, USA</li>
-                <li><strong>Email:</strong> support@netlify.com</li>
+                <li><strong data-i18n="impressum.hosting_name_label">Név:</strong> Netlify, Inc.</li>
+                <li><strong data-i18n="impressum.hosting_address_label">Cím:</strong> 512 2nd Street, Suite 200, San Francisco, CA 94107, USA</li>
+                <li><strong data-i18n="impressum.hosting_email_label">Email:</strong> support@netlify.com</li>
             </ul>
 
-            <h4>3. Adatkezelés</h4>
+            <h4 data-i18n="impressum.privacy_title">3. Adatkezelés</h4>
             <ul>
-                <li><strong>Nincs tárolás:</strong> Nem gyűjtök, nem tárolok és nem továbbítok személyes adatot. Nincs login, nincs süti (cookie) értesítő, mert nincs követés.</li>
-                <li><strong>Lokális működés:</strong> A beállításaid (pl. lift preferencia) a böngésződ <code>localStorage</code>-ában maradnak.</li>
-                <li><strong>Naplózás:</strong> A Netlify technikai okokból (biztonság) rögzíthet IP címeket a szerver naplókban, erre nincs ráhatásom.</li>
+                <li><strong data-i18n="impressum.privacy_item1_strong">Nincs tárolás:</strong> <span data-i18n="impressum.privacy_item1_text">Nem gyűjtök, nem tárolok és nem továbbítok személyes adatot. Nincs login, nincs süti (cookie) értesítő, mert nincs követés.</span></li>
+                <li><strong data-i18n="impressum.privacy_item2_strong">Lokális működés:</strong> <span data-i18n="impressum.privacy_item2_text">A beállításaid (pl. lift preferencia) a böngésződ localStorage-ában maradnak.</span></li>
+                <li><strong data-i18n="impressum.privacy_item3_strong">Naplózás:</strong> <span data-i18n="impressum.privacy_item3_text">A Netlify technikai okokból (biztonság) rögzíthet IP címeket a szerver naplókban, erre nincs ráhatásom.</span></li>
             </ul>
 
-            <h4>4. Felelősségkizárás</h4>
-            <p>Ez egy hobbi projekt. Bár igyekszem pontos lenni, a térképen szereplő adatok (termek, útvonalak) tartalmazhatnak hibákat.</p>
-            <p><strong>Saját felelősség:</strong> Az oldal használatából eredő esetleges károkért (pl. eltévedsz, késel vizsgáról, <em>fejedre esik a vakolat</em>) semmilyen felelősséget nem vállalok. Használd az appot a saját felelősségedre!</p>
+            <h4 data-i18n="impressum.disclaimer_title">4. Felelősségkizárás</h4>
+            <p data-i18n="impressum.disclaimer_p1">Ez egy hobbi projekt. Bár igyekszem pontos lenni, a térképen szereplő adatok (termek, útvonalak) tartalmazhatnak hibákat.</p>
+            <p><strong data-i18n="impressum.disclaimer_p2_strong">Saját felelősség:</strong> <span data-i18n="impressum.disclaimer_p2_text">Az oldal használatából eredő esetleges károkért (pl. eltévedsz, késel vizsgáról, fejedre esik a vakolat) semmilyen felelősséget nem vállalok. Használd az appot a saját felelősségedre!</span></p>
         </div>
     </div>
 </div>
@@ -276,16 +296,16 @@
     </div>
     
     <div id="search-wrapper">
-        <span id="search-left-icon" class="material-symbols-outlined search-icon-symbol" onclick="handleSearchLeftClick()">search</span>
+        <span id="search-left-icon" class="material-symbols-outlined search-icon-symbol" onclick="handleSearchLeftClick()" data-i18n-aria="search.search_aria">search</span>
         
-        <input type="text" id="search-input" placeholder="Keress..." 
+        <input type="text" id="search-input" data-i18n-placeholder="search.placeholder" placeholder="Keress..." 
                onkeyup="handleSearch(event)" 
                onfocus="handleSearchFocus()" 
                onblur="handleSearchBlur()" 
                oninput="updateRightButtonState()"
         >
         
-        <button id="btn-right-action" class="btn-settings" onmousedown="handleRightAction(event)" aria-label="Beállítások és szűrők">
+        <button id="btn-right-action" class="btn-settings" onmousedown="handleRightAction(event)" data-i18n-aria="search.settings_aria" aria-label="Beállítások és szűrők">
             <span class="material-symbols-outlined">tune</span>
         </button>
         
@@ -300,18 +320,18 @@
 
     <div class="sheet-header">
         <div class="header-text-wrapper">
-            <h2 id="sheet-title" class="sheet-title">Szoba</h2>
+            <h2 id="sheet-title" class="sheet-title" data-i18n="sheet.default_title">Szoba</h2>
             <p id="sheet-sub" class="sheet-subtitle">...</p>
         </div>
         
         <div class="header-actions" style="display: flex; gap: 8px;">
-            <button id="btn-favorite" class="btn-star" onclick="toggleFavoriteCurrent()" title="Mentés kedvencként" aria-label="Hozzáadás a kedvencekhez">
+            <button id="btn-favorite" class="btn-star" onclick="toggleFavoriteCurrent()" data-i18n-title="sheet.favorite_title" data-i18n-aria="sheet.favorite_aria" title="Mentés kedvencként" aria-label="Hozzáadás a kedvencekhez">
                 <span class="material-symbols-outlined">star</span>
             </button>
-            <button class="btn-icon" onclick="shareCurrentState()" title="Megosztás" aria-label="Hely megosztása">
+            <button class="btn-icon" onclick="shareCurrentState()" data-i18n-title="sheet.share_title" data-i18n-aria="sheet.share_aria" title="Megosztás" aria-label="Hely megosztása">
                 <span class="material-symbols-outlined">share</span>
             </button>
-            <button class="btn-close" onclick="clearRouteAndClose()" aria-label="Bezárás">
+            <button class="btn-close" onclick="clearRouteAndClose()" data-i18n-aria="common.close" aria-label="Bezárás">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -330,7 +350,7 @@
                 </div>
                 <div class="poi-detail-row" id="poi-website-row" style="display:none;">
                     <span class="material-symbols-outlined">language</span>
-                    <a id="poi-website-link" href="#" target="_blank">Weboldal</a>
+                    <a id="poi-website-link" href="#" target="_blank" data-i18n="sheet.website">Weboldal</a>
                 </div>
             </div>
 
@@ -343,19 +363,19 @@
     <div class="sheet-footer">
         <div class="action-buttons">
             <button class="btn-action btn-nav-to" onclick="startNavigationToHere()">
-                <span class="material-symbols-outlined">directions</span> Ide
+                <span class="material-symbols-outlined">directions</span> <span data-i18n="sheet.nav_to">Ide</span>
             </button>
             <button class="btn-action btn-nav-from" onclick="startNavigationFromHere()">
-                <span class="material-symbols-outlined">trip_origin</span> Innen
+                <span class="material-symbols-outlined">trip_origin</span> <span data-i18n="sheet.nav_from">Innen</span>
             </button>
-            <button class="btn-action btn-nearby" onclick="toggleNearbyMenu()" title="Keresés a közelben">
+            <button class="btn-action btn-nearby" onclick="toggleNearbyMenu()" data-i18n-title="sheet.nearby" title="Keresés a közelben">
                  <span class="material-symbols-outlined">saved_search</span>
             </button>
         </div>
     </div>
 </div>
 
-<main id="map" role="application" aria-label="Interaktív BME Térkép"></main>
+<main id="map" role="application" data-i18n-aria="meta.map_aria" aria-label="Interaktív BME Térkép"></main>
 
 <!-- FOOTER (Láthatatlan linkstruktúra a robotoknak) -->
 <footer class="sr-only">
@@ -367,15 +387,15 @@
             <li><a href="https://bmemap.hu/">Főoldal</a></li>
         </ul>
     </nav>
-    <p>&copy; 2026 BMEmap. Minden jog fenntartva.</p>
+    <p data-i18n="meta.footer_copyright">&copy; 2026 BMEmap. Minden jog fenntartva.</p>
 </footer>
 
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
+<script src="i18n.js"></script>
 <script src="room_data.js"></script>
-
 <script src="app.js"></script>
 
 </body>

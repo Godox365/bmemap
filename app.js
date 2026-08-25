@@ -57,6 +57,31 @@ const TAG_CATALOG = {
 const TAG_CATALOG_FALLBACK = { icon: "label", label: null };
 
 /**
+ * Segédfüggvény a szoba címkék többnyelvű megnevezésének lekéréséhez.
+ */
+function getTagLabel(cleanKey, fallbackLabel) {
+    if (typeof t === 'function') {
+        const trans = t(`tags.${cleanKey}`);
+        if (trans && trans !== `tags.${cleanKey}`) return trans;
+    }
+    return fallbackLabel || cleanKey;
+}
+
+/**
+ * Segédfüggvény a szoba megjegyzésének (note) többnyelvű lekéréséhez.
+ * Támogatja a többnyelvű objektum formátumot ({ hu: "...", en: "..." })
+ * valamint a string alapú visszamenőleges kompatibilitást.
+ */
+function getRoomNote(roomData) {
+    if (!roomData || !roomData.note) return "";
+    if (typeof roomData.note === 'object' && roomData.note !== null) {
+        const lang = APP_SETTINGS.language || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu');
+        return roomData.note[lang] || roomData.note['hu'] || roomData.note['en'] || "";
+    }
+    return roomData.note;
+}
+
+/**
  * Dinamikusan rendereli a szoba meta címkéit (kapacitás, címkék, felszereltség, funkciók).
  * Támogatja a string-alapú tageket, az objektumként definiált egyedi tageket ({icon, label}),
  * valamint az automatikus OSM akadálymentességet és a visszamenőleges kompatibilitást.
@@ -75,7 +100,8 @@ function renderRoomMeta(roomData, isAccessible) {
         const capEl = document.createElement('div');
         capEl.className = 'meta-tag';
         capEl.id = 'meta-capacity';
-        capEl.innerHTML = `<span class="material-symbols-outlined">group</span> ${escapeHTML(roomData.capacity)} fő`;
+        const capText = typeof t === 'function' ? t('sheet.capacity', { capacity: escapeHTML(roomData.capacity) }) : `${escapeHTML(roomData.capacity)} fő`;
+        capEl.innerHTML = `<span class="material-symbols-outlined">group</span> ${capText}`;
         metaContainer.appendChild(capEl);
         hasAnyChip = true;
     }
@@ -88,16 +114,16 @@ function renderRoomMeta(roomData, isAccessible) {
         }
         // Visszafelé kompatibilitás régi formátumhoz
         if (roomData.key && !rawTags.some(t => typeof t === 'string' && t.toLowerCase().includes('kulcs'))) {
-            rawTags.push('kulcsos');
+            rawTags.push('key');
         }
         if (roomData.projector && !rawTags.some(t => typeof t === 'string' && t.toLowerCase().includes('projektor'))) {
-            rawTags.push('projektor');
+            rawTags.push('projector');
         }
     }
 
     // 3. OSM akadálymentesség hozzáadása
-    if (isAccessible && !rawTags.some(t => typeof t === 'string' && t.toLowerCase().includes('akadálymentes'))) {
-        rawTags.push('akadálymentes');
+    if (isAccessible && !rawTags.some(t => typeof t === 'string' && (t.toLowerCase().includes('akadálymentes') || t.toLowerCase() === 'accessible'))) {
+        rawTags.push('accessible');
     }
 
     // 4. Tag chipek előállítása
@@ -108,18 +134,19 @@ function renderRoomMeta(roomData, isAccessible) {
         if (typeof tagItem === 'object' && tagItem !== null) {
             // Egyedi objektum: { icon: "...", label: "..." } vagy { icon: "...", name: "..." }
             icon = tagItem.icon || TAG_CATALOG_FALLBACK.icon;
-            label = tagItem.label || tagItem.name || '';
+            const rawLabel = tagItem.label || tagItem.name || '';
+            label = getTagLabel(rawLabel.toLowerCase(), rawLabel);
         } else if (typeof tagItem === 'string') {
             const raw = tagItem.trim();
             if (!raw) return;
             const clean = raw.toLowerCase();
             if (TAG_CATALOG[clean]) {
                 icon = TAG_CATALOG[clean].icon;
-                label = TAG_CATALOG[clean].label || (raw.charAt(0).toUpperCase() + raw.slice(1));
+                label = getTagLabel(clean, TAG_CATALOG[clean].label || (raw.charAt(0).toUpperCase() + raw.slice(1)));
             } else {
                 // Ismeretlen tag: fallback ikon + az eredeti név (első betű nagyítva, ha kisbetűs volt)
                 icon = TAG_CATALOG_FALLBACK.icon;
-                label = raw.charAt(0).toUpperCase() + raw.slice(1);
+                label = getTagLabel(clean, raw.charAt(0).toUpperCase() + raw.slice(1));
             }
         }
 
@@ -579,6 +606,7 @@ const APP_SETTINGS = {
     toiletAccessible: localStorage.getItem('pref_toilet_acc') === 'true',
     themeMode: localStorage.getItem('pref_theme') || 'dark', 
     activeColorTheme: localStorage.getItem('pref_color_theme') || 'default',
+    language: localStorage.getItem('pref_language') || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu'),
     cacheEnabled: localStorage.getItem('pref_cache_enabled') !== 'false'
 };
 
@@ -635,10 +663,10 @@ function toggleCacheMode(isEnabled) {
         // Kikapcsolt állapot: A meglévő adatokat nem töröljük automatikusan a felhasználó 
         // esetleges adatvesztésének elkerülése végett, csupán a jövőbeni mentéseket tiltjuk le.
         // A manuális törlésre külön gomb szolgál a felületen.
-        showToast("Cache kikapcsolva. Nem mentünk új adatot.");
+        showToast(typeof t === 'function' ? t('toasts.cache_disabled') : "Cache kikapcsolva. Nem mentünk új adatot.");
     } else {
         // Bekapcsolt állapot: Visszajelzés a sikeres aktiválásról
-        showToast("Cache bekapcsolva. 💾");
+        showToast(typeof t === 'function' ? t('toasts.cache_enabled') : "Cache bekapcsolva. 💾");
     }
 }
 
@@ -704,7 +732,7 @@ function updateCacheSizeDisplay() {
  * Sikeres törlés esetén frissíti a méretet megjelenítő UI elemet és értesítést (toast) jelenít meg.
  */
 function clearAllCache() {
-    if(!confirm("Biztosan törlöd a mentett térképeket?")) return;
+    if(!confirm(typeof t === 'function' ? (t('alerts.confirm_clear_cache') || "Biztosan törlöd a mentett térképeket?") : "Biztosan törlöd a mentett térképeket?")) return;
     
     const keysToRemove = [];
     for (let key in localStorage) {
@@ -715,7 +743,7 @@ function clearAllCache() {
     
     keysToRemove.forEach(k => localStorage.removeItem(k));
     updateCacheSizeDisplay();
-    showToast("Sikeres nagytakarítás! 🧹");
+    showToast(typeof t === 'function' ? t('toasts.cache_cleared') : "Sikeres nagytakarítás! 🧹");
 }
 
 /**
@@ -868,6 +896,7 @@ function toggleFavoriteCurrent() {
     if (isFavorite(selectedFeature)) {
         // Eltávolítás a kedvencek listájából az azonosító (id) alapján.
         userFavorites = userFavorites.filter(fav => fav.id !== id);
+        showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből! 🗑️");
     } else {
         // Új bejegyzés hozzáadása a kedvencekhez az összegyűjtött adatokkal.
         userFavorites.push({ 
@@ -877,13 +906,24 @@ function toggleFavoriteCurrent() {
             level: level,
             building: currentBuildingKey 
         });
-        showToast("Hozzáadva a kedvencekhez! ⭐");
+        showToast(typeof t === 'function' ? t('toasts.fav_added') : "Hozzáadva a kedvencekhez! ⭐");
     }
     
     // Változások perzisztens mentése és a nézetek (UI, térkép) frissítése.
     saveFavorites();
     updateFavoriteUI(); 
     renderLevel(currentLevel, false); 
+}
+
+/**
+ * Segédfüggvény POI kategória nevének többnyelvű lekéréséhez
+ */
+function getPoiName(key) {
+    if (typeof t === 'function') {
+        const trans = t(`poi.${key}`);
+        if (trans && trans !== `poi.${key}`) return trans;
+    }
+    return (POI_TYPES && POI_TYPES[key]) ? POI_TYPES[key].name : key;
 }
 
 /**
@@ -931,11 +971,12 @@ function showFavoritesInSearch() {
             if (config.hideInGrid) continue; // Rejtett kategóriák átugrása
             const btn = document.createElement('div');
             btn.className = 'poi-grid-item';
+            const poiDisplayName = getPoiName(key);
             btn.innerHTML = `
                 <div class="poi-grid-icon" style="background-color: ${config.color}">
                     <span class="material-symbols-outlined">${config.icon}</span>
                 </div>
-                <span class="poi-grid-label">${config.name}</span>
+                <span class="poi-grid-label">${poiDisplayName}</span>
             `;
             
             // Kattintás esemény a kategóriára
@@ -943,8 +984,8 @@ function showFavoritesInSearch() {
                 // Eltüntetjük a lenyíló menüt
                 resultsDiv.style.display = 'none';
                 
-                // Beírjuk a keresőbe a kategória nevét (pl. "Büfé / Kaja"), hogy egyértelmű legyen, mit nézünk
-                input.value = config.name;
+                // Beírjuk a keresőbe a kategória nevét, hogy egyértelmű legyen, mit nézünk
+                input.value = poiDisplayName;
                 updateRightButtonState(); // X gomb megjelenítése
                 
                 // Mobilon levesszük a fókuszt a keresőről, hogy eltűnjön a billentyűzet
@@ -968,14 +1009,17 @@ function showFavoritesInSearch() {
         header.style.cursor = 'default';
         header.style.fontSize = '12px';
         header.style.paddingTop = '12px'; // Kicsi extra hely a rács alatt
-        header.innerText = "KEDVENCEK";
+        header.innerText = (typeof t === 'function' ? t('sheet.favorite_title') : "KEDVENCEK").toUpperCase();
         resultsDiv.appendChild(header);
 
         // Végigiterálunk a felhasználó kedvencein
         userFavorites.forEach(fav => {
             const div = document.createElement('div');
             div.className = 'result-item';
-            div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${escapeHTML(fav.name)} <span style="color:#888; font-size:12px">(${escapeHTML(fav.building)} épület, ${escapeHTML(fav.level)}. szint)</span>`;
+            const favSub = typeof t === 'function' 
+                ? t('search.fav_sub', { building: escapeHTML(fav.building), level: escapeHTML(fav.level) })
+                : `(${escapeHTML(fav.building)} épület, ${escapeHTML(fav.level)}. szint)`;
+            div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${escapeHTML(fav.name)} <span style="color:#888; font-size:12px">${favSub}</span>`;
             
             // Kattintás eseménykezelője az adott kedvenc kiválasztásához
             div.onclick = () => {
@@ -992,7 +1036,7 @@ function showFavoritesInSearch() {
                     document.getElementById('search-input').value = fav.name;
                     updateRightButtonState();
                 } else {
-                    alert("Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
+                    alert(typeof t === 'function' ? t('alerts.place_not_found') : "Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
                 }
             };
             resultsDiv.appendChild(div);
@@ -1004,17 +1048,21 @@ function showFavoritesInSearch() {
 }
 
 /**
- * Meghatározza és magyarra fordítja egy adott térképelem (feature) típusát
+ * Meghatározza és lefordítja egy adott térképelem (feature) típusát
  * az OpenStreetMap-hez hasonló tulajdonságcímkék (tagek) alapján.
  * @param {Object} p - A térképelem tulajdonságait (properties) tartalmazó objektum.
- * @returns {string} A helyiség vagy elem magyar nyelvű megnevezése (szótár alapján), vagy alapértelmezetten "Hely".
+ * @returns {string} A helyiség vagy elem megnevezése (szótár alapján), vagy alapértelmezetten "Hely".
  */
 function getHungarianType(p) {
-    if (p.entrance === 'main') return 'Főbejárat';
-    if (p.entrance) return 'Bejárat';
-    if (p.door) return 'Ajtó';
+    if (p.entrance === 'main') return typeof t === 'function' ? (t('types.main_entrance') || 'Főbejárat') : 'Főbejárat';
+    if (p.entrance) return typeof t === 'function' ? (t('types.entrance') || 'Bejárat') : 'Bejárat';
+    if (p.door) return typeof t === 'function' ? (t('types.door') || 'Ajtó') : 'Ajtó';
     const key = p.room || p.indoor || p.amenity || p.highway || 'unknown';
-    return TYPE_DICT[key] || (key !== 'unknown' ? key : 'Hely');
+    if (typeof t === 'function') {
+        const trans = t(`types.${key}`);
+        if (trans && trans !== `types.${key}`) return trans;
+    }
+    return TYPE_DICT[key] || (key !== 'unknown' ? key : (typeof t === 'function' ? (t('types.place') || 'Hely') : 'Hely'));
 }
 
 /**
@@ -1024,10 +1072,18 @@ function getHungarianType(p) {
  */
 const HINTS = {
     'stairs': "Csak akkor lift, ha nincs más út.",
-    'balanced': "Rövid távon lépcső, emeletek között lift.",
+    'balanced': "Alapértelmezett: Lépcső preferálása rövid távon.",
     'elevator': "Lehetőleg mindig lift.",
     'wheelchair': "Kerekeszékkel járható útvonal."
 };
+
+function getElevatorHint(mode) {
+    if (typeof t === 'function') {
+        const trans = t(`hints.${mode}`);
+        if (trans && trans !== `hints.${mode}`) return trans;
+    }
+    return HINTS[mode] || "";
+}
 
 // --- GLOBÁLIS ÁLLAPOTVÁLTOZÓK ---
 
@@ -1756,6 +1812,12 @@ function applyTheme() {
  * gyorsítótár (cache) kapcsolóját és méretkijelzőjét.
  */
 function updateSettingsUI() {
+    // Nyelvválasztó gombok frissítése
+    const currentLang = APP_SETTINGS.language || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu');
+    document.querySelectorAll('#seg-language .seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.val === currentLang);
+    });
+
     // A lift/akadálymentesítési preferenciák gombjainak vizuális frissítése
     document.querySelectorAll('#seg-elevator .seg-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.val === APP_SETTINGS.elevatorMode);
@@ -1778,7 +1840,10 @@ function updateSettingsUI() {
     });
 
     // A kiválasztott lift módhoz tartozó magyarázó szöveg megjelenítése
-    document.getElementById('elevator-hint').innerText = HINTS[APP_SETTINGS.elevatorMode];
+    const elHint = document.getElementById('elevator-hint');
+    if (elHint) {
+        elHint.innerText = getElevatorHint(APP_SETTINGS.elevatorMode);
+    }
 
     // --- F-016: Gyorsítótár (Cache) UI frissítése ---
     // A cache engedélyezését szabályozó kapcsoló és a méretkijelző aktualizálása
@@ -1840,6 +1905,17 @@ function setColorTheme(key) {
 }
 
 /**
+ * Segédfüggvény színtémák többnyelvű megnevezésének lekéréséhez.
+ */
+function getThemeName(key, fallbackName) {
+    if (typeof t === 'function') {
+        const trans = t(`themes.${key}`);
+        if (trans && trans !== `themes.${key}`) return trans;
+    }
+    return fallbackName || key;
+}
+
+/**
  * Dinamikus színtéma-választó lista generálása a felhasználói felületen.
  * Végigiterál az elérhető színtémákon (COLOR_THEMES), és mindegyikhez 
  * létrehoz egy választható HTML elemet, megjelenítve a téma nevét 
@@ -1867,8 +1943,10 @@ function renderThemeSelector() {
             dotsHtml += `<div class="dot" style="background: ${color}"></div>`;
         });
         
+        const themeDisplayName = getThemeName(key, data.name);
+
         div.innerHTML = `
-            <span class="theme-name">${data.name}</span>
+            <span class="theme-name">${themeDisplayName}</span>
             <div class="color-dots">${dotsHtml}</div>
         `;
         
@@ -1911,18 +1989,21 @@ function openThemeEditor() {
 
     const mode = APP_SETTINGS.themeMode;
     const themeKey = APP_SETTINGS.activeColorTheme;
-    const themeName = (COLOR_THEMES[themeKey] || COLOR_THEMES['default']).name;
+    const fallbackName = (COLOR_THEMES[themeKey] || COLOR_THEMES['default']).name;
+    const themeName = getThemeName(themeKey, fallbackName);
+    const modeLabel = mode === 'dark' ? (typeof t === 'function' ? t('theme_editor.mode_dark') : 'Sötét') : (typeof t === 'function' ? t('theme_editor.mode_light') : 'Világos');
+    const headerTitle = typeof t === 'function' ? t('theme_editor.title_format', { theme: themeName, mode: modeLabel }) : `${themeName} (${mode === 'dark' ? 'Sötét' : 'Világos'})`;
 
     // A fejléc (Header) HTML szerkezetének összeállítása, benne az akciógombokkal
     let html = `
         <div class="editor-header">
-            <h3>${themeName} (${mode === 'dark' ? 'Sötét' : 'Világos'})</h3>
+            <h3>${headerTitle}</h3>
             
             <div class="editor-header-actions">
-                <button class="btn-header-icon primary" onclick="copyThemeCode()" title="Téma kód másolása">
+                <button class="btn-header-icon primary" onclick="copyThemeCode()" title="${typeof t === 'function' ? t('theme_editor.copy_code') : 'Téma kód másolása'}">
                     <span class="material-symbols-outlined">content_copy</span>
                 </button>
-                <button class="btn-header-icon danger" onclick="resetThemeOverrides()" title="Alaphelyzet">
+                <button class="btn-header-icon danger" onclick="resetThemeOverrides()" title="${typeof t === 'function' ? t('theme_editor.reset') : 'Alaphelyzet'}">
                     <span class="material-symbols-outlined">restart_alt</span>
                 </button>
             </div>
@@ -1934,10 +2015,12 @@ function openThemeEditor() {
     // A dinamikus tartalom (változók listája) HTML szerkezetének generálása
     // Végigiterál az összes definiált téma-változón, és mindegyikhez létrehoz egy sort a színválasztóval
     for (const [varName, data] of Object.entries(THEME_VARS)) {
+        const cleanVarKey = varName.replace('--', '').replace(/-/g, '_');
+        const labelText = typeof t === 'function' ? (t(`theme_editor.${cleanVarKey}`) || data.label || varName) : (data.label || varName);
         html += `
             <div class="editor-row" onclick="focusOnElement('${varName}')">
                 <div class="editor-label">
-                    <span>${data.label || varName}</span>
+                    <span>${labelText}</span>
                     <small>${varName}</small>
                 </div>
                 <div class="editor-input-group">
@@ -1952,8 +2035,8 @@ function openThemeEditor() {
     
     <div class="editor-footer">
         <div class="editor-actions">
-            <button class="btn-cancel" onclick="closeThemeEditor()">Mégse</button>
-            <button class="btn-save" onclick="saveThemeOverrides()">Mentés</button>
+            <button class="btn-cancel" onclick="closeThemeEditor()">${typeof t === 'function' ? t('common.cancel') : 'Mégse'}</button>
+            <button class="btn-save" onclick="saveThemeOverrides()">${typeof t === 'function' ? t('common.save') : 'Mentés'}</button>
         </div>
     </div>`;
 
@@ -2082,7 +2165,8 @@ function saveThemeOverrides() {
  */
 function copyThemeCode() {
     const mode = APP_SETTINGS.themeMode; // 'dark' vagy 'light'
-    const themeName = (COLOR_THEMES[APP_SETTINGS.activeColorTheme] || {}).name || "Custom";
+    const fallbackThemeName = (COLOR_THEMES[APP_SETTINGS.activeColorTheme] || {}).name || "Custom";
+    const themeName = getThemeName(APP_SETTINGS.activeColorTheme, fallbackThemeName);
     
     // 1. Az eltérések (felülírások) összegyűjtése a THEME_VARS alapértelmezéseihez képest
     let changes = [];
@@ -2104,7 +2188,7 @@ function copyThemeCode() {
 
     // Ha nem történt módosítás, megszakítjuk a folyamatot
     if (changes.length === 0) {
-        alert("Nincs mit másolni: Minden érték megegyezik az alapértelmezettel!");
+        alert(typeof t === 'function' ? t('alerts.theme_no_changes') : "Nincs mit másolni: Minden érték megegyezik az alapértelmezettel!");
         return;
     }
 
@@ -2116,7 +2200,7 @@ function copyThemeCode() {
 
     // 3. A generált kód vágólapra másolása és hibakezelése fallback megoldással
     navigator.clipboard.writeText(output).then(() => {
-        alert("Téma kód (csak a változtatások) másolva! 📋");
+        alert(typeof t === 'function' ? t('alerts.theme_copied') : "Téma kód (csak a változtatások) másolva! 📋");
     }).catch(err => {
         console.error(err);
         prompt("Másold ki innen:", output);
@@ -2256,6 +2340,20 @@ function handleColorChange(varName, value) {
 }
 
 /**
+ * Beállítja a felület nyelvét (pl. 'hu' vagy 'en').
+ * Elmenti a választást és frissíti a teljes felhasználói felületet.
+ * @param {string} lang - 'hu' vagy 'en'
+ */
+async function setLanguageMode(lang) {
+    APP_SETTINGS.language = lang;
+    if (typeof i18n !== 'undefined') {
+        await i18n.setLanguage(lang);
+    }
+    updateSettingsUI();
+    if (typeof initBuildings === 'function') initBuildings();
+}
+
+/**
  * Beállítja az útvonaltervezéshez használt lift és lépcső preferenciát.
  * A módosítás elmentése után frissíti a felhasználói felületet, és 
  * a megváltozott navigációs feltételeknek (súlyoknak) megfelelően 
@@ -2373,7 +2471,7 @@ function detectClosestBuilding() {
             if (closestKey && closestKey !== currentBuildingKey && minDist < 1000) {
                 
                 // --- Vizuális visszajelzés a felhasználónak a GPS alapú váltásról ---
-                showToast(`✨ ${BUILDINGS[closestKey].name} észlelve`);
+                showToast(typeof t === 'function' ? t('toasts.building_detected', { building: getBuildingName(closestKey) }) : `✨ ${getBuildingName(closestKey)} észlelve`);
                 
                 // Globális funkció meghívása a közelebbi épület betöltésére
                 changeBuilding(closestKey);
@@ -2392,20 +2490,41 @@ function detectClosestBuilding() {
 }
 
 /**
+ * Segédfüggvény az épületnév többnyelvű lekéréséhez
+ * @param {string} key - 'K', 'Q', 'I', 'E', 'R', 'KT', stb.
+ */
+function getBuildingName(key) {
+    if (key === 'KT') {
+        if (typeof t === 'function') {
+            const trans = t('types.library');
+            if (trans && trans !== 'types.library') return trans;
+        }
+        return "Könyvtár";
+    }
+    if (typeof t === 'function') {
+        const trans = t('common.building_name', { name: key });
+        if (trans && trans !== 'common.building_name') return trans;
+    }
+    return (BUILDINGS[key] && BUILDINGS[key].name) ? BUILDINGS[key].name : `${key} Épület`;
+}
+
+/**
  * Inicializálja az épületválasztó menüt a felhasználói felületen.
  * Végigiterál a konfigurált épületeken (BUILDINGS), és legenerálja 
  * a kiválasztásukhoz szükséges HTML elemeket a legördülő listában.
  */
 function initBuildings() {
     const optionsDiv = document.getElementById('building-options');
+    if (!optionsDiv) return;
     optionsDiv.innerHTML = "";
     
     for (const [key, data] of Object.entries(BUILDINGS)) {
         const div = document.createElement('div');
+        const bName = getBuildingName(key);
         
         // Az aktuálisan kiválasztott épület vizuális kiemelése
         div.className = 'option' + (key === currentBuildingKey ? ' selected' : '');
-        div.innerHTML = `<span class="material-symbols-outlined">apartment</span> ${data.name}`;
+        div.innerHTML = `<span class="material-symbols-outlined">apartment</span> ${bName}`;
         
         // Kattintás eseménykezelő az épületváltáshoz és a menü bezárásához
         div.onclick = () => {
@@ -2417,7 +2536,10 @@ function initBuildings() {
     }
     
     // A fejlécben megjelenő aktív épületnév frissítése
-    document.getElementById('current-building-name').innerText = BUILDINGS[currentBuildingKey].name;
+    const currentNameEl = document.getElementById('current-building-name');
+    if (currentNameEl) {
+        currentNameEl.innerText = getBuildingName(currentBuildingKey);
+    }
 }
 
 /**
@@ -2948,10 +3070,10 @@ async function loadOsmData() {
         if (!loadedFromCache) {
             // Teljes adatkimaradás esetén vizuális hibaüzenet a felhasználónak
             document.getElementById('loader-status').innerText = "FAILED.";
-            alert("Hiba a letöltéskor: Minden szerver elérhetetlen.\n(Ellenőrizd az internetkapcsolatot!)");
+            alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: Minden szerver elérhetetlen.\n(Ellenőrizd az internetkapcsolatot!)");
         } else {
             // Ha van gyorsítótárazott változat, tájékoztatjuk a felhasználót az offline üzemmódról
-            showToast("Offline mód: Nem sikerült frissíteni a szerverről.");
+            showToast(typeof t === 'function' ? t('toasts.offline_fallback') : "Offline mód: Nem sikerült frissíteni a szerverről.");
         }
     }
 }
@@ -3432,7 +3554,14 @@ function openSheet(feature) {
         // A pontosvesszővel elválasztott értékek szétdarabolása (pl. "coffee;drinks" -> ["coffee", "drinks"])
         const types = p.vending.split(';');
         // Lefordítjuk az elemeket, és ha nincs a szótárban, az eredetit hagyjuk meg
-        const translated = types.map(t => vDict[t.trim()] || t.trim());
+        const translated = types.map(tKey => {
+            const raw = tKey.trim();
+            if (typeof t === 'function') {
+                const trans = t(`vending.${raw}`);
+                if (trans && trans !== `vending.${raw}`) return trans;
+            }
+            return vDict[raw] || raw;
+        });
         // Összefűzzük őket egy szép, vesszővel elválasztott listává
         extraInfo = translated.join(', ');
     } else if (p.operator) {
@@ -3440,12 +3569,13 @@ function openSheet(feature) {
         extraInfo = p.operator; 
     }
 
+    const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
     if (extraInfo) {
-        document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${extraInfo}`;
+        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${extraInfo}`;
     } else if (displayName === typeName) {
-        document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString}`;
+        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}`;
     } else {
-        document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${typeName}`;
+        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
     }
     
     // --- 4. KÜLSŐ ADATBÁZIS (ROOM_DATABASE) LEKÉRDEZÉSE ---
@@ -3483,15 +3613,25 @@ function openSheet(feature) {
         let isOpenNowHtml = "";
 
         if (rawHours === '24/7') {
-            isOpenNowHtml = `<span class="status-open">Nyitva (0-24)</span><br>`;
-            formattedHours = "Mindennap nyitva";
+            const open247Text = typeof t === 'function' ? t('hours.open_24_7') : 'Nyitva (0-24)';
+            const everydayText = typeof t === 'function' ? t('hours.everyday') : 'Mindennap nyitva';
+            isOpenNowHtml = `<span class="status-open">${open247Text}</span><br>`;
+            formattedHours = everydayText;
         } else {
-            // Magyarítás szótár az OSM napokhoz
+            // Magyarítás/lokalizálás szótár az OSM napokhoz
             const daysDict = { 'Mo': 'Hétfő', 'Tu': 'Kedd', 'We': 'Szerda', 'Th': 'Csütörtök', 'Fr': 'Péntek', 'Sa': 'Szombat', 'Su': 'Vasárnap', 'off': 'Zárva', 'closed': 'Zárva' };
             
-            // Szövegcsere magyarra
-            for (const [en, hu] of Object.entries(daysDict)) {
-                formattedHours = formattedHours.replace(new RegExp(en, 'g'), hu);
+            // Szövegcsere az aktuális nyelvre
+            for (const [dayKey, huFallback] of Object.entries(daysDict)) {
+                let transDay = huFallback;
+                if (typeof t === 'function') {
+                    if (dayKey === 'off' || dayKey === 'closed') {
+                        transDay = t('hours.closed');
+                    } else {
+                        transDay = t(`days.${dayKey}`) || huFallback;
+                    }
+                }
+                formattedHours = formattedHours.replace(new RegExp(dayKey, 'g'), transDay);
             }
             // Sortörések berakása a pontosvesszőknél a szép listáért
             formattedHours = formattedHours.split(';').map(s => s.trim()).join('<br>');
@@ -3503,7 +3643,6 @@ function openSheet(feature) {
                 const currentMins = now.getHours() * 60 + now.getMinutes();
                 
                 // Megnézzük, szerepel-e a mai nap (vagy napköz) a stringben, és kinyerjük az időt (pl. 08:00-16:00)
-                // Megjegyzés: Ez egy nagyon egyszerű heuristika, bonyolult OSM stringeknél nem jelez semmit, ami jobb, mint a fals adat.
                 const timeMatch = rawHours.match(new RegExp(`(?:${currentDayStr}|Mo-Fr).*?(\\d{2}):(\\d{2})\\s*-\\s*(\\d{2}):(\\d{2})`));
                 
                 if (timeMatch) {
@@ -3511,9 +3650,11 @@ function openSheet(feature) {
                     const endMins = parseInt(timeMatch[3]) * 60 + parseInt(timeMatch[4]);
                     
                     if (currentMins >= startMins && currentMins <= endMins) {
-                        isOpenNowHtml = `<span class="status-open">Nyitva</span><br>`;
+                        const openText = typeof t === 'function' ? t('hours.open') : 'Nyitva';
+                        isOpenNowHtml = `<span class="status-open">${openText}</span><br>`;
                     } else {
-                        isOpenNowHtml = `<span class="status-closed">Zárva</span><br>`;
+                        const closedText = typeof t === 'function' ? t('hours.closed') : 'Zárva';
+                        isOpenNowHtml = `<span class="status-closed">${closedText}</span><br>`;
                     }
                 }
             } catch (e) { /* Csendes hibakezelés */ }
@@ -3546,8 +3687,9 @@ function openSheet(feature) {
 
     if (roomData || isAccessible) {
         if (noteEl) {
-            noteEl.innerText = (roomData && roomData.note) ? roomData.note : "";
-            noteEl.style.display = (roomData && roomData.note) ? 'block' : 'none';
+            const noteText = getRoomNote(roomData);
+            noteEl.innerText = noteText;
+            noteEl.style.display = (noteText && noteText.trim() !== "") ? 'block' : 'none';
         }
         
         if (galleryEl) {
@@ -3674,23 +3816,25 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
     // A cél- és kiindulópont megjelenítési nevének meghatározása
     const targetName = formatName(targetFeature);
     // Biztonsági ellenőrzés a kiindulópontra (null check)
-    const sourceName = sourceFeature ? formatName(sourceFeature) : "Kijelölt pont";
+    const sourceName = sourceFeature ? formatName(sourceFeature) : (typeof t === 'function' ? (t('nav.selected_point') || "Kijelölt pont") : "Kijelölt pont");
 
     // --- 2. FEJLÉC (Header) TARTALMÁNAK FRISSÍTÉSE ---
     
     // Főcím: Az utazás becsült idejének kiemelt megjelenítése
+    const timeText = typeof t === 'function' ? t('nav.time_minutes', { time: stats.time }) : `${stats.time} perc`;
     title.innerHTML = `
         <div style="text-align:center; width:100%;">
             <span style="color:var(--color-ui-active); font-size:28px; font-weight:800; letter-spacing:-0.5px;">
-                ${stats.time} perc
+                ${timeText}
             </span>
         </div>
     `;
     
     // Alcím: Az össztávolság és a célpont nevének megjelenítése
+    const distText = typeof t === 'function' ? t('nav.dist_meters', { dist: stats.dist }) : `${stats.dist} m`;
     sub.innerHTML = `
         <div style="text-align:center; width:100%; font-size:15px; opacity:0.8; margin-top:-5px;">
-            ${stats.dist} m <span style="margin:0 6px; opacity:0.4;">&bull;</span> ${targetName}
+            ${distText} <span style="margin:0 6px; opacity:0.4;">&bull;</span> ${targetName}
         </div>
     `;
 
@@ -3711,13 +3855,17 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
     // Az útvonalterv HTML struktúrájának összeállítása
     let html = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;">`;
     
+    const clickToViewText = typeof t === 'function' ? t('nav.click_to_view') : 'Kattints a megtekintéshez';
+    const startText = typeof t === 'function' ? t('nav.start', { source: sourceName }) : `Indulás: ${sourceName}`;
+    const arrivalText = typeof t === 'function' ? t('nav.arrival', { target: targetName }) : `Megérkezés: ${targetName}`;
+
     // Indulási pont HTML sorának generálása kattintható (fókuszáló) eseménykezelővel
     html += `
         <div class="itiner-step clickable-step" onclick="focusOnEndpoint('start')">
             <div class="itiner-icon start"><span class="material-symbols-outlined">trip_origin</span></div>
             <div class="itiner-text">
-                <div style="font-weight:bold; font-size:16px;">Indulás: ${sourceName}</div>
-                <div style="font-size:12px; opacity:0.6; margin-top:2px;">Kattints a megtekintéshez</div>
+                <div style="font-weight:bold; font-size:16px;">${startText}</div>
+                <div style="font-size:12px; opacity:0.6; margin-top:2px;">${clickToViewText}</div>
             </div>
         </div>
     `;
@@ -3729,7 +3877,7 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
                 <div class="itiner-icon"><span class="material-symbols-outlined">${step.icon}</span></div>
                 <div class="itiner-text">
                     <div style="font-weight:bold; font-size:16px;">${step.text}</div>
-                    <div style="font-size:12px; opacity:0.6; margin-top:2px;">Kattints a megtekintéshez</div>
+                    <div style="font-size:12px; opacity:0.6; margin-top:2px;">${clickToViewText}</div>
                 </div>
             </div>
         `;
@@ -3740,8 +3888,8 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         <div class="itiner-step clickable-step" onclick="focusOnEndpoint('end')">
             <div class="itiner-icon end"><span class="material-symbols-outlined">location_on</span></div>
             <div class="itiner-text">
-                <div style="font-weight:bold; font-size:16px;">Megérkezés: ${targetName}</div>
-                <div style="font-size:12px; opacity:0.6; margin-top:2px;">Kattints a megtekintéshez</div>
+                <div style="font-weight:bold; font-size:16px;">${arrivalText}</div>
+                <div style="font-size:12px; opacity:0.6; margin-top:2px;">${clickToViewText}</div>
             </div>
         </div>
     `;
@@ -3887,7 +4035,6 @@ function drawSelectedHighlight(feature) {
             const matchesRef = targetRef && el.dataset.ref === targetRef;
             const matchesCoord = targetCoords && el.dataset.coords === targetCoords;
             if (matchesIndex || matchesRef || matchesCoord) {
-                matchCount++;
                 el.classList.add('selected-poi');
                 const shape = el.querySelector('.poi-pin-shape');
                 if (shape) shape.classList.add('selected-poi');
@@ -4042,9 +4189,10 @@ function handleSearch(e) {
         // Ha semmi találat nincs az aktuális épületben, megnézzük, hogy a regex alapján máshol van-e
         for (const [key, data] of Object.entries(BUILDINGS)) {
             if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
+                const bName = getBuildingName(key);
                 showModal(
-                    "Épület Váltás", 
-                    `Nincs találat itt. A keresett hely (${term}) valószínűleg a(z) ${data.name}-ben van. Átváltsunk?`, 
+                    typeof t === 'function' ? t('modal.switch_building_title') : "Épület Váltás", 
+                    typeof t === 'function' ? t('modal.switch_building_prompt', { building: bName }) : `Nincs találat itt. A keresett hely (${term}) valószínűleg a(z) ${bName}-ben van. Átváltsunk?`, 
                     () => { changeBuilding(key, term); }
                 );
                 // A UI frissítése: becsukjuk a listát, fókusz levétele
@@ -4055,7 +4203,7 @@ function handleSearch(e) {
         }
 
         // --- 4. Ha végképp semmi ---
-        showToast("Nincs találat erre a kifejezésre.");
+        showToast(typeof t === 'function' ? t('toasts.no_search_results') : "Nincs találat erre a kifejezésre.");
         return; 
     }
 
@@ -4082,7 +4230,8 @@ function handleSearch(e) {
             const div = document.createElement('div');
             // Figyelemfelkeltő vizuális stílus (sárga szöveg) a javaslathoz
             div.className = 'result-item warning-text';
-            div.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle; margin-right:5px;">travel_explore</span> Talán a ${key} épületben?`;
+            const maybeText = typeof t === 'function' ? t('search.maybe_in_building', { building: key }) : `Talán a ${key} épületben?`;
+            div.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle; margin-right:5px;">travel_explore</span> ${maybeText}`;
             
             // Kattintás esemény: azonnali épületváltás a beírt keresőszó átadásával
             div.onclick = () => changeBuilding(key, term);
@@ -4104,9 +4253,10 @@ function handleSearch(e) {
                 
                 const name = hit.properties.name || hit.properties.ref || "???";
                 const lvl = getLevelsFromFeature(hit)[0] || "?";
+                const levelBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `(Szint: ${escapeHTML(lvl)})`;
                 
                 // A javaslat összeállítása: Név (kiemelve) és a szint (halványan)
-                div.innerHTML = `${escapeHTML(name)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">(Szint: ${escapeHTML(lvl)})</span>`;
+                div.innerHTML = `${escapeHTML(name)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                 div.onclick = () => { 
@@ -4298,8 +4448,9 @@ function showPoiCategory(typeKey) {
     
     // --- HIBAKEZELÉS: Ha egyáltalán nincs ilyen POI az épületben ---
     if (allPois.length === 0) {
-        const config = POI_TYPES[typeKey];
-        showToast(`Nincs ${config.name.toLowerCase()} a(z) ${currentBuilding.name}-ben! 🚫`);
+        const poiName = typeof getPoiName === 'function' ? getPoiName(typeKey) : (POI_TYPES[typeKey] ? POI_TYPES[typeKey].name : typeKey);
+        const currentBName = getBuildingName(currentBuildingKey);
+        showToast(typeof t === 'function' ? t('toasts.poi_not_in_building', { poi: poiName.toLowerCase(), building: currentBName }) : `Nincs ${poiName.toLowerCase()} a(z) ${currentBName}-ben! 🚫`);
         
         activePoiCategory = null;
         
@@ -4356,7 +4507,7 @@ function showPoiCategory(typeKey) {
             }
             
             const displayLvl = levelAliases[targetLvl] || targetLvl;
-            showToast(`Nincs ezen a szinten. Átváltás a(z) ${displayLvl}. szintre...`);
+            showToast(typeof t === 'function' ? t('toasts.poi_switch_level', { level: displayLvl }) : `Nincs ezen a szinten. Átváltás a(z) ${displayLvl}. szintre...`);
             
             switchLevel(targetLvl);
             
@@ -5019,7 +5170,8 @@ function toggleNearbyMenu() {
     
     container = document.createElement('div');
     container.id = 'nearby-menu-container';
-    container.innerHTML = `<h4 style="margin: 15px 0 5px 0; text-align: center; font-size: 13px; opacity: 0.6; text-transform: uppercase;">Mit keresel a közelben?</h4>`;
+    const nearbyTitle = typeof t === 'function' ? t('sheet.nearby_prompt') : "Mit keresel a közelben?";
+    container.innerHTML = `<h4 style="margin: 15px 0 5px 0; text-align: center; font-size: 13px; opacity: 0.6; text-transform: uppercase;">${nearbyTitle}</h4>`;
     
     const grid = document.createElement('div');
     grid.className = 'poi-grid-container';
@@ -5030,11 +5182,12 @@ function toggleNearbyMenu() {
         if (config.hideInGrid) continue; // Rejtett kategóriák átugrása
         const item = document.createElement('div');
         item.className = 'poi-grid-item';
+        const poiDisplayName = typeof getPoiName === 'function' ? getPoiName(key) : config.name;
         item.innerHTML = `
             <div class="poi-grid-icon" style="background-color: ${config.color}">
                 <span class="material-symbols-outlined">${config.icon}</span>
             </div>
-            <span class="poi-grid-label">${config.name}</span>
+            <span class="poi-grid-label">${poiDisplayName}</span>
         `;
         
         item.onclick = () => {
@@ -5072,7 +5225,7 @@ function resetNearbyMenu() {
  */
 function findNearestPOI(typeKey) {
     if (!selectedFeature) { 
-        alert("Először válassz ki egy kiindulópontot a térképen!"); 
+        alert(typeof t === 'function' ? t('alerts.select_start_first') : "Először válassz ki egy kiindulópontot a térképen!"); 
         return; 
     }
 
@@ -5103,7 +5256,8 @@ function findNearestPOI(typeKey) {
     }
 
     if (targets.length === 0) { 
-        alert(`Nem találtam ${config.name.toLowerCase()}t ezen a térképen!`); 
+        const poiName = typeof getPoiName === 'function' ? getPoiName(typeKey) : (config ? config.name : typeKey);
+        alert(typeof t === 'function' ? t('alerts.no_poi_found_on_map', { poi: poiName.toLowerCase() }) : `Nem találtam ${poiName.toLowerCase()}t ezen a térképen!`); 
         return; 
     }
 
@@ -5124,7 +5278,7 @@ function findNearestPOI(typeKey) {
         pendingNavSource = selectedFeature; 
         startNavigation(bestTarget, selectedFeature); 
     } else {
-        alert("Hiba a keresés során.");
+        alert(typeof t === 'function' ? t('alerts.search_error') : "Hiba a keresés során.");
     }
 }
 
@@ -5198,7 +5352,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     } else {
         // B) FŐBEJÁRAT HASZNÁLATA
         if (!mainEntranceNode) { 
-            alert("Nincs bejárat definiálva!"); 
+            alert(typeof t === 'function' ? t('alerts.no_entrance') : "Nincs bejárat definiálva!"); 
             return; 
         }
         // A főbejárat csomópontjának beillesztése a hálózatba
@@ -5212,7 +5366,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
 
     // Biztonsági megszakítás, ha egyáltalán nem sikerült kezdőpontot generálni
     if (startNodes.length === 0) { 
-        alert("Nem található start útvonalpont!"); 
+        alert(typeof t === 'function' ? t('alerts.no_start_point') : "Nem található start útvonalpont!"); 
         return; 
     }
 
@@ -5274,7 +5428,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
 
     // Biztonsági megszakítás, ha nem sikerült érvényes célpontot generálni
     if (endNodes.length === 0) { 
-        alert("Nem található cél útvonalpont!"); 
+        alert(typeof t === 'function' ? t('alerts.no_target_point') : "Nem található cél útvonalpont!"); 
         return; 
     }
 
@@ -5307,7 +5461,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
 
     // Megszakítás, ha a teljes gráfban nem található összefüggő útvonal
     if (!bestPath) { 
-        alert("Nincs útvonal!"); 
+        alert(typeof t === 'function' ? t('alerts.no_route') : "Nincs útvonal!"); 
         return; 
     }
 
@@ -5342,12 +5496,12 @@ function startNavigation(targetFeature = null, fromFeature = null) {
             const startParts = bestPath[0].split(',');
             
             // Dinamikus név a bejárat típusa alapján
-            let entranceName = "Főbejárat";
+            let entranceName = typeof t === 'function' ? (t('types.main_entrance') || "Főbejárat") : "Főbejárat";
             if (mainEntranceNode && mainEntranceNode.properties) {
                 if (mainEntranceNode.properties.wheelchair === 'yes') {
-                    entranceName = "Akadálymentes Főbejárat";
+                    entranceName = typeof t === 'function' ? (t('types.main_entrance') || "Akadálymentes Főbejárat") : "Akadálymentes Főbejárat";
                 } else if (mainEntranceNode.properties.entrance && mainEntranceNode.properties.entrance !== 'main') {
-                    entranceName = "Bejárat";
+                    entranceName = typeof t === 'function' ? (t('types.entrance') || "Bejárat") : "Bejárat";
                 }
             }
 
@@ -5382,7 +5536,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
 
     } catch (err) { 
         console.error(err); 
-        alert("Hiba: " + err.message); 
+        alert(typeof t === 'function' ? t('alerts.general_error', { message: err.message }) : ("Hiba: " + err.message)); 
     }
 }
 
@@ -5583,12 +5737,25 @@ function generateItinerary(pathKeys) {
             // ezeket nem külön lépésekként ("Fel az 1-re", "Fel a 2-re"), hanem egyetlen végső
             // instrukcióként jelenítjük meg ("Fel a 2. szintre").
             const lastStep = steps[steps.length - 1];
+
+            const formatStepText = (mType, dir, lvlLabel) => {
+                const isStairs = mType === 'Lépcső' || mType === 'stairs';
+                const isUp = dir === 'FEL';
+                const key = isStairs 
+                    ? (isUp ? 'nav.step_stairs_up' : 'nav.step_stairs_down')
+                    : (isUp ? 'nav.step_elevator_up' : 'nav.step_elevator_down');
+                if (typeof t === 'function') {
+                    const trans = t(key, { level: lvlLabel });
+                    if (trans && trans !== key) return trans;
+                }
+                return `${mType} ${dir} a(z) ${lvlLabel}. szintre`;
+            };
             
             if (lastStep && lastStep.type === 'transition' && 
                 lastStep.moveType === type && lastStep.direction === direction) {
                 
                 // A meglévő lépés frissítése a legújabb célszinttel
-                lastStep.text = `${type} ${direction} a(z) ${label}. szintre`;
+                lastStep.text = formatStepText(type, direction, label);
                 lastStep.level = currLevel; 
             } else {
                 // Új, önálló instrukció rögzítése az itinerben
@@ -5596,7 +5763,7 @@ function generateItinerary(pathKeys) {
                     type: 'transition',
                     moveType: type,          // Pl. 'Lift' vagy 'Lépcső'
                     direction: direction,    // 'FEL' vagy 'LE'
-                    text: `${type} ${direction} a(z) ${label}. szintre`,
+                    text: formatStepText(type, direction, label),
                     icon: icon,              // Material ikon azonosító
                     level: currLevel         // Emelet azonosítója (későbbi fókuszáláshoz)
                 });
@@ -6560,12 +6727,12 @@ function shareCurrentState() {
     // Kísérlet a generált URL vágólapra helyezésére a Clipboard API használatával
     navigator.clipboard.writeText(url.toString()).then(() => {
         // Sikeres másolás esetén értesítés megjelenítése
-        showToast("Link másolva! 📋");
+        showToast(typeof t === 'function' ? t('toasts.link_copied') : "Link másolva! 📋");
     }).catch(err => {
         // Hibakezelés: ha a böngésző biztonsági okokból blokkolja a vágólap hozzáférést,
         // egy manuális prompt ablakot biztosítunk a másoláshoz
         console.error('Copy failed', err);
-        prompt("Másold ki a linket:", url.toString());
+        prompt(typeof t === 'function' ? t('alerts.copy_link_prompt') : "Másold ki a linket:", url.toString());
     });
 }
 
@@ -6779,7 +6946,12 @@ function enableOneFingerZoom(map) {
 }
 
 // === ALKALMAZÁS INICIALIZÁLÁSA ===
-map.on('load', () => {
+map.on('load', async () => {
+    if (typeof i18n !== 'undefined') {
+        await i18n.init();
+        APP_SETTINGS.language = i18n.currentLanguage;
+    }
+
     _initMapSources();
     _initMapLayers();
     _mapLayersInitialized = true;
@@ -6789,6 +6961,7 @@ map.on('load', () => {
     initBuildings();
     renderThemeSelector();
     applyTheme();
+    updateSettingsUI();
 
     const params = new URLSearchParams(window.location.search);
     const shareCode = params.get('share');
@@ -6830,6 +7003,20 @@ map.on('load', () => {
     }
 
     detectClosestBuilding();
+});
+
+// Nyelvváltás eseményfigyelő
+window.addEventListener('languageChanged', () => {
+    updateSettingsUI();
+    renderThemeSelector();
+    if (typeof initBuildings === 'function') initBuildings();
+    if (activeRouteData && activeNavTarget && activeNavSource && currentRoutePath) {
+        const stats = calculateRouteStats(currentRoutePath);
+        const itinerary = generateItinerary(currentRoutePath);
+        updateSheetForNavigation(activeNavTarget, stats, itinerary, activeNavSource);
+    } else if (selectedFeature && document.getElementById('bottom-sheet') && document.getElementById('bottom-sheet').classList.contains('open')) {
+        openSheet(selectedFeature);
+    }
 });
 
 
@@ -6878,5 +7065,5 @@ if (installBtn) {
 // Ha a felhasználó már telepítette az appot, elrejtjük a gombot
 window.addEventListener('appinstalled', () => {
     if (installSection) installSection.style.display = 'none';
-    showToast("BMEmap sikeresen telepítve! 📱");
+    showToast(typeof t === 'function' ? t('toasts.pwa_installed') : "BMEmap sikeresen telepítve! 📱");
 });

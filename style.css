@@ -358,9 +358,28 @@
         .seg-btn {
             flex: 1; border: none; background: transparent; color: #aaa;
             padding: 10px; border-radius: 16px; cursor: pointer;
-            transition: all 0.2s; display: flex; justify-content: center;
+            transition: all 0.2s; display: flex; justify-content: center; align-items: center;
         }
         .seg-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+
+        .seg-lang-content {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .flag-icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            display: inline-block;
+            flex-shrink: 0;
+            vertical-align: middle;
+        }
         
         /* Colored Toilets */
         .male-btn.active { background: #42a5f5; color: white; }

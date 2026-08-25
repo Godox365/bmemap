@@ -6,7 +6,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE kari - kulcsos! Projektoros, LégkondicionáltVegyész Dékáni Hivatal (Régen CH205)",
+        "note": {
+            "hu": "VE kari - kulcsos! Projektoros, légkondicionált (Vegyész Dékáni Hivatal, régen CH205)",
+            "en": "Faculty of Chem. Tech. - Key required! Projector, Air-conditioned (Dean's Office, formerly CH205)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images0/ch201.jpg",
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images0/ch201_2.jpg",
@@ -19,7 +22,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "VE-kari kulcsos VE DH Légkondicionált, projektoros",
+        "note": {
+            "hu": "VE-kari kulcsos (VE DH), légkondicionált, projektoros",
+            "en": "Faculty of Chem. Tech. - Key required (Dean's Office), Air-conditioned, Projector"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images9/ch301.jpg"
         ]
@@ -31,7 +37,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE-kari kulcsos VE DH Projektoros, Légkondicionált",
+        "note": {
+            "hu": "VE-kari kulcsos (VE DH), projektoros, légkondicionált",
+            "en": "Faculty of Chem. Tech. - Key required (Dean's Office), Projector, Air-conditioned"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images8/ch302.jpg"
         ]
@@ -42,7 +51,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "VE kari kulcsos, Légkondicionált",
+        "note": {
+            "hu": "VE kari kulcsos, légkondicionált",
+            "en": "Faculty of Chem. Tech. - Key required, Air-conditioned"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images7/ch304.jpg"
         ]
@@ -54,7 +66,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE kari kulcsos, Légkondicionált",
+        "note": {
+            "hu": "VE kari kulcsos, légkondicionált",
+            "en": "Faculty of Chem. Tech. - Key required, Air-conditioned"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images10/ch305.jpg"
         ]
@@ -65,7 +80,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "VE-kari kulcsos, Légkondicionált",
+        "note": {
+            "hu": "VE-kari kulcsos, légkondicionált",
+            "en": "Faculty of Chem. Tech. - Key required, Air-conditioned"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images6/ch306.jpg"
         ]
@@ -77,7 +95,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE-kari kulcsos projektoros",
+        "note": {
+            "hu": "VE-kari kulcsos, projektoros",
+            "en": "Faculty of Chem. Tech. - Key required, Projector"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images5/ch307.jpg"
         ]
@@ -89,7 +110,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE-kari -kulcsos projektoros, Légkondicionált",
+        "note": {
+            "hu": "VE-kari kulcsos, projektoros, légkondicionált",
+            "en": "Faculty of Chem. Tech. - Key required, Projector, Air-conditioned"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images4/ch308.jpg"
         ]
@@ -101,7 +125,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE kari -kulcsos projektoros(Régen CHA20)",
+        "note": {
+            "hu": "VE kari kulcsos, projektoros (régen CHA20)",
+            "en": "Faculty of Chem. Tech. - Key required, Projector (formerly CHA20)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images3/cha10.jpg"
         ]
@@ -113,7 +140,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE-kari kulcsos projektoros(Régen CHA21)",
+        "note": {
+            "hu": "VE-kari kulcsos, projektoros (régen CHA21)",
+            "en": "Faculty of Chem. Tech. - Key required, Projector (formerly CHA21)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images1/cha111.jpg",
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images1/cha112.jpg",
@@ -128,7 +158,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE kozp kulcsos-projektor-hangosítás VE DH",
+        "note": {
+            "hu": "VE központi kulcsos, projektor, hangosítás (VE DH)",
+            "en": "Central room (Chem. Tech.), Key required, Projector, Sound system (Dean's Office)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/CH-epulet_files/vlb_images2/chc14.jpg"
         ]
@@ -137,7 +170,10 @@ const ROOM_DATABASE = {
         "name": "CHFMAX",
         "capacity": "540",
         "tags": [],
-        "note": "UZO kozp",
+        "note": {
+            "hu": "Üzemeltetési és Üzemviteli Osztály (UZO) központi terem",
+            "en": "Central Operations (UZO) managed room"
+        },
         "images": []
     },
     "e1a": {
@@ -146,7 +182,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "GT kozp kulcsos GT DH",
+        "note": {
+            "hu": "GT központi kulcsos (GT DH)",
+            "en": "Central room (Econ. & Social Sci.), Key required (Dean's Office)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images0/e1a1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images0/e1a2.jpg",
@@ -162,7 +201,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "VI kozp kulcsos VI DH",
+        "note": {
+            "hu": "VI központi kulcsos (VI DH)",
+            "en": "Central room (VIK), Key required (Dean's Office)"
+        },
         "images": []
     },
     "e1c": {
@@ -171,14 +213,20 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "VIK-foglalási prioritás  kulcsos  VIK-DH",
+        "note": {
+            "hu": "VIK foglalási prioritás, kulcsos (VIK DH)",
+            "en": "VIK booking priority, Key required (Dean's Office)"
+        },
         "images": []
     },
     "e201": {
         "name": "E201",
         "capacity": "48",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images1/e201_2.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images1/e2011.jpg"
@@ -188,7 +236,10 @@ const ROOM_DATABASE = {
         "name": "E202",
         "capacity": "72",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images2/e202_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images2/e202_2.jpg"
@@ -198,7 +249,10 @@ const ROOM_DATABASE = {
         "name": "E203",
         "capacity": "30",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images3/e203_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images3/e203_2.jpg"
@@ -208,7 +262,10 @@ const ROOM_DATABASE = {
         "name": "E204",
         "capacity": "72",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images4/e204_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images4/e204_2.jpg"
@@ -218,7 +275,10 @@ const ROOM_DATABASE = {
         "name": "E205",
         "capacity": "90",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images5/e205_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images5/e205_2.jpg"
@@ -228,7 +288,10 @@ const ROOM_DATABASE = {
         "name": "E301",
         "capacity": "30",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images6/e301_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images6/e301_2.jpg"
@@ -238,7 +301,10 @@ const ROOM_DATABASE = {
         "name": "E302",
         "capacity": "48",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images7/e302_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images7/e302_2.jpg"
@@ -248,7 +314,10 @@ const ROOM_DATABASE = {
         "name": "E303",
         "capacity": "30",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images8/e303_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images8/e303_2.jpg"
@@ -258,7 +327,10 @@ const ROOM_DATABASE = {
         "name": "E304",
         "capacity": "30",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images9/e304_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images9/e304_2.jpg"
@@ -271,7 +343,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images10/e305ab_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images10/e305ab_2.jpg",
@@ -285,7 +360,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": []
     },
     "e306ab": {
@@ -295,7 +373,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": []
     },
     "e306cd": {
@@ -305,7 +386,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images11/e306cd1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images11/e306cd2.jpg",
@@ -319,7 +403,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images12/e401_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images12/e401_2.jpg",
@@ -333,7 +420,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": []
     },
     "e403": {
@@ -343,7 +433,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": []
     },
     "e404": {
@@ -353,7 +446,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images13/e4041.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images13/e4042.jpg",
@@ -368,7 +464,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images14/e4051.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images14/e4052.jpg",
@@ -382,7 +481,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images15/e4061.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images15/e4063.jpg",
@@ -396,7 +498,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GTK (VIK foglalási prioritás)",
+        "note": {
+            "hu": "GTK (VIK foglalási prioritás)",
+            "en": "GTK (VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images16/e4071.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images16/e4072.jpg",
@@ -407,7 +512,10 @@ const ROOM_DATABASE = {
         "name": "E501",
         "capacity": "48",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images17/e501_2.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images17/e501_1.jpg"
@@ -417,7 +525,10 @@ const ROOM_DATABASE = {
         "name": "E502",
         "capacity": "48",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images18/e502_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images18/e502_2.jpg"
@@ -427,7 +538,10 @@ const ROOM_DATABASE = {
         "name": "E503",
         "capacity": "48",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images19/e503_1.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images19/e503_2.jpg"
@@ -437,7 +551,10 @@ const ROOM_DATABASE = {
         "name": "E504",
         "capacity": "48",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images20/e504_1.jpg"
         ]
@@ -446,7 +563,10 @@ const ROOM_DATABASE = {
         "name": "E505",
         "capacity": "110",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images21/e5051.jpg",
             "https://www.ttdh.bme.hu/kari/E_epulet_files/vlb_images21/e5052.jpg"
@@ -459,7 +579,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE ,kozp kulcsos.A kulcsot a Bertalan Lajos u. 7. sz. tehergépjármű portán lehet felvenni.",
+        "note": {
+            "hu": "TE központi kulcsos. A kulcsot a Bertalan Lajos u. 7. sz. tehergépjármű portán lehet felvenni.",
+            "en": "Central room (Nat. Sci.), Key required. Key can be picked up at the gatehouse on Bertalan Lajos u. 7."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images1/f291.jpg",
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images1/f292.jpg",
@@ -472,7 +595,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "Átkerült a KancelláriáhozKulcsot a Bertalan Lajos u. 7. sz. tehergépjármű portán lehet felvenni.",
+        "note": {
+            "hu": "Átkerült a Kancelláriához. Kulcsot a Bertalan Lajos u. 7. sz. tehergépjármű portán lehet felvenni.",
+            "en": "Transferred to the Chancellery. Key can be picked up at the gatehouse on Bertalan Lajos u. 7."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images4/f2e1.jpg",
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images4/f2e2.jpg",
@@ -486,7 +612,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TEX-TEV-S-KX-XXXX-FizikaTsz",
+        "note": {
+            "hu": "Fizika Tanszék",
+            "en": "Department of Physics"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images2/f32131.jpg",
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images2/f32132.jpg"
@@ -499,7 +628,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TEO-TEV-T-KX-XXXX-FizInt - Csak az Elméleti Fizika Tanszék engedélyével \n    foglalható! Kérjük, hogy foglalás előtt egyeztessenek a tanszéki titkárságon \n    (41 07).",
+        "note": {
+            "hu": "Fizikai Intézet - Csak az Elméleti Fizika Tanszék engedélyével foglalható! Kérjük, foglalás előtt egyeztessenek a tanszéki titkárságon (41 07).",
+            "en": "Institute of Physics - Bookable only with permission from Dept. of Theoretical Physics. Please contact the department secretariat (ext. 4107)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images0/f3m011.jpg",
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images0/f3m012.jpg",
@@ -513,7 +645,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE - Fizikai Intézet, Szemináriumi szoba, csak \n    intézeti engedéllyel foglalható",
+        "note": {
+            "hu": "Fizikai Intézet szemináriumi szoba, csak intézeti engedéllyel foglalható.",
+            "en": "Institute of Physics seminar room, bookable only with institute permission."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images5/f31sem1.jpg",
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images5/f31sem2.jpg",
@@ -528,7 +663,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TEO-TEV-T-KX-XXXX-AtomfizikaTsz",
+        "note": {
+            "hu": "Atomfizika Tanszék",
+            "en": "Department of Atomic Physics"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images3/fasem1.jpg",
             "https://www.ttdh.bme.hu/kari/F_epulet_files/vlb_images3/fasem2.jpg",
@@ -542,7 +680,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TEO-TEV-S-KX-XXXX-MatIntSzgLabor",
+        "note": {
+            "hu": "Matematika Intézet Számítógépes Labor",
+            "en": "Institute of Mathematics Computer Laboratory"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images11/h27uj.jpg"
         ]
@@ -551,7 +692,10 @@ const ROOM_DATABASE = {
         "name": "2. emeleti előtér",
         "capacity": "14",
         "tags": [],
-        "note": "nincs benne a neptunban",
+        "note": {
+            "hu": "Nincs benne a Neptunban.",
+            "en": "Not registered in Neptun."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images0/h2eloter1.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images0/h2eloter2.jpg"
@@ -564,7 +708,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
+        "note": {
+            "hu": "TE kari - nem adható ki (Matematika Intézet).",
+            "en": "Faculty of Nat. Sci. - Not available for booking (Institute of Mathematics)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images8/h3062.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images8/h3063.jpg",
@@ -575,7 +722,10 @@ const ROOM_DATABASE = {
         "name": "3. emeleti előtér",
         "capacity": "14",
         "tags": [],
-        "note": "nincs benne a neptunban",
+        "note": {
+            "hu": "Nincs benne a Neptunban.",
+            "en": "Not registered in Neptun."
+        },
         "images": []
     },
     "h405a": {
@@ -585,7 +735,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE-kari - nem adható ki -Tanszéki Matematika Int.",
+        "note": {
+            "hu": "TE kari - nem adható ki (Matematika Intézet).",
+            "en": "Faculty of Nat. Sci. - Not available for booking (Institute of Mathematics)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images5/h45a2.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images5/h45a3.jpg",
@@ -601,7 +754,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
+        "note": {
+            "hu": "TE kari - nem adható ki (Matematika Intézet).",
+            "en": "Faculty of Nat. Sci. - Not available for booking (Institute of Mathematics)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images6/h462.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images6/h463.jpg",
@@ -615,7 +771,10 @@ const ROOM_DATABASE = {
         "name": "4. emeleti előtér",
         "capacity": "14",
         "tags": [],
-        "note": "nincs benne a neptunban",
+        "note": {
+            "hu": "Nincs benne a Neptunban.",
+            "en": "Not registered in Neptun."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images1/h4eloter1.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images1/h4eloter2.jpg"
@@ -628,7 +787,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TEO-TEV-S-KX-XXXX-MatIntSzgLabor",
+        "note": {
+            "hu": "Matematika Intézet Számítógépes Labor",
+            "en": "Institute of Mathematics Computer Laboratory"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images12/h57uj.jpg"
         ]
@@ -637,7 +799,10 @@ const ROOM_DATABASE = {
         "name": "5. emeleti előtér",
         "capacity": "14",
         "tags": [],
-        "note": "nincs benne a neptunban",
+        "note": {
+            "hu": "Nincs benne a Neptunban.",
+            "en": "Not registered in Neptun."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images2/h5eloter1.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images2/h5eloter2.jpg"
@@ -650,7 +815,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
+        "note": {
+            "hu": "TE kari - nem adható ki (Matematika Intézet).",
+            "en": "Faculty of Nat. Sci. - Not available for booking (Institute of Mathematics)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images13/h601uj.jpg"
         ]
@@ -662,7 +830,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "TE-kari - nem adható ki - Tanszéki Mat. Int.",
+        "note": {
+            "hu": "TE kari - nem adható ki (Matematika Intézet).",
+            "en": "Faculty of Nat. Sci. - Not available for booking (Institute of Mathematics)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images10/h6072.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images10/h6073.jpg",
@@ -674,7 +845,10 @@ const ROOM_DATABASE = {
         "name": "6. emeleti előtér",
         "capacity": "16",
         "tags": [],
-        "note": "nincs benne a neptunban",
+        "note": {
+            "hu": "Nincs benne a Neptunban.",
+            "en": "Not registered in Neptun."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images3/h6eloter1.jpg",
             "https://www.ttdh.bme.hu/kari/H_epulet_files/vlb_images3/h6eloter2.jpg"
@@ -686,7 +860,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VI kozp",
+        "note": {
+            "hu": "VI központi terem",
+            "en": "Central room (VIK)"
+        },
         "images": []
     },
     "ib026": {
@@ -695,7 +872,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VI kozp",
+        "note": {
+            "hu": "VI központi terem",
+            "en": "Central room (VIK)"
+        },
         "images": []
     },
     "ib027": {
@@ -704,7 +884,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VI kozp",
+        "note": {
+            "hu": "VI központi terem",
+            "en": "Central room (VIK)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images0/ib027_1.jpg",
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images0/ib027_2.jpg",
@@ -720,7 +903,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VI kozp",
+        "note": {
+            "hu": "VI központi terem",
+            "en": "Central room (VIK)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images1/ib0281.jpg",
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images1/ib0282.jpg",
@@ -734,7 +920,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VI kozp",
+        "note": {
+            "hu": "VI központi terem",
+            "en": "Central room (VIK)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images2/ie007_1.jpg",
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images2/ie007_2.jpg",
@@ -746,7 +935,10 @@ const ROOM_DATABASE = {
         "name": "IE219",
         "capacity": "25",
         "tags": [],
-        "note": "VI-kari, csak VIK használhatja",
+        "note": {
+            "hu": "VI kari, csak a VIK használhatja.",
+            "en": "VIK faculty room, reserved exclusively for VIK."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images3/ie219_1.jpg",
             "https://www.ttdh.bme.hu/kari/I_epulet_files/vlb_images3/ie219_2.jpg"
@@ -759,7 +951,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "KO-kari",
+        "note": {
+            "hu": "Közlekedésmérnöki Kar (KJK)",
+            "en": "Faculty of Transportation Engineering (KJK)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images2/j1021.jpg",
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images2/j1022.jpg",
@@ -774,7 +969,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "KO-kari kulcsos KO DH",
+        "note": {
+            "hu": "KO kari kulcsos (KO DH)",
+            "en": "Faculty of Transportation Engineering, Key required (Dean's Office)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images1/j2021.jpg",
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images1/j2022.jpg",
@@ -788,7 +986,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "KO-kari kulcsos KO DH",
+        "note": {
+            "hu": "KO kari kulcsos (KO DH)",
+            "en": "Faculty of Transportation Engineering, Key required (Dean's Office)"
+        },
         "images": []
     },
     "j208": {
@@ -798,7 +999,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "KO-kari kulcsos KO DH",
+        "note": {
+            "hu": "KO kari kulcsos (KO DH)",
+            "en": "Faculty of Transportation Engineering, Key required (Dean's Office)"
+        },
         "images": []
     },
     "j209": {
@@ -808,7 +1012,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "KO-kari kulcsos KO DH",
+        "note": {
+            "hu": "KO kari kulcsos (KO DH)",
+            "en": "Faculty of Transportation Engineering, Key required (Dean's Office)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images3/j2091.jpg",
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images3/j2092.jpg",
@@ -824,7 +1031,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "KO-kari kulcsos KO DH",
+        "note": {
+            "hu": "KO kari kulcsos (KO DH)",
+            "en": "Faculty of Transportation Engineering, Key required (Dean's Office)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images0/j2101.jpg",
             "https://www.ttdh.bme.hu/kari/J_epulet_files/vlb_images0/j2102.jpg",
@@ -838,7 +1048,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "VE kozp régen: K121; projektoros, kulcsos",
+        "note": {
+            "hu": "VE központi (régen: K121), projektoros, kulcsos",
+            "en": "Central room (Chem. Tech., formerly K121), Projector, Key required"
+        },
         "images": []
     },
     "k150": {
@@ -848,7 +1061,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GE központi, projektoros. Kulcsos terem. Régen: K133",
+        "note": {
+            "hu": "GE központi, projektoros, kulcsos terem (régen: K133).",
+            "en": "Central room (Mech. Eng.), Projector, Key required (formerly K133)."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images18/k1501.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images18/k1502.jpg"
@@ -861,7 +1077,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GE központi, projektoros. Kulcsos terem. Régen: K140",
+        "note": {
+            "hu": "GE központi, projektoros, kulcsos terem (régen: K140).",
+            "en": "Central room (Mech. Eng.), Projector, Key required (formerly K140)."
+        },
         "images": []
     },
     "k174": {
@@ -871,7 +1090,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "EO-kozp-kulcs régen K148 projektoros",
+        "note": {
+            "hu": "EO központi kulcsos, projektoros (régen: K148)",
+            "en": "Central room (Civil Eng.), Key required, Projector (formerly K148)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images17/k1741.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images17/k1742.jpg",
@@ -884,7 +1106,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "EP-kari rendezvényterem -- kulcsos -- régen K201. Foglalást a Dékáni \n    Hivatalban kell intézni. Tel: 35-21.Kulcsot a Dékániban lehet felvenni. (nincsenek asztalok)",
+        "note": {
+            "hu": "Építész Kari rendezvényterem (kulcsos, régen K201). Foglalás a Dékáni Hivatalban: 35-21. Kulcs a Dékániban. (Nincsenek asztalok)",
+            "en": "Faculty of Architecture event hall (Key required, formerly K201). Booking at Dean's Office: ext. 35-21. Key at Dean's Office. (No tables)"
+        },
         "images": []
     },
     "k221": {
@@ -894,14 +1119,20 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "EP-kari terem (előadó) -- Kulcsos (EPDH)projektor, vetítővászon",
+        "note": {
+            "hu": "ÉP kari előadóterem, kulcsos (ÉP DH), projektor, vetítővászon",
+            "en": "Faculty of Architecture lecture hall, Key required (Dean's Office), Projector, Projection screen"
+        },
         "images": []
     },
     "k222": {
         "name": "K222",
         "capacity": "35",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok) felújított",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), felújított",
+            "en": "Faculty of Architecture room (large drafting tables), renovated"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images20/k2221.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images20/k2222.jpg",
@@ -912,7 +1143,10 @@ const ROOM_DATABASE = {
         "name": "K234",
         "capacity": "540",
         "tags": [],
-        "note": "EO-kozp régen: K221",
+        "note": {
+            "hu": "EO központi terem (régen: K221)",
+            "en": "Central room (Civil Eng., formerly K221)"
+        },
         "images": []
     },
     "k250": {
@@ -922,7 +1156,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "EP kozp régen: K232",
+        "note": {
+            "hu": "ÉP központi terem (régen: K232)",
+            "en": "Central room (Architecture, formerly K232)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images16/k2501.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images16/k2502.jpg",
@@ -935,14 +1172,20 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "EP kozp régen. K240 projektoros",
+        "note": {
+            "hu": "ÉP központi terem, projektoros (régen: K240)",
+            "en": "Central room (Architecture), Projector (formerly K240)"
+        },
         "images": []
     },
     "k275": {
         "name": "K275",
         "capacity": "252",
         "tags": [],
-        "note": "EP-kari (számítógép csatlakozás) régen K253",
+        "note": {
+            "hu": "ÉP kari terem (számítógép csatlakozás, régen K253)",
+            "en": "Faculty of Architecture room (PC connection, formerly K253)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images15/k2751.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images15/k2752.jpg"
@@ -952,7 +1195,10 @@ const ROOM_DATABASE = {
         "name": "K285",
         "capacity": "64",
         "tags": [],
-        "note": "EP-kari terem (előadó) régen: K264",
+        "note": {
+            "hu": "ÉP kari előadóterem (régen: K264)",
+            "en": "Faculty of Architecture lecture hall (formerly K264)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images14/k2852.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images14/k2853.jpg",
@@ -964,35 +1210,50 @@ const ROOM_DATABASE = {
         "name": "K342",
         "capacity": "34",
         "tags": [],
-        "note": "EP-kari terem (dupla asztalok) felújítottvetítőfelület",
+        "note": {
+            "hu": "ÉP kari terem (dupla asztalok), felújított, vetítőfelület",
+            "en": "Faculty of Architecture room (double tables), renovated, projection screen"
+        },
         "images": []
     },
     "k343": {
         "name": "K343",
         "capacity": "24",
         "tags": [],
-        "note": "EP-kari terem (dupla asztalok) felújítottvetítőfelület",
+        "note": {
+            "hu": "ÉP kari terem (dupla asztalok), felújított, vetítőfelület",
+            "en": "Faculty of Architecture room (double tables), renovated, projection screen"
+        },
         "images": []
     },
     "k344": {
         "name": "K344",
         "capacity": "42",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok) új asztalokvetítőfelület, világos függöny",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), új asztalok, vetítőfelület, világos függöny",
+            "en": "Faculty of Architecture room (large drafting tables), new tables, projection screen, light curtains"
+        },
         "images": []
     },
     "k345": {
         "name": "K345",
         "capacity": "35",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok)vetítőfelület",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), vetítőfelület",
+            "en": "Faculty of Architecture room (large drafting tables), projection screen"
+        },
         "images": []
     },
     "k350": {
         "name": "K350",
         "capacity": "99",
         "tags": [],
-        "note": "EP-kari terem (előadó) nagy asztalok, székek, vetítőfelület",
+        "note": {
+            "hu": "ÉP kari előadóterem (nagy asztalok, székek, vetítőfelület)",
+            "en": "Faculty of Architecture lecture hall (large tables, chairs, projection screen)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images13/k3501.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images13/k3502.jpg",
@@ -1003,28 +1264,40 @@ const ROOM_DATABASE = {
         "name": "K351",
         "capacity": "35",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok) felújítottvetítőfelület",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), felújított, vetítőfelület",
+            "en": "Faculty of Architecture room (large drafting tables), renovated, projection screen"
+        },
         "images": []
     },
     "k352": {
         "name": "K352",
         "capacity": "30",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok), kb. 40 székvetítőfelület, világos függöny",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok, kb. 40 szék), vetítőfelület, világos függöny",
+            "en": "Faculty of Architecture room (large drafting tables, ~40 chairs), projection screen, light curtains"
+        },
         "images": []
     },
     "k353": {
         "name": "K353",
         "capacity": "30",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok), kb. 40 székvetítőfelület falon, világos függöny",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok, kb. 40 szék), vetítőfelület a falon, világos függöny",
+            "en": "Faculty of Architecture room (large drafting tables, ~40 chairs), wall projection screen, light curtains"
+        },
         "images": []
     },
     "k363": {
         "name": "K363",
         "capacity": "25",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok) régen K326",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok, régen K326)",
+            "en": "Faculty of Architecture room (large drafting tables, formerly K326)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images21/k3631.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images21/k3632.jpg"
@@ -1034,7 +1307,10 @@ const ROOM_DATABASE = {
         "name": "K371",
         "capacity": "32",
         "tags": [],
-        "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K332",
+        "note": {
+            "hu": "EO kari (ÉO DH), átbútorozva (régen 25 fős központi, K332)",
+            "en": "Faculty of Civil Engineering (Dean's Office), refurbished (formerly 25-capacity central room, K332)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images12/k3711.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images12/k3712.jpg",
@@ -1045,7 +1321,10 @@ const ROOM_DATABASE = {
         "name": "K372",
         "capacity": "32",
         "tags": [],
-        "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K333",
+        "note": {
+            "hu": "EO kari (ÉO DH), átbútorozva (régen 25 fős központi, K333)",
+            "en": "Faculty of Civil Engineering (Dean's Office), refurbished (formerly 25-capacity central room, K333)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images11/k3721.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images11/k3722.jpg",
@@ -1056,7 +1335,10 @@ const ROOM_DATABASE = {
         "name": "K373",
         "capacity": "32",
         "tags": [],
-        "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K334",
+        "note": {
+            "hu": "EO kari (ÉO DH), átbútorozva (régen 25 fős központi, K334)",
+            "en": "Faculty of Civil Engineering (Dean's Office), refurbished (formerly 25-capacity central room, K334)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images10/k3731.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images10/k3732.jpg",
@@ -1067,7 +1349,10 @@ const ROOM_DATABASE = {
         "name": "K374",
         "capacity": "32",
         "tags": [],
-        "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K335",
+        "note": {
+            "hu": "EO kari (ÉO DH), átbútorozva (régen 25 fős központi, K335)",
+            "en": "Faculty of Civil Engineering (Dean's Office), refurbished (formerly 25-capacity central room, K335)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images9/k3741.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images9/k3742.jpg",
@@ -1078,7 +1363,10 @@ const ROOM_DATABASE = {
         "name": "K375",
         "capacity": "32",
         "tags": [],
-        "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K336",
+        "note": {
+            "hu": "EO kari (ÉO DH), átbútorozva (régen 25 fős központi, K336)",
+            "en": "Faculty of Civil Engineering (Dean's Office), refurbished (formerly 25-capacity central room, K336)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images8/k3751.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images8/k3752.jpg",
@@ -1089,7 +1377,10 @@ const ROOM_DATABASE = {
         "name": "K376",
         "capacity": "25",
         "tags": [],
-        "note": "EO-kari  EODH átbútorozva (25 fő volt (koz.p)) régen K337",
+        "note": {
+            "hu": "EO kari (ÉO DH), átbútorozva (régen 25 fős központi, K337)",
+            "en": "Faculty of Civil Engineering (Dean's Office), refurbished (formerly 25-capacity central room, K337)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images7/k3761.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images7/k3762.jpg",
@@ -1100,21 +1391,30 @@ const ROOM_DATABASE = {
         "name": "K391",
         "capacity": "32",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok)vetítővászon",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), vetítővászon",
+            "en": "Faculty of Architecture room (large drafting tables), projection screen"
+        },
         "images": []
     },
     "k392": {
         "name": "K392",
         "capacity": "32",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok)vetítővászon",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), vetítővászon",
+            "en": "Faculty of Architecture room (large drafting tables), projection screen"
+        },
         "images": []
     },
     "k393": {
         "name": "K393",
         "capacity": "32",
         "tags": [],
-        "note": "EP-kari terem (nagy asztalok)vetítővászon",
+        "note": {
+            "hu": "ÉP kari terem (nagy asztalok), vetítővászon",
+            "en": "Faculty of Architecture room (large drafting tables), projection screen"
+        },
         "images": []
     },
     "kf38": {
@@ -1124,7 +1424,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GE központi, projektoros. Kulcsos terem. Kulcsfelvétel miatt a GPK Dékáni \n    Hivatalvezetőnek kell írni. régen KA26",
+        "note": {
+            "hu": "GE központi, projektoros, kulcsos terem (régen KA26). Kulcsfelvétel miatt a GPK Dékáni Hivatalvezetőnek kell írni.",
+            "en": "Central room (Mech. Eng.), Projector, Key required (formerly KA26). Key pickup requires contacting the Head of GPK Dean's Office."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images6/kf38_2.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images6/kf38_1.jpg"
@@ -1137,14 +1440,20 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GE központi, projektoros. Kulcsos terem. Régen KAAUD. Az Aud. Max. hétköznapokon 18:00 – 20:00 között könyvtári olvasóhely, amelyet igény szerint, a látógatói számtól függően nyitunk meg tanulás céljából.",
+        "note": {
+            "hu": "GE központi, projektoros, kulcsos terem (régen KAAUD). Az Auditorium Maximum hétköznapokon 18:00–20:00 között könyvtári olvasóhelyként működik tanulás céljából.",
+            "en": "Central room (Mech. Eng.), Projector, Key required (formerly KAAUD). The Auditorium Maximum serves as a library study area on weekdays from 18:00 to 20:00."
+        },
         "images": []
     },
     "kf76": {
         "name": "KF76",
         "capacity": "392",
         "tags": [],
-        "note": "UZO kozp felülvilágítós régen KA51, kulcsos",
+        "note": {
+            "hu": "UZO központi terem, felülvilágítós, kulcsos (régen KA51)",
+            "en": "Central Operations (UZO) room with skylight, Key required (formerly KA51)"
+        },
         "images": []
     },
     "kf81": {
@@ -1154,7 +1463,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA60)",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA60)",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required (formerly KA60)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images5/kf811.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images5/kf812.jpg",
@@ -1169,7 +1481,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA61)",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA61)",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required (formerly KA61)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images4/kf821.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images4/kf822.jpg"
@@ -1182,7 +1497,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA62)",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA62)",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required (formerly KA62)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images19/kf835.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images19/kf833.jpg",
@@ -1196,7 +1514,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required"
+        },
         "images": []
     },
     "kf85": {
@@ -1206,7 +1527,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images3/kf851.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images3/kf852.jpg",
@@ -1220,7 +1544,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA65)",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA65)",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required (formerly KA65)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images1/kf861.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images1/kf862.jpg",
@@ -1234,7 +1561,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA66)",
+        "note": {
+            "hu": "GPK kari kezelésű tanterem, projektoros, kulcsos (régen KA66)",
+            "en": "Faculty of Mech. Eng. managed classroom, Projector, Key required (formerly KA66)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images0/kf872.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images0/kf871.jpg",
@@ -1246,7 +1576,10 @@ const ROOM_DATABASE = {
         "name": "KF88",
         "capacity": "104",
         "tags": [],
-        "note": "EO-kari   EODH régen KA67",
+        "note": {
+            "hu": "EO kari (ÉO DH, régen KA67)",
+            "en": "Faculty of Civil Engineering (Dean's Office, formerly KA67)"
+        },
         "images": []
     },
     "km34": {
@@ -1256,7 +1589,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GE központi, projektoros. Kulcsos terem. Régen: KM21",
+        "note": {
+            "hu": "GE központi, projektoros, kulcsos terem (régen: KM21)",
+            "en": "Central room (Mech. Eng.), Projector, Key required (formerly KM21)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images2/km341.jpg",
             "https://www.ttdh.bme.hu/kari/K-epulet_files/vlb_images2/km342.jpg",
@@ -1272,7 +1608,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari, projektoros, kulcsos terem.",
+        "note": {
+            "hu": "GPK kari, projektoros, kulcsos terem.",
+            "en": "Faculty of Mech. Eng. classroom, Projector, Key required."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/MG_epulet_files/vlb_images0/mgfea1.jpg",
             "https://www.ttdh.bme.hu/kari/MG_epulet_files/vlb_images0/mgfea2.jpg",
@@ -1283,21 +1622,30 @@ const ROOM_DATABASE = {
         "name": "Q-I",
         "capacity": "456",
         "tags": [],
-        "note": "GTK - VIK",
+        "note": {
+            "hu": "GTK - VIK",
+            "en": "GTK - VIK"
+        },
         "images": []
     },
     "qii": {
         "name": "Q-II",
         "capacity": "380",
         "tags": [],
-        "note": "GTK - VIK",
+        "note": {
+            "hu": "GTK - VIK",
+            "en": "GTK - VIK"
+        },
         "images": []
     },
     "qa202": {
         "name": "QA202",
         "capacity": "67",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images7/qa202_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images7/qa202_2.jpg",
@@ -1308,7 +1656,10 @@ const ROOM_DATABASE = {
         "name": "QA240",
         "capacity": "67",
         "tags": [],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images8/qa240_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images8/qa240_2.jpg",
@@ -1321,7 +1672,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "GTK foglalási prioritás",
+        "note": {
+            "hu": "GTK foglalási prioritás",
+            "en": "GTK booking priority"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images0/qaf14_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images0/qaf14_2.jpg",
@@ -1334,7 +1688,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "GTK foglalási prioritása",
+        "note": {
+            "hu": "GTK foglalási prioritás",
+            "en": "GTK booking priority"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images1/qaf15_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images1/qaf15_2.jpg",
@@ -1347,7 +1704,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "GTK foglalási prioritás",
+        "note": {
+            "hu": "GTK foglalási prioritás",
+            "en": "GTK booking priority"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images6/qaf16_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images6/qaf16_2.jpg",
@@ -1360,7 +1720,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images10/qb104_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images10/qb104_2.jpg",
@@ -1373,7 +1736,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "GTK",
+        "note": {
+            "hu": "GTK (Gazdaság- és Társadalomtudományi Kar)",
+            "en": "GTK (Faculty of Economic and Social Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images11/qb105_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images11/qb105_2.jpg",
@@ -1386,7 +1752,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VIK",
+        "note": {
+            "hu": "VIK (Villamosmérnöki és Informatikai Kar)",
+            "en": "VIK (Faculty of Electrical Engineering and Informatics)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images5/qbf081.jpg"
         ]
@@ -1397,7 +1766,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VIK",
+        "note": {
+            "hu": "VIK (Villamosmérnöki és Informatikai Kar)",
+            "en": "VIK (Faculty of Electrical Engineering and Informatics)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images9/qbf09_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images9/qbf09_2.jpg",
@@ -1410,7 +1782,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VIK",
+        "note": {
+            "hu": "VIK (Villamosmérnöki és Informatikai Kar)",
+            "en": "VIK (Faculty of Electrical Engineering and Informatics)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images4/qbf101.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images4/qbf103.jpg",
@@ -1423,7 +1798,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VIK",
+        "note": {
+            "hu": "VIK (Villamosmérnöki és Informatikai Kar)",
+            "en": "VIK (Faculty of Electrical Engineering and Informatics)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images2/qbf11_1.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images2/qbf11_3.jpg",
@@ -1437,7 +1815,10 @@ const ROOM_DATABASE = {
         "tags": [
             "projector"
         ],
-        "note": "VIK",
+        "note": {
+            "hu": "VIK (Villamosmérnöki és Informatikai Kar)",
+            "en": "VIK (Faculty of Electrical Engineering and Informatics)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images3/qbf13_3.jpg",
             "https://www.ttdh.bme.hu/kari/Q_epulet_files/vlb_images3/qbf13_2.jpg",
@@ -1451,7 +1832,10 @@ const ROOM_DATABASE = {
             "key",
             "projector"
         ],
-        "note": "GPK kari, projektoros, kulcsos terem.",
+        "note": {
+            "hu": "GPK kari, projektoros, kulcsos terem.",
+            "en": "Faculty of Mech. Eng. classroom, Projector, Key required."
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images15/r1081.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images15/r1082.jpg",
@@ -1462,7 +1846,10 @@ const ROOM_DATABASE = {
         "name": "R501",
         "capacity": "40",
         "tags": [],
-        "note": "GE központi",
+        "note": {
+            "hu": "GE központi terem",
+            "en": "Central room (Faculty of Mechanical Engineering)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images0/r5011.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images0/r5012.jpg"
@@ -1472,7 +1859,10 @@ const ROOM_DATABASE = {
         "name": "R504",
         "capacity": "42",
         "tags": [],
-        "note": "VE kozp (VIK foglalási prioritás)",
+        "note": {
+            "hu": "VE központi terem (VIK foglalási prioritás)",
+            "en": "Central room (Chem. Tech. / VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images1/r5041.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images1/r5042.jpg"
@@ -1482,7 +1872,10 @@ const ROOM_DATABASE = {
         "name": "R505",
         "capacity": "42",
         "tags": [],
-        "note": "VE kozp (VIK foglalási prioritás)",
+        "note": {
+            "hu": "VE központi terem (VIK foglalási prioritás)",
+            "en": "Central room (Chem. Tech. / VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images2/r5051.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images2/r5052.jpg"
@@ -1492,7 +1885,10 @@ const ROOM_DATABASE = {
         "name": "R506",
         "capacity": "36",
         "tags": [],
-        "note": "VE kozp (VIK foglalási prioritás)",
+        "note": {
+            "hu": "VE központi terem (VIK foglalási prioritás)",
+            "en": "Central room (Chem. Tech. / VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images3/r5061.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images3/r5062.jpg"
@@ -1502,7 +1898,10 @@ const ROOM_DATABASE = {
         "name": "R507",
         "capacity": "30",
         "tags": [],
-        "note": "VE kozp (VIK foglalási prioritás)",
+        "note": {
+            "hu": "VE központi terem (VIK foglalási prioritás)",
+            "en": "Central room (Chem. Tech. / VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images4/r5071.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images4/r5072.jpg"
@@ -1512,7 +1911,10 @@ const ROOM_DATABASE = {
         "name": "R508",
         "capacity": "36",
         "tags": [],
-        "note": "VE kozp (VIK foglalási prioritás)",
+        "note": {
+            "hu": "VE központi terem (VIK foglalási prioritás)",
+            "en": "Central room (Chem. Tech. / VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images5/r5081.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images5/r5082.jpg"
@@ -1522,7 +1924,10 @@ const ROOM_DATABASE = {
         "name": "R509",
         "capacity": "24",
         "tags": [],
-        "note": "VE kozp (VIK foglalási prioritás)",
+        "note": {
+            "hu": "VE központi terem (VIK foglalási prioritás)",
+            "en": "Central room (Chem. Tech. / VIK booking priority)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images6/r5091.jpg"
         ]
@@ -1531,7 +1936,10 @@ const ROOM_DATABASE = {
         "name": "R510",
         "capacity": "40",
         "tags": [],
-        "note": "GE központi",
+        "note": {
+            "hu": "GE központi terem",
+            "en": "Central room (Faculty of Mechanical Engineering)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images7/r5101.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images7/r5102.jpg",
@@ -1542,7 +1950,10 @@ const ROOM_DATABASE = {
         "name": "R511",
         "capacity": "40",
         "tags": [],
-        "note": "GE központi",
+        "note": {
+            "hu": "GE központi terem",
+            "en": "Central room (Faculty of Mechanical Engineering)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images8/r5111.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images8/r5112.jpg"
@@ -1552,7 +1963,10 @@ const ROOM_DATABASE = {
         "name": "R512",
         "capacity": "40",
         "tags": [],
-        "note": "GE központi",
+        "note": {
+            "hu": "GE központi terem",
+            "en": "Central room (Faculty of Mechanical Engineering)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images9/r5121.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images9/r5122.jpg"
@@ -1562,7 +1976,10 @@ const ROOM_DATABASE = {
         "name": "R513",
         "capacity": "40",
         "tags": [],
-        "note": "GE központi",
+        "note": {
+            "hu": "GE központi terem",
+            "en": "Central room (Faculty of Mechanical Engineering)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images10/r5131.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images10/r5132.jpg"
@@ -1572,7 +1989,10 @@ const ROOM_DATABASE = {
         "name": "R514",
         "capacity": "40",
         "tags": [],
-        "note": "GE központi",
+        "note": {
+            "hu": "GE központi terem",
+            "en": "Central room (Faculty of Mechanical Engineering)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images11/r5141.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images11/r5142.jpg"
@@ -1582,7 +2002,10 @@ const ROOM_DATABASE = {
         "name": "R515",
         "capacity": "40",
         "tags": [],
-        "note": "központi, prioritás nélküli tanterem",
+        "note": {
+            "hu": "Központi, prioritás nélküli tanterem",
+            "en": "Central classroom without faculty priority"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images12/r5151.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images12/r5152.jpg"
@@ -1592,7 +2015,10 @@ const ROOM_DATABASE = {
         "name": "R516",
         "capacity": "40",
         "tags": [],
-        "note": "központi, prioritás nélküli tanterem",
+        "note": {
+            "hu": "Központi, prioritás nélküli tanterem",
+            "en": "Central classroom without faculty priority"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images13/r5161.jpg",
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images13/r5162.jpg"
@@ -1602,7 +2028,10 @@ const ROOM_DATABASE = {
         "name": "R517",
         "capacity": "38",
         "tags": [],
-        "note": "központi, prioritás nélküli tanterem",
+        "note": {
+            "hu": "Központi, prioritás nélküli tanterem",
+            "en": "Central classroom without faculty priority"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/R_epulet_files/vlb_images14/r5172.jpg"
         ]
@@ -1611,7 +2040,10 @@ const ROOM_DATABASE = {
         "name": "ST319",
         "capacity": "24",
         "tags": [],
-        "note": "KO-kari",
+        "note": {
+            "hu": "Közlekedésmérnöki Kar (KJK)",
+            "en": "Faculty of Transportation Engineering (KJK)"
+        },
         "images": []
     },
     "st320": {
@@ -1620,7 +2052,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "KO-kari (filc toll)",
+        "note": {
+            "hu": "KO kari (filctollas tábla)",
+            "en": "Faculty of Transportation Engineering (whiteboard)"
+        },
         "images": []
     },
     "st321a": {
@@ -1629,14 +2064,20 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "KO-kari kulcsos KO DH",
+        "note": {
+            "hu": "KO kari kulcsos (KO DH)",
+            "en": "Faculty of Transportation Engineering, Key required (Dean's Office)"
+        },
         "images": []
     },
     "st321b": {
         "name": "ST321B",
         "capacity": "40",
         "tags": [],
-        "note": "KO-kari",
+        "note": {
+            "hu": "Közlekedésmérnöki Kar (KJK)",
+            "en": "Faculty of Transportation Engineering (KJK)"
+        },
         "images": []
     },
     "stfkis": {
@@ -1645,7 +2086,10 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "KO kozp kulcsos KO DH",
+        "note": {
+            "hu": "KO központi kulcsos (KO DH)",
+            "en": "Central room (Transportation Eng.), Key required (Dean's Office)"
+        },
         "images": []
     },
     "stfnagy": {
@@ -1654,14 +2098,20 @@ const ROOM_DATABASE = {
         "tags": [
             "key"
         ],
-        "note": "KO kozp kulcsos KO DH",
+        "note": {
+            "hu": "KO központi kulcsos (KO DH)",
+            "en": "Central room (Transportation Eng.), Key required (Dean's Office)"
+        },
         "images": []
     },
     "t601/2": {
         "name": "T601/2",
         "capacity": "70",
         "tags": [],
-        "note": "TTK kari",
+        "note": {
+            "hu": "TTK (Természettudományi Kar)",
+            "en": "TTK (Faculty of Natural Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images0/t60121.jpg",
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images0/t60122.jpg",
@@ -1672,7 +2122,10 @@ const ROOM_DATABASE = {
         "name": "T603",
         "capacity": "30",
         "tags": [],
-        "note": "TTK-kari",
+        "note": {
+            "hu": "TTK (Természettudományi Kar)",
+            "en": "TTK (Faculty of Natural Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images1/t6031.jpg",
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images1/t6032.jpg"
@@ -1682,7 +2135,10 @@ const ROOM_DATABASE = {
         "name": "T604",
         "capacity": "40",
         "tags": [],
-        "note": "TTK-kari",
+        "note": {
+            "hu": "TTK (Természettudományi Kar)",
+            "en": "TTK (Faculty of Natural Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images2/t6041.jpg",
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images2/t6042.jpg"
@@ -1692,7 +2148,10 @@ const ROOM_DATABASE = {
         "name": "T605",
         "capacity": "36",
         "tags": [],
-        "note": "TTK-kari",
+        "note": {
+            "hu": "TTK (Természettudományi Kar)",
+            "en": "TTK (Faculty of Natural Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images3/t6051.jpg",
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images3/t6052.jpg"
@@ -1702,7 +2161,10 @@ const ROOM_DATABASE = {
         "name": "T606",
         "capacity": "40",
         "tags": [],
-        "note": "TTK-kari",
+        "note": {
+            "hu": "TTK (Természettudományi Kar)",
+            "en": "TTK (Faculty of Natural Sciences)"
+        },
         "images": [
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images4/t6061.jpg",
             "https://www.ttdh.bme.hu/kari/T_epulet_files/vlb_images4/t6062.jpg"
@@ -1714,7 +2176,10 @@ const ROOM_DATABASE = {
         "tags": [
             "quiet_study"
         ],
-        "note": "Csendes tanulótér helyben használható dokumentumokkal. Vizsgaidőszakban hétfőtől csütörtökig 22:00-ig tart nyitva.",
+        "note": {
+            "hu": "Csendes tanulótér helyben használható dokumentumokkal. Vizsgaidőszakban hétfőtől csütörtökig 22:00-ig tart nyitva.",
+            "en": "Quiet study area with reference materials for on-site use. Open until 22:00 Monday to Thursday during exam periods."
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Nagyolvaso.JPG"
         ]
@@ -1727,7 +2192,10 @@ const ROOM_DATABASE = {
             "szakirodalom",
             "útikönyvek"
         ],
-        "note": "Természettudományokhoz, mérnöki tudományokhoz és építészethez kapcsolódó szakirodalom, valamint útikönyvek és szabadidős témájú könyvek egy része található itt. Itt érhetők el a Springer Nature-kiadványok is.",
+        "note": {
+            "hu": "Természettudományokhoz, mérnöki tudományokhoz és építészethez kapcsolódó szakirodalom, valamint útikönyvek és szabadidős témájú könyvek egy része található itt. Itt érhetők el a Springer Nature-kiadványok is.",
+            "en": "Academic literature on natural sciences, engineering, and architecture, as well as travel and leisure books. Springer Nature publications are also accessible here."
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Muszaki_es_Termeszettudomanyi_Olvaso_2.JPG"
         ]
@@ -1740,7 +2208,10 @@ const ROOM_DATABASE = {
             "szakirodalom",
             "szépirodalom"
         ],
-        "note": "Csendes tanulótér gazdasági, társadalomtudományi, kulturális, művészeti, történelmi, jogi és ismeretterjesztő szakirodalommal, valamint többnyelvű szépirodalommal. Az olvasó 19:30-kor zár.",
+        "note": {
+            "hu": "Csendes tanulótér gazdasági, társadalomtudományi, kulturális, művészeti, történelmi, jogi és ismeretterjesztő szakirodalommal, valamint többnyelvű szépirodalommal. Az olvasó 19:30-kor zár.",
+            "en": "Quiet study area with literature on economics, social sciences, arts, history, law, and multilingual fiction. Closes at 19:30."
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/inline-images/BME_OMIKK_Gazdasag_es_Tarsadalomtudomanyi_Olvaso_belso_terem.jpg"
         ]
@@ -1752,7 +2223,10 @@ const ROOM_DATABASE = {
             "eat",
             "luggage"
         ],
-        "note": "Beszélgetésre és étkezésre is alkalmas közösségi tér. A főbejáratnál snack- és italautomaták, valamint csomagmegőrző szekrények találhatók. A szekrények használatához kulcs a központi kölcsönzésben kérhető.",
+        "note": {
+            "hu": "Beszélgetésre és étkezésre is alkalmas közösségi tér. A főbejáratnál snack- és italautomaták, valamint csomagmegőrző szekrények találhatók. A szekrények használatához kulcs a központi kölcsönzésben kérhető.",
+            "en": "Community space suitable for conversation and dining. Vending machines and lockers are available at the main entrance. Locker keys can be requested at the central loan desk."
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/inline-images/584454034_1145002631131661_8462621410852841836_n.jpg",
             "https://www.omikk.bme.hu/sites/default/files/inline-images/586249200_1145002531131671_3643488702133157689_n.jpg"
@@ -1765,7 +2239,10 @@ const ROOM_DATABASE = {
             "scan",
             "print"
         ],
-        "note": "Könyvtárunk fszt. 1-es szobája szabadon használható számítógépes kutatóterem. Szolgáltatások: 8 db számítógép használata (katalógus, LibreOffice), adatbázisok használata, e-folyóiratok és e-könyvek használata, nyomtatás, 1 db A/4-es, 1 db A/3-as szkenner használata."
+        "note": {
+            "hu": "Könyvtárunk fszt. 1-es szobája szabadon használható számítógépes kutatóterem. Szolgáltatások: 8 db számítógép használata (katalógus, LibreOffice), adatbázisok használata, e-folyóiratok és e-könyvek használata, nyomtatás, 1 db A/4-es, 1 db A/3-as szkenner használata.",
+            "en": "Ground floor Room 1 is an open computer research room. Services: 8 workstations (catalogue, LibreOffice), database access, e-journals, e-books, printing, A4 and A3 scanners."
+        }
     },
     "k053": {
         "name": "Tankönyvolvasó",
@@ -1776,7 +2253,10 @@ const ROOM_DATABASE = {
             "szótárak",
             "luggage"
         ],
-        "note": "Csendes tanulótér a BME képzéseihez kapcsolódó tankönyvekkel és szótárakkal. A dokumentumok szakcsoportok szerint rendezve érhetők el. A térben csomagmegőrző szekrények is találhatók.",
+        "note": {
+            "hu": "Csendes tanulótér a BME képzéseihez kapcsolódó tankönyvekkel és szótárakkal. A dokumentumok szakcsoportok szerint rendezve érhetők el. A térben csomagmegőrző szekrények is találhatók.",
+            "en": "Quiet study space with textbooks and dictionaries for BME curricula, organized by subject field. Lockers are also available."
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_Tankonyvolvaso_belso_terem.jpg"
         ]
@@ -1789,7 +2269,10 @@ const ROOM_DATABASE = {
             "eat",
             "reserve"
         ],
-        "note": "Megközelítése: a földszint 1-es Kutatótermen keresztül. Foglalható, kötetlenebb használatú tér csoportos munkához, beszélgetéshez és étkezéshez. https://appointments.omikk.bme.hu/",
+        "note": {
+            "hu": "Megközelítése: a földszint 1-es Kutatótermen keresztül. Foglalható, kötetlenebb használatú tér csoportos munkához, beszélgetéshez és étkezéshez. https://appointments.omikk.bme.hu/",
+            "en": "Access: via ground floor Room 1 Research Room. Bookable informal space for group work, discussion, and dining. https://appointments.omikk.bme.hu/"
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/allando_tartalom/BME_OMIKK_fszt_2_Kozossegi_terem.jpg"
         ]
@@ -1802,7 +2285,10 @@ const ROOM_DATABASE = {
             "eat",
             "reserve"
         ],
-        "note": "Tanulásra, halk beszélgetésre és étkezésre alkalmas tér. Megközelítése a könyvtár központi épületén keresztül lehetséges. Egyetemi és szakmai rendezvények helyszíneként is működik. https://appointments.omikk.bme.hu/",
+        "note": {
+            "hu": "Tanulásra, halk beszélgetésre és étkezésre alkalmas tér. Megközelítése a könyvtár központi épületén keresztül lehetséges. Egyetemi és szakmai rendezvények helyszíneként is működik. https://appointments.omikk.bme.hu/",
+            "en": "Space suitable for study, quiet discussion, and dining. Accessible through the central library building. Also hosts university and professional events. https://appointments.omikk.bme.hu/"
+        },
         "images": [
             "https://www.omikk.bme.hu/sites/default/files/inline-images/K_epulet_kozossegi_terem_belso_szoba_3.jpg"
         ]
@@ -1812,6 +2298,9 @@ const ROOM_DATABASE = {
         "tags": [
             "social"
         ],
-        "note": "Beszélgetésre és kikapcsolódásra is alkalmas közösségi tér."
-    },
+        "note": {
+            "hu": "Beszélgetésre és kikapcsolódásra is alkalmas közösségi tér.",
+            "en": "Community space suitable for discussion and relaxation."
+        }
+    }
 };
