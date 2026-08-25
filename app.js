@@ -7513,3 +7513,11 @@ window.addEventListener('appinstalled', () => {
     if (installSection) installSection.style.display = 'none';
     showToast(typeof t === 'function' ? t('toasts.pwa_installed') : "BMEmap sikeresen telepítve! 📱");
 });
+
+// Globális függvényexportok a HTML eseménykezelők számára
+window.handleEmbedNavClick = handleEmbedNavClick;
+window.openEmbedInfo = openEmbedInfo;
+window.closeEmbedInfo = closeEmbedInfo;
+window.copyEmbedCode = copyEmbedCode;
+window.toggleDevMode = toggleDevMode;
+window.startNavigationToHere = startNavigationToHere;
