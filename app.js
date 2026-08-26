@@ -7125,18 +7125,24 @@ function openEmbedInfo(feature) {
     }
 
     // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
+    const roomVal = p.ref || p.name || displayName || '';
     if (window.parent && window.parent !== window) {
         try {
             window.parent.postMessage({
                 type: 'bmemap_embed_select',
                 building: currentBuildingKey,
-                featureId: feature.id,
+                featureId: feature.id || null,
+                room: roomVal,
                 ref: p.ref || '',
                 name: p.name || '',
+                displayName: displayName || roomVal || 'Kiválasztott terem',
                 level: (getLevelsFromFeature(feature) || [])[0] || '',
                 shareCode: locEncoded
             }, '*');
-        } catch(e) {}
+            console.log('[BMEmap Embed] Sent bmemap_embed_select:', roomVal, currentBuildingKey);
+        } catch(e) {
+            console.warn('[BMEmap Embed] postMessage error:', e);
+        }
     }
 }
 
@@ -7212,18 +7218,24 @@ function updateEmbedForNavigation(target, stats, source) {
     }
 
     // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
+    const roomVal = p.ref || p.name || displayName || '';
     if (window.parent && window.parent !== window) {
         try {
             window.parent.postMessage({
                 type: 'bmemap_embed_nav',
                 building: currentBuildingKey,
-                featureId: target.id,
+                featureId: target.id || null,
+                room: roomVal,
                 ref: p.ref || '',
                 name: p.name || '',
+                displayName: displayName || roomVal || 'Célpont',
                 level: (getLevelsFromFeature(target) || [])[0] || '',
                 shareCode: routeEncoded
             }, '*');
-        } catch(e) {}
+            console.log('[BMEmap Embed] Sent bmemap_embed_nav:', roomVal, currentBuildingKey);
+        } catch(e) {
+            console.warn('[BMEmap Embed] postMessage error:', e);
+        }
     }
 }
 
