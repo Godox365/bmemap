@@ -6185,11 +6185,16 @@ function drawRoute(pathKeys) {
         const lons = boundsPoints.map(p => p[0]);
         const lats = boundsPoints.map(p => p[1]);
 
+        const routePadding = IS_EMBED_MODE 
+            ? { top: 25, bottom: 85, left: 25, right: 25 }
+            : { top: 50, bottom: 150, left: 50, right: 50 };
+        const routeMaxZoom = IS_EMBED_MODE ? 18.5 : 21;
+
         map.fitBounds(
             [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
             {
-                padding: { top: 50, bottom: 150, left: 50, right: 50 },
-                maxZoom: 21,
+                padding: routePadding,
+                maxZoom: routeMaxZoom,
                 animate: true,
                 duration: 1000
             }
@@ -6445,11 +6450,12 @@ function smartFlyTo(feature) {
         switchLevel(levels[0]);
     }
 
+    const targetZoom = IS_EMBED_MODE ? 18.2 : 20;
     map.flyTo({
         center: [lon, lat],
-        zoom: 20,
+        zoom: targetZoom,
         padding: { 
-            top: IS_EMBED_MODE ? 30 : 60, 
+            top: IS_EMBED_MODE ? 20 : 60, 
             bottom: bottomOffset, 
             left: IS_EMBED_MODE ? 20 : 30, 
             right: IS_EMBED_MODE ? 20 : 30 
@@ -7117,6 +7123,21 @@ function openEmbedInfo(feature) {
     if (openFullBtn) {
         openFullBtn.href = `${origin}/?share=${locEncoded}`;
     }
+
+    // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
+    if (window.parent && window.parent !== window) {
+        try {
+            window.parent.postMessage({
+                type: 'bmemap_embed_select',
+                building: currentBuildingKey,
+                featureId: feature.id,
+                ref: p.ref || '',
+                name: p.name || '',
+                level: (getLevelsFromFeature(feature) || [])[0] || '',
+                shareCode: locEncoded
+            }, '*');
+        } catch(e) {}
+    }
 }
 
 /**
@@ -7189,6 +7210,21 @@ function updateEmbedForNavigation(target, stats, source) {
     if (openFullBtn) {
         openFullBtn.href = `${origin}/?share=${routeEncoded}`;
     }
+
+    // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
+    if (window.parent && window.parent !== window) {
+        try {
+            window.parent.postMessage({
+                type: 'bmemap_embed_nav',
+                building: currentBuildingKey,
+                featureId: target.id,
+                ref: p.ref || '',
+                name: p.name || '',
+                level: (getLevelsFromFeature(target) || [])[0] || '',
+                shareCode: routeEncoded
+            }, '*');
+        } catch(e) {}
+    }
 }
 
 /**
@@ -7228,10 +7264,17 @@ function processEmbedParams() {
         switchLevel(levelParam);
     }
 
-    // 3. Automatikus navigáció kérése (nav=true / nav=1)
+    // 3. Ha közvetlen share kód van az embed URL-ben, azt a processUrlParams dolgozza fel
+    const shareParam = params.get('share');
+    if (shareParam) {
+        processUrlParams();
+        return;
+    }
+
+    // 4. Automatikus navigáció kérése (nav=true / nav=1)
     const autoNav = params.get('nav') === 'true' || params.get('nav') === '1' || params.get('mode') === 'route';
 
-    // 4. Terem vagy POI keresése és megnyitása
+    // 5. Terem vagy POI keresése és megnyitása
     const roomParam = params.get('room') || params.get('r');
     const idParam = params.get('id');
 
@@ -7261,14 +7304,20 @@ function _selectEmbedFeature(roomParam, idParam, levelParam, autoNav = false) {
     // A) ID alapú keresés
     if (idParam) {
         const numId = parseInt(idParam, 10);
-        target = geoJsonData.features.find(f => f.id === numId || f.id === idParam);
+        target = geoJsonData.features.find(f => f.id === numId || f.id === idParam || f.id === idParam.toString());
     }
 
-    // B) Teremnév / ref alapú keresés
+    // B) Teremnév / ref alapú keresés (ha szám, akkor ID-ként is teszteljük)
     if (!target && roomParam) {
         const cleanQuery = roomParam.trim();
+        if (!isNaN(cleanQuery) && cleanQuery.length > 3) {
+            const numId = parseInt(cleanQuery, 10);
+            target = geoJsonData.features.find(f => f.id === numId || f.id === cleanQuery);
+        }
         // 1. Pontos ref egyezés
-        target = geoJsonData.features.find(f => f.properties && f.properties.ref && f.properties.ref.toLowerCase() === cleanQuery.toLowerCase());
+        if (!target) {
+            target = geoJsonData.features.find(f => f.properties && f.properties.ref && f.properties.ref.toLowerCase() === cleanQuery.toLowerCase());
+        }
         // 2. Pontos név egyezés
         if (!target) {
             target = geoJsonData.features.find(f => f.properties && f.properties.name && f.properties.name.toLowerCase() === cleanQuery.toLowerCase());
