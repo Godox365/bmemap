@@ -663,19 +663,12 @@ const APP_SETTINGS = {
     cacheEnabled: localStorage.getItem('pref_cache_enabled') !== 'false'
 };
 
-// TILE LAYERS
-const TILE_LAYERS = {
-    dark: {
-        version: 8,
-        sources: { 'carto-dark': { type: 'raster', tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png','https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png','https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'], tileSize: 256, attribution: '&copy; CARTO &copy; OSM contributors' }},
-        layers: [{ id: 'carto-tiles', type: 'raster', source: 'carto-dark' }]
-    },
-    light: {
-        version: 8,
-        sources: { 'carto-light': { type: 'raster', tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png','https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png','https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'], tileSize: 256, attribution: '&copy; CARTO &copy; OSM contributors' }},
-        layers: [{ id: 'carto-tiles', type: 'raster', source: 'carto-light' }]
-    }
+// MAP STYLES (OpenFreeMap vector styles - no API key, unlimited)
+const MAP_STYLES = {
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron'
 };
+const TILE_LAYERS = MAP_STYLES; // Visszafelé kompatibilitási hivatkozás
 
 // === SZÓTÁR (Hogy ne angolul írja ki) ===
 const TYPE_DICT = {
@@ -1290,7 +1283,7 @@ const OVERPASS_SERVERS = [
  */
 const map = new maplibregl.Map({
     container: 'map',
-    style: TILE_LAYERS[APP_SETTINGS.themeMode],
+    style: MAP_STYLES[APP_SETTINGS.themeMode] || MAP_STYLES.dark,
     center: [currentBuilding.center[1], currentBuilding.center[0]], // MapLibre: [lon, lat]!
     zoom: currentBuilding.zoom,
     attributionControl: false,
@@ -1402,6 +1395,8 @@ function updateDynamicVisibility() {
 }
 
 let _mapLayersInitialized = false;
+let _mapEventsInitialized = false;
+let _currentMapStyleMode = APP_SETTINGS.themeMode || 'dark';
 
 // Globális tárolók a MapLibre Marker objektumoknak
 let _routeMarkers = [];
@@ -1640,6 +1635,12 @@ function _initMapLayers() {
         paint: { 'line-color': '#ffffff', 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [1, 2] }
     });
 
+}
+
+function _initMapEventListeners() {
+    if (_mapEventsInitialized) return;
+    _mapEventsInitialized = true;
+
     // 10. MAP HOVER & CLICK LISTENERS
     const FEATURE_LAYERS = ['room-fill', 'corridor-fill', 'toilet-fill', 'stairs-fill', 'elevator-fill', 'door-circle'];
 
@@ -1723,6 +1724,16 @@ function _applyThemeToMapLayers() {
         map.setPaintProperty('room-labels', 'text-color', get('--color-room-text'));
         map.setPaintProperty('room-labels', 'text-halo-color', get('--bg-body'));
     }
+
+    // Sötét módban a szaggatott OSM footpath / folyosó réteg elrejtése
+    if (map.getLayer('highway_path')) {
+        if (APP_SETTINGS.themeMode === 'dark') {
+            map.setLayoutProperty('highway_path', 'visibility', 'none');
+        } else {
+            map.setLayoutProperty('highway_path', 'visibility', 'visible');
+        }
+    }
+
     _loadRouteArrowImage();
 }
 
@@ -1807,47 +1818,46 @@ function applyTheme() {
         root.style.setProperty(varName, finalValue);
     }
 
-    // 3. UI Osztályok és Tile Layer
+    // 3. UI Osztályok és Alaptérkép stílus
     if (mode === 'light') {
         document.body.classList.add('light-mode');
     } else {
         document.body.classList.remove('light-mode');
     }
 
-    const newStyle = (mode === 'light') ? TILE_LAYERS.light : TILE_LAYERS.dark;
+    const targetStyleUrl = (mode === 'light') ? MAP_STYLES.light : MAP_STYLES.dark;
     
-    if (_mapLayersInitialized && map.getStyle) {
-        const currentStyle = map.getStyle();
-        // Keressük meg a carto forrást
-        const currentSourceId = currentStyle && currentStyle.sources && currentStyle.sources['carto-dark'] ? 'carto-dark' : 
-                               (currentStyle && currentStyle.sources && currentStyle.sources['carto-light'] ? 'carto-light' : '');
-        const targetSourceId = (mode === 'light') ? 'carto-light' : 'carto-dark';
-        
-        if (currentSourceId && currentSourceId !== targetSourceId) {
-            // Távolítsuk el a régi réteget és forrást
-            if (map.getLayer('carto-tiles')) map.removeLayer('carto-tiles');
-            if (map.getSource(currentSourceId)) map.removeSource(currentSourceId);
-            
-            // Adjuk hozzá az új forrást
-            map.addSource(targetSourceId, {
-                type: 'raster',
-                tiles: newStyle.sources[targetSourceId].tiles,
-                tileSize: 256,
-                attribution: '&copy; CARTO &copy; OSM contributors'
-            });
-            
-            // Adjuk hozzá az új réteget legalulra
-            const layers = map.getStyle().layers;
-            const firstCustomLayer = layers.find(l => l.id !== 'carto-tiles' && l.id !== 'background');
-            const beforeId = firstCustomLayer ? firstCustomLayer.id : undefined;
+    if (_mapLayersInitialized && map.setStyle) {
+        if (_currentMapStyleMode !== mode) {
+            _currentMapStyleMode = mode;
+            _mapLayersInitialized = false;
 
-            map.addLayer({
-                id: 'carto-tiles',
-                type: 'raster',
-                source: targetSourceId
-            }, beforeId);
-            
-            _applyThemeToMapLayers();
+            map.setStyle(targetStyleUrl, { diff: false });
+
+            map.once('style.load', () => {
+                // 1. GeoJSON források újraépítése
+                _initMapSources();
+
+                // 2. Beltéri rétegek újraépítése az alaptérkép FÖLÉ
+                _initMapLayers();
+                _mapLayersInitialized = true;
+
+                // 3. Aktuális szint adatainak és markereinek visszatöltése
+                if (geoJsonData && currentLevel !== undefined) {
+                    renderLevel(currentLevel, false);
+                }
+
+                // 4. Aktív útvonal és kijelölés visszaállítása
+                if (currentRoutePath && currentRoutePath.length > 0 && activeRouteData) {
+                    drawRoute(currentRoutePath);
+                }
+                if (selectedFeature) {
+                    updateSelectedHighlight(currentLevel);
+                }
+
+                // 5. Színek és útvonal nyíl ikon frissítése
+                _applyThemeToMapLayers();
+            });
         } else {
             _applyThemeToMapLayers();
         }
@@ -4174,6 +4184,7 @@ function clearRouteAndClose() {
     activeRouteData = null;
     activeNavSource = null;
     activeNavTarget = null;
+    currentRoutePath = [];
     
     const input = document.getElementById('search-input');
     input.placeholder = "Keress...";
@@ -7441,7 +7452,9 @@ function enableOneFingerZoom(map) {
 map.on('load', async () => {
     _initMapSources();
     _initMapLayers();
+    _initMapEventListeners();
     _mapLayersInitialized = true;
+    _currentMapStyleMode = APP_SETTINGS.themeMode || 'dark';
 
     enableOneFingerZoom(map);
 
