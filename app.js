@@ -1076,7 +1076,6 @@ function showFavoritesInSearch() {
                 // Megkeressük az elemet
                 const target = geoJsonData.features.find(f => f.id === fav.id);
                 if (target) {
-                    zoomToFeature(target);
                     openSheet(target);
                     resultsDiv.style.display = 'none';
                     document.getElementById('search-input').value = fav.name;
@@ -3539,9 +3538,6 @@ function openSheet(feature) {
     // Az aktuálisan fókuszban lévő elem globális regisztrálása
     selectedFeature = feature;
     
-    // Intelligens kameramozgatás a kiválasztott elemre
-    smartFlyTo(feature);
-    
     // Csatlakozópontos (hálózat alapú) indulási pont (Pending Nav Source) kezelése
     // Ha a felhasználó a "Hova mész innen?" gombot nyomta meg korábban, 
     // az új kattintás automatikusan elindítja a navigációt e két pont között.
@@ -3781,30 +3777,24 @@ function openSheet(feature) {
         if (galleryEl) galleryEl.style.display = 'none';
     }
 
-    // Az információs panel (Sheet) vizuális megnyitása a CSS animáció aktiválásával
+    // --- 5. INTELLIGENS MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
+    // Azonnal kiszámítjuk a végleges célmagasságot a betöltött tartalom alapján (késleltetés nélkül)
+    const autoH = getAutoHeight();
+    const targetHeight = (roomData || hasPoiData) ? autoH : (getPeekHeight() + 20);
+
+    // Az információs panel (Sheet) végleges magasságának és nyitott állapotának azonnali beállítása
     const sheet = document.getElementById('bottom-sheet');
+    sheet.style.height = `${targetHeight}px`;
     sheet.classList.add('open');
 
     // A kedvenc (csillag) gomb vizuális állapotának frissítése a jelenlegi elem alapján
     updateFavoriteUI(); 
-    
-    // --- 5. INTELLIGENS MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
-    setTimeout(() => {
-        const autoH = getAutoHeight();
-        
-        // Ha van belső adatbázis rekord VAGY van OSM nyitvatartási/weboldal adat
-        if (roomData || hasPoiData) {
-                sheet.style.height = `${autoH}px`;
-        } else {
-                sheet.style.height = `${getPeekHeight() + 20}px`; 
-        }
-    }, 50);
 
     // A kiválasztott elem vizuális kiemelése (sárga keret) a térképen
     drawSelectedHighlight(feature);
     
-    // A kamera automatikus ráközelítése (zoom & pan) a kiválasztott elemre
-    zoomToFeature(feature);
+    // A kamera intelligens mozgatása a végleges célmagasság (targetHeight) ismeretében
+    smartFlyTo(feature, targetHeight);
 }
 
 /**
@@ -4250,7 +4240,6 @@ function handleSearch(e) {
         // --- 2. Prioritás: Helyi térképelemek keresése (Jelenlegi épület) ---
         const hits = smartFilter(term); 
         if (hits.length > 0) {
-            zoomToFeature(hits[0]);
             openSheet(hits[0]);
             resultsDiv.style.display = 'none'; 
             
@@ -4335,7 +4324,6 @@ function handleSearch(e) {
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                 div.onclick = () => { 
-                    zoomToFeature(hit); 
                     openSheet(hit); 
                     resultsDiv.style.display = 'none'; 
                     document.getElementById('search-input').value = name; 
@@ -6417,20 +6405,75 @@ function switchLevel(level) {
     // A szintváltás tényének és paramétereinek naplózása hibakeresési célból
 }
 
-// === INTELLIGENS KAMERAMOZGATÁS (OFFSET LOGIKA) ===
+// === INTELLIGENS KAMERAMOZGATÁS (ADAPTÍV ZOOM ÉS OFFSET LOGIKA) ===
+
+// Debounce állapot a redundáns, egymás után közvetlenül lefutó repülések kiszűrésére
+let _lastFlyToTime = 0;
+let _lastFlyToCoords = null;
 
 /**
- * Pozícionálja a térkép kameráját a megadott térképelemre (feature), 
- * intelligensen kompenzálva a felhasználói felület (UI) által kitakart képernyőterületeket.
- * Pixel alapú eltolást alkalmaz, hogy a fókuszpont vizuálisan mindig a szabadon 
- * látható térképrész közepére essen, majd szükség esetén végrehajtja az emeletváltást is.
+ * Visszaadja az alsó információs panel (Bottom Sheet) célzott végleges magasságát.
+ * Nem az éppen animálódó köztes magasságot (offsetHeight) nézi, hanem:
+ * 1. Ha van közvetlenül átadott explicit célmagasság, azt használja.
+ * 2. Ha a sheet.style.height attribútumban már be van állítva a végcél (pl. "280px"), azt veszi.
+ * 3. Ha a sheet most nyílik meg, a tartalom alapján kalkulált getAutoHeight() értéket használja.
+ *
+ * @param {number} [explicitHeight] - Opcionális, előre ismert célmagasság pixelben.
+ * @returns {number} A panel végleges magassága pixelben.
+ */
+function getSheetTargetHeight(explicitHeight) {
+    if (typeof explicitHeight === 'number' && explicitHeight > 0) {
+        return explicitHeight;
+    }
+    const sheet = document.getElementById('bottom-sheet');
+    if (!sheet) return 160;
+
+    // 1. Ha a style.height attribútumban már ott van a célmagasság (pl. "280px")
+    if (sheet.style.height && sheet.style.height.endsWith('px')) {
+        const val = parseFloat(sheet.style.height);
+        if (!isNaN(val) && val > 50) return val;
+    }
+
+    // 2. Ha még nincs style.height vagy zárt a panel, a tartalom alapján számoljuk a célmagasságot
+    if (typeof getAutoHeight === 'function') {
+        const autoH = getAutoHeight();
+        if (autoH > 50) return autoH;
+    }
+
+    if (typeof getPeekHeight === 'function') {
+        return getPeekHeight();
+    }
+
+    return 240;
+}
+
+/**
+ * Pozícionálja a térkép kameráját a megadott térképelemre (feature),
+ * intelligens, adaptív zoom-méretezéssel és UI-kitakarás kompenzációval.
+ *
+ * Működési elv:
+ * 1. Bounding box (kiterjedés) alapú számítás:
+ *    - Poligon esetén a terem fizikai befoglaló mérete (turf.bbox) alapján számítja ki
+ *      az optimális zoomot a MapLibre cameraForBounds függvényével.
+ *    - Pont (POI, lift, automata) esetén a kényelmes, áttekinthető maximális zoomot használja.
+ * 2. UI kitakarások precíz kezelése:
+ *    - Alul: Pontosan figyelembe veszi az alsó lap (#bottom-sheet) célzott végleges magasságát
+ *      (nem az éppen animálódó köztes magasságot!).
+ *    - Felül: Figyelembe veszi a keresősávot (#top-bar), mobilon a kétsoros elrendezést.
+ *    - Jobbra: Figyelembe veszi a jobb oldali szintválasztót (.level-control).
+ *    - Kontextus margó: +25-40px extra térköz a terem körül, hogy a folyosó és szomszédos termek is látsszanak.
+ * 3. Kényelmes zoom határok:
+ *    - Plafon: 19.35 (a korábbi merev 20 helyett, amely túlságosan ránagyított és elvette a kontextust).
+ *    - Nagy előadók/csarnokok esetén automatikusan tágabb zoom (pl. 18.7 - 18.9), hogy az egész terem beleférjen.
  *
  * @param {Object} feature - A fókuszba helyezendő GeoJSON térképelem.
+ * @param {number} [explicitBottomHeight] - Opcionális előre ismert alsó panel célmagasság.
  */
-function smartFlyTo(feature) {
-    if (!feature) return;
+function smartFlyTo(feature, explicitBottomHeight) {
+    if (!feature || !feature.geometry) return;
 
-    let lat, lon;
+    // 1. Koordináta meghatározás
+    let lon, lat;
     if (feature.geometry.type === "Point") {
         lon = feature.geometry.coordinates[0];
         lat = feature.geometry.coordinates[1];
@@ -6440,46 +6483,120 @@ function smartFlyTo(feature) {
         lat = c.geometry.coordinates[1];
     }
 
-    let bottomOffset = 160;
-    if (IS_EMBED_MODE) {
-        const embedBar = document.getElementById('embed-info-bar');
-        bottomOffset = (embedBar && embedBar.classList.contains('visible')) ? 80 : 30;
-    } else {
-        const sheet = document.getElementById('bottom-sheet');
-        const settingsModal = document.getElementById('settings-modal');
-
-        if (sheet && sheet.classList.contains('open')) {
-            bottomOffset = sheet.getBoundingClientRect().height;
-        } else if (settingsModal && settingsModal.classList.contains('editor-mode')) {
-            const card = settingsModal.querySelector('.settings-card');
-            if (card) bottomOffset = card.getBoundingClientRect().height;
+    // 2. Debounce védelem: azonos helyre 250ms-on belüli redundáns hívások elkerülése
+    const now = Date.now();
+    if (_lastFlyToCoords && (now - _lastFlyToTime < 250)) {
+        const dLon = Math.abs(_lastFlyToCoords[0] - lon);
+        const dLat = Math.abs(_lastFlyToCoords[1] - lat);
+        if (dLon < 0.00005 && dLat < 0.00005) {
+            return;
         }
     }
+    _lastFlyToTime = now;
+    _lastFlyToCoords = [lon, lat];
 
+    // 3. Emeletváltás, ha a kiválasztott elem más szinten van
     const levels = getLevelsFromFeature(feature);
     if (levels.length > 0 && !levels.includes(currentLevel)) {
         switchLevel(levels[0]);
     }
 
-    const targetZoom = IS_EMBED_MODE ? 18.2 : 20;
-    map.flyTo({
-        center: [lon, lat],
-        zoom: targetZoom,
-        padding: { 
-            top: IS_EMBED_MODE ? 20 : 60, 
-            bottom: bottomOffset, 
-            left: IS_EMBED_MODE ? 20 : 30, 
-            right: IS_EMBED_MODE ? 20 : 30 
-        },
-        duration: 800,
-        essential: true
-    });
+    // 4. Bounding box számítása
+    let bounds;
+    if (feature.geometry.type === "Point") {
+        bounds = [[lon, lat], [lon, lat]];
+    } else {
+        const bbox = turf.bbox(feature);
+        bounds = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
+    }
+
+    // 5. UI Padding és kitakarások kiszámítása
+    const isMobile = window.innerWidth <= 600;
+    let topPad = 70;
+    let bottomPad = 160;
+    let leftPad = isMobile ? 25 : 45;
+    let rightPad = isMobile ? 65 : 75; // .level-control védelem a jobb oldalon
+
+    if (IS_EMBED_MODE) {
+        topPad = 25;
+        const embedBar = document.getElementById('embed-info-bar');
+        bottomPad = (embedBar && embedBar.classList.contains('visible')) ? 90 : 35;
+        leftPad = 25;
+        rightPad = 65;
+    } else {
+        // Felső sáv (#top-bar) kitakarása
+        topPad = isMobile ? 120 : 75;
+
+        // Alsó panel célmagasságának meghatározása (az animációtól FÜGGETLEN végleges érték!)
+        const settingsModal = document.getElementById('settings-modal');
+        let finalBottomHeight = 0;
+
+        if (settingsModal && settingsModal.classList.contains('editor-mode')) {
+            const card = settingsModal.querySelector('.settings-card');
+            if (card) finalBottomHeight = card.getBoundingClientRect().height;
+        } else {
+            finalBottomHeight = getSheetTargetHeight(explicitBottomHeight);
+        }
+
+        // Biztonsági korlát: a képernyőmagasság max. 50%-át tekintjük kitakartnak
+        const maxAllowedBottom = window.innerHeight * 0.5;
+        finalBottomHeight = Math.min(Math.max(160, finalBottomHeight), maxAllowedBottom);
+        bottomPad = finalBottomHeight + 20;
+    }
+
+    // Környezeti kontextus margó: hogy a terem körül a folyosó és ajtó is tisztán látsszon
+    const contextMargin = isMobile ? 25 : 40;
+    const computedPadding = {
+        top: Math.round(topPad + contextMargin),
+        bottom: Math.round(bottomPad + contextMargin),
+        left: Math.round(leftPad + contextMargin),
+        right: Math.round(rightPad + contextMargin)
+    };
+
+    // 6. Optimális Zoom határok
+    const maxComfortZoom = IS_EMBED_MODE ? 18.5 : 19.35;
+    const minComfortZoom = 18.2;
+
+    // 7. Kamera kiszámítása a MapLibre cameraForBounds funkciójával
+    let camera = null;
+    try {
+        camera = map.cameraForBounds(bounds, {
+            padding: computedPadding,
+            maxZoom: maxComfortZoom
+        });
+    } catch (e) {
+        console.warn("cameraForBounds error:", e);
+    }
+
+    if (camera && camera.center) {
+        const finalZoom = Math.min(maxComfortZoom, Math.max(minComfortZoom, camera.zoom));
+        map.flyTo({
+            center: camera.center,
+            zoom: finalZoom,
+            duration: 750,
+            essential: true
+        });
+    } else {
+        // Fallback: Ha a cameraForBounds nem tudná kiszámítani (pl. extrém kis ablakméret)
+        map.flyTo({
+            center: [lon, lat],
+            zoom: maxComfortZoom,
+            padding: { 
+                top: topPad, 
+                bottom: bottomPad, 
+                left: leftPad, 
+                right: rightPad 
+            },
+            duration: 750,
+            essential: true
+        });
+    }
 
     drawSelectedHighlight(feature);
 }
 
-function zoomToFeature(feature) {
-    smartFlyTo(feature);
+function zoomToFeature(feature, explicitHeight) {
+    smartFlyTo(feature, explicitHeight);
 }
 
 // === ALSÓ INFORMÁCIÓS PANEL (BOTTOM SHEET) MOZGATÁSI LOGIKA ===
