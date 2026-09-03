@@ -443,10 +443,33 @@
 
         .sheet-header { 
             padding: 0 24px; margin-bottom: 10px; flex-shrink: 0; 
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 12px;
         }
-        .sheet-title { font-size: 22px; font-weight: bold; margin: 0; }
-        .sheet-subtitle { color: #aaa; margin: 4px 0 0 0; font-size: 14px; }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+            align-items: center;
+            align-self: flex-start;
+        }
+        .sheet-title { 
+            font-size: clamp(18px, 4.5vw, 22px); 
+            font-weight: bold; 
+            margin: 0; 
+            line-height: 1.25;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+        }
+        .sheet-subtitle { 
+            color: #aaa; 
+            margin: 4px 0 0 0; 
+            font-size: 14px; 
+            line-height: 1.3;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
 
         /* HEADER GOMBOK */
         .btn-icon, .btn-star, .btn-close {
@@ -1028,25 +1051,21 @@
 
         /* NAVIGÁCIÓS HEADER MÓD (Középre igazítás) */
         
-        /* 1. Alapállapotban a szöveg balra igazodik és csak annyi helyet foglal, amennyi kell */
+        /* 1. Alapállapotban a szöveg balra igazodik és kitölti a rendelkezésre álló helyet a gombokig */
         .header-text-wrapper {
             display: flex; 
             flex-direction: column;
-            justify-content: center;
-            /* Nem adunk flex:1-et alapból, hogy balra maradjon */
+            justify-content: flex-start;
+            flex: 1;
+            min-width: 0; /* Megakadályozza, hogy a hosszú cím túlcsorduljon vagy kinyomja a gombokat */
         }
 
         /* 2. Navigációs módban */
         .sheet-header.nav-mode .header-text-wrapper {
-            flex: 1; /* Elfoglalja az összes maradék helyet a gombok mellett */
-            text-align: center; /* A szöveget középre rendezi ebben a nagy helyben */
-            
-            /* Opcionális: Ha nagyon ráhúzódik a gombokra, egy kis padding jobb oldalt */
+            flex: 1;
+            min-width: 0;
+            text-align: center;
             padding-right: 10px; 
-            
-            /* Opcionális trükk: Ha azt akarod, hogy a képernyő közepéhez közelítsen, 
-               nem a maradék hely közepéhez, akkor itt kellene trükközni, 
-               de a kérésed szerint a "maradék hely közepe" kell, ez pont azt tudja. */
         }
 
         /* --- M3 SWITCH & CACHE UI --- */
