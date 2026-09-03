@@ -1,6 +1,4 @@
 /studio        /embed-demo/index.html 200
 /embed-studio  /embed-demo/index.html 200
-/embed         /index.html   200
-/embed/        /index.html   200
-/embed/*       /index.html   200
 /*             /index.html   200
+

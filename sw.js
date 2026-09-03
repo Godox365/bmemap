@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bmemap-shell-v12';
+const CACHE_NAME = 'bmemap-shell-v13';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

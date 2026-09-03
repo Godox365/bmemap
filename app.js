@@ -6841,6 +6841,7 @@ function copyEmbedCode() {
         : 'https://bmemap.hu';
     let embedUrl = `${origin}/embed`;
     const params = new URLSearchParams();
+    params.set('mode', 'embed');
     params.set('b', currentBuildingKey);
 
     if (activeRouteData && activeRouteData.end) {
