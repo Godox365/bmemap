@@ -7689,12 +7689,35 @@ window.addEventListener('languageChanged', () => {
 
 // === PWA & SERVICE WORKER REGISZTRÁCIÓ ===
 
-// 1. Service Worker regisztrálása (Offline működéshez - csak normál módban)
+// 1. Service Worker regisztrálása (Offline működéshez és megbízható automatikus frissítéshez)
 if ('serviceWorker' in navigator && !IS_EMBED_MODE) {
+    // Amikor egy új Service Worker aktiválódik (skipWaiting + clients.claim után),
+    // újratöltjük az ablakot, hogy azonnal érvénybe lépjen a legfrissebb kód
+    let isRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!isRefreshing) {
+            isRefreshing = true;
+            window.location.reload();
+        }
+    });
+
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((registration) => {
-        }).catch((err) => {
-        });
+        // updateViaCache: 'none' megakadályozza a sw.js HTTP gyorsítótárazását
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+            .then((registration) => {
+                // Azonnali háttérellenőrzés az induláskor
+                registration.update();
+
+                // Amikor az app visszatér az előtérbe (mobil háttérből visszaváltva)
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        registration.update();
+                    }
+                });
+            })
+            .catch((err) => {
+                console.warn("SW regisztrációs hiba:", err);
+            });
     });
 }
 

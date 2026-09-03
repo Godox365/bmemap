@@ -10,23 +10,43 @@ const ASSETS_TO_CACHE = [
     './assets/flags/gb.svg',
     './app.js',
     './room_data.js',
+    './manifest.json',
+    './icon-192.png',
     'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css',
-    'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js'
+    'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js',
+    'https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js',
+    'https://unpkg.com/@turf/turf@6/turf.min.js',
+    'https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css',
+    'https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js'
 ];
 
 self.addEventListener('install', (e) => {
-    // Azonnali telepítés várakozás nélkül
+    // Azonnali aktiválás várakozás nélkül
     self.skipWaiting();
     e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(ASSETS_TO_CACHE);
+        caches.open(CACHE_NAME).then(async (cache) => {
+            // Egyenként, hibatűrően töltjük le az offline shell elemeket
+            // A { cache: 'reload' } kötelezi a böngészőt, hogy a hálózatról kérje le a legfrissebb fájlokat (nem a HTTP lemez-cache-ből)
+            return Promise.all(
+                ASSETS_TO_CACHE.map(async (url) => {
+                    try {
+                        const response = await fetch(url, { cache: 'reload' });
+                        if (response && response.ok) {
+                            await cache.put(url, response);
+                        }
+                    } catch (err) {
+                        console.warn('SW pre-cache figyelmeztetés:', url, err);
+                    }
+                })
+            );
         })
     );
 });
 
 self.addEventListener('activate', (e) => {
-    // Azonnali átvétel
+    // Azonnali kliens átvétel
     e.waitUntil(self.clients.claim());
+    // Régi verziójú cache-ek automatikus felszabadítása
     e.waitUntil(
         caches.keys().then((keyList) => {
             return Promise.all(keyList.map((key) => {
@@ -36,15 +56,17 @@ self.addEventListener('activate', (e) => {
     );
 });
 
-// --- NETWORK FIRST STRATÉGIA ---
+// --- NETWORK FIRST STRATÉGIA + MEGBÍZHATÓ OFFLINE FALLBACK ---
 self.addEventListener('fetch', (e) => {
-    // Chrome extension request-eket és nem-HTTP request-eket kihagyjuk
+    // Csak HTTP és HTTPS kérések kezelése
     if (!e.request.url.startsWith('http')) return;
+
     e.respondWith(
         fetch(e.request)
             .then((networkResponse) => {
-                // Ha van net, és sikeres a letöltés, lementjük a friss verziót a cache-be
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                // Ha van internet, elmentjük a friss választ a cache-be
+                // Mind a helyi ('basic'), mind a külső CDN ('cors') válaszokat elmentjük offline célra
+                if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
                         cache.put(e.request, responseToCache);
@@ -53,8 +75,17 @@ self.addEventListener('fetch', (e) => {
                 return networkResponse;
             })
             .catch(() => {
-                // Ha NINCS net (vagy hiba van), akkor adjuk oda a lementett offline verziót
-                return caches.match(e.request);
+                // Ha NINCS internet (offline állapot), a mentett cache-ből adjuk oda a választ
+                // Az { ignoreSearch: true } opcióval a ?v=14 query paraméterrel ellátott fájlokat is megtalálja!
+                return caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
+                    if (cachedResponse) return cachedResponse;
+
+                    // Offline navigációs fallback a főoldalra
+                    if (e.request.mode === 'navigate') {
+                        return caches.match('./index.html', { ignoreSearch: true });
+                    }
+                    return null;
+                });
             })
     );
 });
