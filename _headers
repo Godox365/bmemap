@@ -1,9 +1,19 @@
-# Netlify Headers Configuration
+# Cloudflare Pages Headers Configuration
 
 # Beágyazható útvonalak: minden domainről engedélyezett az iframe beágyazás (BME oldalak, Neptun, cikkek, helyi tesztek stb.)
 /embed*
   Content-Security-Policy: frame-ancestors 'self' * https: http: file: blob: data:;
   X-Frame-Options: ALLOWALL
+/embed
+  Content-Security-Policy: frame-ancestors 'self' * https: http: file: blob: data:;
+  X-Frame-Options: ALLOWALL
+/embed/*
+  Content-Security-Policy: frame-ancestors 'self' * https: http: file: blob: data:;
+  X-Frame-Options: ALLOWALL
+
+# Service Worker frissítés biztosítása
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
 
 # Főoldal
 /*

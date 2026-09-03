@@ -9,7 +9,7 @@ Interaktív beltéri navigációs és teremkereső alkalmazás a Budapesti Műsz
 * **Geometria:** Turf.js (térbeli számítások), osmtogeojson.
 * **Adatforrás:** OpenStreetMap (OSM).
 * **Automatizáció:** GitHub Actions (napi adatfrissítés), Node.js.
-* **Hosting:** Netlify.
+* **Hosting:** Cloudflare Pages.
 
 ## 🚀 Funkciók
 

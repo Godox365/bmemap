@@ -6836,7 +6836,10 @@ function shareCurrentState() {
  * majd a vágólapra másolja azt.
  */
 function copyEmbedCode() {
-    let embedUrl = "https://bmemap.hu/embed";
+    const origin = (window.location.origin && window.location.origin.startsWith('http')) 
+        ? window.location.origin 
+        : 'https://bmemap.hu';
+    let embedUrl = `${origin}/embed`;
     const params = new URLSearchParams();
     params.set('b', currentBuildingKey);
 
