@@ -163,7 +163,7 @@
             position: absolute;
             top: 90px;
             right: 16px;
-            z-index: 3000;
+            z-index: 2000;
             background: var(--bg-surface); 
             padding: 6px; 
             border-radius: 12px; 
@@ -400,7 +400,7 @@
             position: absolute; bottom: 0; left: 0; right: 0; 
             background: var(--bg-surface); 
             border-radius: 24px 24px 0 0; 
-            z-index: 2000; 
+            z-index: 3500; 
             box-shadow: 0 -5px 20px rgba(0,0,0,0.5); color: var(--text-main);
             
             /* Flex layout: Header + Scroll Content + Footer (Buttons) */
