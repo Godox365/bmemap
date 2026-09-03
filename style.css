@@ -406,10 +406,25 @@
             /* Flex layout: Header + Scroll Content + Footer (Buttons) */
             display: flex; flex-direction: column;
             max-height: 85vh; /* Max magasság */
-            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), height 0.3s;
+            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), height 0.35s cubic-bezier(0.2, 0, 0, 1);
             transform: translateY(105%); /* Alapból rejtve */
         }
         #bottom-sheet.open { transform: translateY(0); }
+
+        /* Sima tartalomváltó mikró-animáció, ha nyitott állapotban váltunk termet */
+        .sheet-content-swap {
+            animation: sheetContentFade 0.22s cubic-bezier(0.2, 0, 0, 1) forwards;
+        }
+        @keyframes sheetContentFade {
+            0% {
+                opacity: 0.3;
+                transform: translateY(4px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
         
         @media (min-width: 768px) {
             #bottom-sheet {

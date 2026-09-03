@@ -1651,6 +1651,10 @@ function _initMapEventListeners() {
             if (window.isMapInteractionLocked) return;
             if (!e.features || e.features.length === 0) return;
 
+            if (e.originalEvent) {
+                e.originalEvent._featureHandled = true;
+            }
+
             const targetFeature = e.features[0];
             let fullFeature = null;
 
@@ -1673,15 +1677,14 @@ function _initMapEventListeners() {
                 window.clickTimeout = null;
             }
 
-            window.clickTimeout = setTimeout(() => {
-                openSheet(featToOpen);
-                window.clickTimeout = null;
-            }, 200);
+            // Azonnali, zökkenőmentes megnyitás 200ms felesleges késleltetés nélkül
+            openSheet(featToOpen);
         });
     });
 
     map.on('click', 'floor-fill', (e) => {
         if (window.isMapInteractionLocked) return;
+        if (e.originalEvent && e.originalEvent._featureHandled) return;
         const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS });
         if (!features || features.length === 0) {
             closeSheet();
@@ -1690,6 +1693,7 @@ function _initMapEventListeners() {
 
     map.on('click', (e) => {
         if (window.isMapInteractionLocked) return;
+        if (e.originalEvent && e.originalEvent._featureHandled) return;
         const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS.concat(['floor-fill']) });
         if (!features || features.length === 0) {
             if (activeRouteData) return; // Ne zárjuk be a sheet-et, ha aktív navigáció fut!
@@ -3527,11 +3531,10 @@ function openSheet(feature) {
         const isStart = activeNavSource && activeNavSource.id === feature.id;
         const isEnd = activeNavTarget && activeNavTarget.id === feature.id;
 
-        // Ha a felhasználó egy teljesen új (harmadik) helyre kattint, megszakítjuk az aktív navigációt
+        // Ha a felhasználó egy teljesen új (harmadik) helyre kattint, megszakítjuk az aktív navigációt,
+        // de NEM csukjuk be a panelt (nem hívunk closeSheet-et), így az zökkenőmentesen vált át az új teremre!
         if (!isStart && !isEnd) {
-            clearRouteAndClose(); 
-            // A clearRouteAndClose függvény bezárja a panelt és törli az útvonalat a térképről.
-            // A folyamat ezután folytatódik, és a panel újra kinyílik már az újonnan választott elem adataival.
+            clearRouteDataOnly(); 
         }
     }
 
@@ -3784,6 +3787,26 @@ function openSheet(feature) {
 
     // Az információs panel (Sheet) végleges magasságának és nyitott állapotának azonnali beállítása
     const sheet = document.getElementById('bottom-sheet');
+    const wasAlreadyOpen = sheet && sheet.classList.contains('open');
+
+    // Ha a panel már nyitva van, finom magasság-animációt és elegáns tartalomváltást alkalmazunk
+    if (wasAlreadyOpen) {
+        sheet.style.transition = 'height 0.35s cubic-bezier(0.2, 0, 0, 1)';
+        const scrollContent = document.getElementById('sheet-scroll-content');
+        const headerText = document.querySelector('.header-text-wrapper');
+        if (scrollContent) {
+            scrollContent.classList.remove('sheet-content-swap');
+            void scrollContent.offsetWidth; // Újraindítja a CSS animációt
+            scrollContent.classList.add('sheet-content-swap');
+            scrollContent.scrollTop = 0; // Visszaállítja a görgetést a tetejére
+        }
+        if (headerText) {
+            headerText.classList.remove('sheet-content-swap');
+            void headerText.offsetWidth;
+            headerText.classList.add('sheet-content-swap');
+        }
+    }
+
     sheet.style.height = `${targetHeight}px`;
     sheet.classList.add('open');
 
@@ -4158,7 +4181,7 @@ function closeSheet() {
     });
 }
 
-function clearRouteAndClose() {
+function clearRouteDataOnly() {
     _resetMapPadding();
     if (_mapLayersInitialized) {
         if (map.getSource('route-geojson')) map.getSource('route-geojson').setData({ type: 'FeatureCollection', features: [] });
@@ -4196,7 +4219,10 @@ function clearRouteAndClose() {
     if (itinerDiv) itinerDiv.style.display = 'none';
     
     document.getElementById('room-data-container').style.display = 'block';
+}
 
+function clearRouteAndClose() {
+    clearRouteDataOnly();
     closeSheet();
 }
 
