@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#1b1e24"/>
+  <!-- Padló -->
+  <rect y="165" width="400" height="35" fill="#121418"/>
+  <line x1="0" y1="165" x2="400" y2="165" stroke="#2a2e38" stroke-width="2"/>
+
+  <!-- Építészeti fali vonalak / téglaminta vázlat -->
+  <line x1="80" y1="0" x2="80" y2="200" stroke="#252a33" stroke-width="1.5" stroke-dasharray="6,6"/>
+  <line x1="320" y1="0" x2="320" y2="200" stroke="#252a33" stroke-width="1.5" stroke-dasharray="6,6"/>
+
+  <!-- Külső ajtótok / káva (Door Portal) -->
+  <rect x="135" y="15" width="130" height="150" fill="#252a34" stroke="#373e4d" stroke-width="2"/>
+
+  <!-- Felülvilágító ablak (Transom window az ajtó felett) -->
+  <rect x="145" y="24" width="110" height="26" fill="#181c22" stroke="#373e4d" stroke-width="1.5"/>
+  <!-- Ablakosztó bordák -->
+  <line x1="181" y1="24" x2="181" y2="50" stroke="#2d3340" stroke-width="1.5"/>
+  <line x1="218" y1="24" x2="218" y2="50" stroke="#2d3340" stroke-width="1.5"/>
+  <!-- Enyhe üveg tükröződés csík -->
+  <line x1="155" y1="30" x2="170" y2="30" stroke="#94a3b8" stroke-opacity="0.3" stroke-width="2" stroke-linecap="round"/>
+  <line x1="190" y1="30" x2="205" y2="30" stroke="#94a3b8" stroke-opacity="0.3" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Belső ajtókeret és küszöb -->
+  <rect x="145" y="55" width="110" height="110" fill="#20242d"/>
+  <rect x="130" y="162" width="140" height="5" rx="1" fill="#373e4d"/>
+
+  <!-- Fő ajtószárny (Modern sötét fa / fém ajtó panelkivágásokkal) -->
+  <rect x="148" y="57" width="104" height="106" rx="2" fill="#282e3a" stroke="#373e4d" stroke-width="1.5"/>
+
+  <!-- Díszítő minimalista fali panelek / kazetták az ajtón -->
+  <!-- Felső kazetta -->
+  <rect x="158" y="67" width="84" height="40" rx="2" fill="#212630" stroke="#373e4d" stroke-width="1"/>
+  <!-- Alsó kazetta -->
+  <rect x="158" y="115" width="84" height="40" rx="2" fill="#212630" stroke="#373e4d" stroke-width="1"/>
+
+  <!-- Modern kilincs és rozetta (Jobb oldal) -->
+  <circle cx="232" cy="112" r="4" fill="#373e4d"/>
+  <rect x="230" y="110" width="14" height="3" rx="1.5" fill="#94a3b8"/>
+  <!-- Kulcslyuk / kártyaolvasó egység -->
+  <circle cx="232" cy="120" r="2" fill="#14171d"/>
+  <rect x="231" y="120" width="2" height="4" fill="#14171d"/>
+
+  <!-- Minimalista kültéri/folyosói falikar lámpa a bal oldalon -->
+  <rect x="110" y="70" width="4" height="15" fill="#373e4d"/>
+  <polygon points="106,85 118,85 115,75 109,75" fill="#64748b"/>
+  <polygon points="112,85 100,120 124,120" fill="#f8fafc" fill-opacity="0.04"/>
+</svg>

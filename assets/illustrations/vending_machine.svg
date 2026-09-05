@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#20152b"/>
+  <!-- Padló -->
+  <rect y="165" width="400" height="35" fill="#150e1c"/>
+  <line x1="0" y1="165" x2="400" y2="165" stroke="#311f42" stroke-width="2"/>
+
+  <!-- Automata fő szekrénytest (Tall Snack/Drink Machine) -->
+  <rect x="135" y="15" width="130" height="150" rx="6" fill="#321e42" stroke="#4a2d61" stroke-width="2"/>
+  <!-- Lábak -->
+  <rect x="145" y="165" width="18" height="5" fill="#1c1126"/>
+  <rect x="237" y="165" width="18" height="5" fill="#1c1126"/>
+
+  <!-- Üveges kirakatrész (bal oldal, nagy felület) -->
+  <rect x="145" y="25" width="82" height="96" rx="3" fill="#190e24" stroke="#432657" stroke-width="1.5"/>
+
+  <!-- 1. Felső polc: Palackok / dobozos üdítők -->
+  <line x1="147" y1="52" x2="225" y2="52" stroke="#372047" stroke-width="2"/>
+  <rect x="153" y="34" width="8" height="17" rx="1.5" fill="#c084fc"/>
+  <rect x="167" y="34" width="8" height="17" rx="1.5" fill="#a855f7"/>
+  <rect x="181" y="34" width="8" height="17" rx="1.5" fill="#9333ea"/>
+  <rect x="195" y="34" width="8" height="17" rx="1.5" fill="#c084fc"/>
+  <rect x="209" y="34" width="8" height="17" rx="1.5" fill="#a855f7"/>
+
+  <!-- 2. Középső polc: Csokoládék / szeletek a spirálokban -->
+  <line x1="147" y1="84" x2="225" y2="84" stroke="#372047" stroke-width="2"/>
+  <rect x="152" y="66" width="11" height="17" rx="1" fill="#e9d5ff"/>
+  <rect x="166" y="66" width="11" height="17" rx="1" fill="#d8b4fe"/>
+  <rect x="180" y="66" width="11" height="17" rx="1" fill="#c084fc"/>
+  <rect x="194" y="66" width="11" height="17" rx="1" fill="#e9d5ff"/>
+  <rect x="208" y="66" width="11" height="17" rx="1" fill="#d8b4fe"/>
+
+  <!-- 3. Alsó polc: Chips / keksz zacskók -->
+  <line x1="147" y1="116" x2="225" y2="116" stroke="#372047" stroke-width="2"/>
+  <polygon points="152,115 166,115 168,98 150,98" fill="#d8b4fe"/>
+  <polygon points="171,115 185,115 187,98 169,98" fill="#c084fc"/>
+  <polygon points="190,115 204,115 206,98 188,98" fill="#a855f7"/>
+  <polygon points="209,115 223,115 225,98 207,98" fill="#e9d5ff"/>
+
+  <!-- Jobb oldali vezérlőoszlop (Keypad & Payment) -->
+  <rect x="233" y="25" width="24" height="96" rx="2" fill="#241433"/>
+  <!-- Kijelző képernyő -->
+  <rect x="236" y="32" width="18" height="10" rx="1" fill="#100717"/>
+  <line x1="239" y1="37" x2="251" y2="37" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Numerikus gombmátrix -->
+  <circle cx="240" cy="50" r="1.5" fill="#6b468a"/>
+  <circle cx="245" cy="50" r="1.5" fill="#6b468a"/>
+  <circle cx="250" cy="50" r="1.5" fill="#6b468a"/>
+  <circle cx="240" cy="56" r="1.5" fill="#6b468a"/>
+  <circle cx="245" cy="56" r="1.5" fill="#6b468a"/>
+  <circle cx="250" cy="56" r="1.5" fill="#6b468a"/>
+  <circle cx="240" cy="62" r="1.5" fill="#6b468a"/>
+  <circle cx="245" cy="62" r="1.5" fill="#6b468a"/>
+  <circle cx="250" cy="62" r="1.5" fill="#6b468a"/>
+  <!-- Érmenyílás és kártyaolvasó -->
+  <rect x="241" y="72" width="8" height="2" fill="#a855f7"/>
+  <rect x="238" y="80" width="14" height="8" rx="1" fill="#100717"/>
+  <rect x="241" y="83" width="8" height="2" fill="#c084fc"/>
+
+  <!-- Alsó kiadó rekesz csapóajtó (Push flap) -->
+  <rect x="145" y="128" width="112" height="28" rx="3" fill="#190e24" stroke="#4a2d61" stroke-width="1.5"/>
+  <rect x="155" y="134" width="92" height="16" rx="2" fill="#281738"/>
+  <line x1="175" y1="142" x2="227" y2="142" stroke="#6b468a" stroke-width="2" stroke-linecap="round"/>
+</svg>

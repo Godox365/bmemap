@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#241e12"/>
+  <!-- Konyhapult felülete -->
+  <rect y="150" width="400" height="50" fill="#17130b"/>
+  <line x1="0" y1="150" x2="400" y2="150" stroke="#382e1c" stroke-width="2"/>
+
+  <!-- Mikrohullámú sütő külső háza (Microwave body) -->
+  <rect x="110" y="45" width="180" height="105" rx="6" fill="#362c1b" stroke="#524329" stroke-width="2"/>
+  <!-- Lábak a pulton -->
+  <rect x="122" y="150" width="14" height="4" rx="1" fill="#1f1910"/>
+  <rect x="264" y="150" width="14" height="4" rx="1" fill="#1f1910"/>
+
+  <!-- Bal oldali üvegajtó (Glass door) -->
+  <rect x="120" y="55" width="118" height="85" rx="4" fill="#241d12" stroke="#453823" stroke-width="1.5"/>
+  <rect x="126" y="61" width="106" height="73" rx="3" fill="#17120a"/>
+
+  <!-- Sütőtér belseje: forgótányér és melegedő étel -->
+  <!-- Üvegtányér -->
+  <ellipse cx="179" cy="122" rx="42" ry="7" fill="#2a2113"/>
+  <!-- Tál étellel -->
+  <ellipse cx="179" cy="115" rx="24" ry="5" fill="#ca8a04"/>
+  <path d="M 157 110 L 201 110 L 196 118 Q 179 122 162 118 Z" fill="#eab308"/>
+  <!-- Gőzcsík az étel felett -->
+  <path d="M 174 104 Q 170 96 175 90" fill="none" stroke="#fef08a" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M 183 103 Q 187 95 182 89" fill="none" stroke="#fef08a" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Sütőajtó fogantyúja -->
+  <rect x="228" y="65" width="5" height="65" rx="2.5" fill="#715d38"/>
+
+  <!-- Jobb oldali vezérlőpanel (Control panel) -->
+  <rect x="245" y="55" width="36" height="85" rx="3" fill="#241d12"/>
+
+  <!-- Digitális időzítő LED kijelző felül -->
+  <rect x="249" y="61" width="28" height="15" rx="2" fill="#140f08"/>
+  <rect x="253" y="66" width="3" height="5" fill="#facc15"/>
+  <rect x="259" y="66" width="3" height="5" fill="#facc15"/>
+  <circle cx="264" cy="67" r="0.7" fill="#facc15"/>
+  <circle cx="264" cy="70" r="0.7" fill="#facc15"/>
+  <rect x="267" y="66" width="3" height="5" fill="#facc15"/>
+  <rect x="272" y="66" width="3" height="5" fill="#facc15"/>
+
+  <!-- Forgatógomb (Dial knob) -->
+  <circle cx="263" cy="92" r="9" fill="#362c1b" stroke="#524329" stroke-width="1.5"/>
+  <line x1="263" y1="87" x2="263" y2="92" stroke="#ca8a04" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Nyomógombok és Start gomb alul -->
+  <circle cx="256" cy="112" r="3" fill="#524329"/>
+  <circle cx="270" cy="112" r="3" fill="#524329"/>
+  <rect x="252" y="122" width="22" height="10" rx="2" fill="#854d0e"/>
+  <polygon points="261,125 266,127 261,129" fill="#fef08a"/>
+</svg>

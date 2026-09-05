@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#142125"/>
+  <!-- Padló -->
+  <rect y="155" width="400" height="45" fill="#0e171a"/>
+  <line x1="0" y1="155" x2="400" y2="155" stroke="#1f3339" stroke-width="2"/>
+
+  <!-- Laborasztal (Lab Workbench) -->
+  <rect x="35" y="115" width="330" height="12" rx="2" fill="#243c43"/>
+  <rect x="40" y="127" width="320" height="28" fill="#18272c"/>
+  <line x1="120" y1="127" x2="120" y2="155" stroke="#1f3339" stroke-width="2"/>
+  <line x1="280" y1="127" x2="280" y2="155" stroke="#1f3339" stroke-width="2"/>
+
+  <!-- 1. Oszcilloszkóp / Mérőműszer képernyő (Bal oldal) -->
+  <rect x="60" y="55" width="85" height="60" rx="3" fill="#1a2d33" stroke="#2c4c55" stroke-width="2"/>
+  <!-- Képernyő -->
+  <rect x="66" y="61" width="55" height="40" rx="2" fill="#101c20"/>
+  <!-- Rácsvonalak a képernyőn -->
+  <line x1="66" y1="81" x2="121" y2="81" stroke="#1c363e" stroke-width="1" stroke-dasharray="2,2"/>
+  <line x1="93" y1="61" x2="93" y2="101" stroke="#1c363e" stroke-width="1" stroke-dasharray="2,2"/>
+  <!-- Zöldes/cián szinuszhullám -->
+  <path d="M 68 81 Q 74 67 80 81 T 93 81 T 106 81 T 119 81" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+  <!-- Forgatógombok és csatlakozók -->
+  <circle cx="132" cy="70" r="4" fill="#355b66"/>
+  <circle cx="132" cy="83" r="4" fill="#355b66"/>
+  <circle cx="132" cy="95" r="3" fill="#22d3ee"/>
+
+  <!-- 2. Mikroszkóp (Középen) -->
+  <!-- Talpazat -->
+  <rect x="180" y="107" width="40" height="8" rx="2" fill="#2c4c55"/>
+  <!-- Függőleges állvány -->
+  <rect x="210" y="55" width="8" height="55" rx="2" fill="#355b66"/>
+  <path d="M 210 55 Q 200 55 195 65 L 195 85" fill="none" stroke="#355b66" stroke-width="6" stroke-linecap="round"/>
+  <!-- Tárgyasztal -->
+  <rect x="185" y="88" width="26" height="4" fill="#477380"/>
+  <!-- Objektív lencse -->
+  <rect x="193" y="75" width="8" height="12" fill="#477380"/>
+  <!-- Okulár tubus -->
+  <rect x="193" y="45" width="8" height="18" fill="#5b8f9e" transform="rotate(-20 193 45)"/>
+
+  <!-- 3. Erlenmeyer-lombik és kémcsövek (Jobb oldal) -->
+  <!-- Lombik -->
+  <polygon points="265,115 285,115 280,92 270,92" fill="#1c333a" stroke="#477380" stroke-width="1.5"/>
+  <rect x="272" y="80" width="6" height="12" fill="#1c333a" stroke="#477380" stroke-width="1.5"/>
+  <!-- Folyadékszint a lombikban -->
+  <polygon points="267,114 283,114 280,102 270,102" fill="#0891b2"/>
+  
+  <!-- Kémcsőállvány -->
+  <rect x="300" y="92" width="45" height="23" rx="2" fill="#1f353d" stroke="#2e4f5a" stroke-width="1"/>
+  <!-- 3 kémcső -->
+  <rect x="307" y="72" width="6" height="36" rx="3" fill="#1c333a" stroke="#477380" stroke-width="1"/>
+  <rect x="308" y="85" width="4" height="21" rx="2" fill="#22d3ee"/>
+
+  <rect x="319" y="72" width="6" height="36" rx="3" fill="#1c333a" stroke="#477380" stroke-width="1"/>
+  <rect x="320" y="90" width="4" height="16" rx="2" fill="#06b6d4"/>
+
+  <rect x="331" y="72" width="6" height="36" rx="3" fill="#1c333a" stroke="#477380" stroke-width="1"/>
+  <rect x="332" y="80" width="4" height="26" rx="2" fill="#38bdf8"/>
+</svg>

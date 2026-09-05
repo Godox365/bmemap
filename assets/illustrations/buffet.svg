@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#291e17"/>
+  <!-- Padló / alapzat -->
+  <rect y="160" width="400" height="40" fill="#1c140f"/>
+  <line x1="0" y1="160" x2="400" y2="160" stroke="#3d2a1f" stroke-width="2"/>
+
+  <!-- Pult felülete (Flat Countertop) -->
+  <rect x="40" y="125" width="320" height="12" rx="2" fill="#4d3527"/>
+  <rect x="45" y="137" width="310" height="23" fill="#2d1e16"/>
+
+  <!-- Kávéscsésze és csészealj a pulton (középen) -->
+  <ellipse cx="160" cy="125" rx="30" ry="6" fill="#3d2a1f"/>
+  <path d="M 138 95 L 182 95 L 178 122 Q 160 126 142 122 Z" fill="#6d4b37"/>
+  <ellipse cx="160" cy="95" rx="22" ry="4.5" fill="#4d3527"/>
+  <ellipse cx="160" cy="95" rx="19" ry="3.5" fill="#332117"/>
+  <!-- Csésze fül -->
+  <path d="M 181 98 Q 195 98 195 107 Q 195 116 179 116" fill="none" stroke="#6d4b37" stroke-width="3" stroke-linecap="round"/>
+  <!-- Minimalista gőzszálak (flat ívek) -->
+  <path d="M 152 86 Q 148 76 154 68" fill="none" stroke="#b08466" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 162 84 Q 166 74 160 66" fill="none" stroke="#b08466" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Tányér péksüteménnyel / croissanttal a pulton (jobb oldal) -->
+  <ellipse cx="255" cy="125" rx="34" ry="6" fill="#3d2a1f"/>
+  <path d="M 235 121 Q 255 106 275 121 Q 255 116 235 121 Z" fill="#b47444"/>
+  <path d="M 245 117 Q 255 109 265 117" fill="none" stroke="#8c532b" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Kávédaráló / gép sziluett a bal oldalon -->
+  <rect x="75" y="85" width="36" height="40" rx="3" fill="#3d2a1f"/>
+  <rect x="83" y="70" width="20" height="15" rx="2" fill="#543a2b"/>
+  <circle cx="93" cy="100" r="5" fill="#b08466"/>
+
+  <!-- Minimalista függőlámpák felül -->
+  <line x1="160" y1="0" x2="160" y2="28" stroke="#3d2a1f" stroke-width="1.5"/>
+  <polygon points="152,38 168,38 164,28 156,28" fill="#6d4b37"/>
+  <line x1="255" y1="0" x2="255" y2="28" stroke="#3d2a1f" stroke-width="1.5"/>
+  <polygon points="247,38 263,38 259,28 251,28" fill="#6d4b37"/>
+</svg>

@@ -2881,10 +2881,13 @@ function alignMapToBuildingCenter() {
 
             } else {
                 // --- SZÁMÍTÓGÉPES NÉZET ---
+                const sheetEl = document.getElementById('bottom-sheet');
+                const panelOpen = sheetEl && sheetEl.classList.contains('open');
+                const panelW = panelOpen ? (sheetEl.getBoundingClientRect().width || 390) : 0;
                 map.fitBounds(
                     [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
                     {
-                        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                        padding: { top: 50, bottom: 50, left: panelW + 50, right: 50 },
                         animate: false
                     }
                 );
@@ -3507,6 +3510,333 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
 }
 
 /**
+ * Ellenőrzi, hogy a felület asztali (desktop) oldalsó panel módban működik-e (>= 768px).
+ * @returns {boolean}
+ */
+function isDesktopSidePanel() {
+    return window.innerWidth >= 768;
+}
+
+/**
+ * Meghatározza a megfelelő alapértelmezett SVG illusztráció elérési útját
+ * a térképelem típusa és tulajdonságai alapján.
+ * @param {Object} feature - A kiválasztott térképelem.
+ * @returns {string} Az SVG fájl elérési útja.
+ */
+function getDefaultIllustration(feature) {
+    if (!feature || !feature.properties) return 'assets/illustrations/default_room.svg';
+    const p = feature.properties;
+    const nameLower = (p.name || '').toLowerCase();
+    const refLower = (p.ref || '').toLowerCase();
+
+    // 1. Mosdó / WC
+    if (p.toilets || p.amenity === 'toilets' || p.amenity === 'toilet' || p.room === 'toilets' || p.room === 'toilet' || p.indoor === 'toilets' || nameLower.includes('mosdó') || nameLower.includes('wc') || nameLower.includes('toalett') || nameLower.includes('vécé')) {
+        return 'assets/illustrations/restroom.svg';
+    }
+
+    // 2. Lift / Felvonó
+    if (p.highway === 'elevator' || p.amenity === 'elevator' || p.elevator === 'yes' || nameLower.includes('lift') || nameLower.includes('felvonó')) {
+        return 'assets/illustrations/elevator.svg';
+    }
+
+    // 3. Lépcső / Lépcsőház
+    if (p.highway === 'steps' || p.stairs === 'yes' || p.room === 'stairs' || p.indoor === 'steps' || nameLower.includes('lépcső')) {
+        return 'assets/illustrations/stairs.svg';
+    }
+
+    // 4. Kávéautomata (külön prioritással a büfé és az általános automata előtt)
+    if ((p.amenity === 'vending_machine' && p.vending && p.vending.includes('coffee')) || nameLower.includes('kávéautomata') || nameLower.includes('kávégép')) {
+        return 'assets/illustrations/coffee_machine.svg';
+    }
+
+    // 5. Automata (ital, snack, édesség)
+    if (p.amenity === 'vending_machine' || nameLower.includes('italautomata') || nameLower.includes('snack') || nameLower.includes('automata')) {
+        return 'assets/illustrations/vending_machine.svg';
+    }
+
+    // 6. Mikró / ételmelegítő
+    if (p.amenity === 'microwave' || p.microwave === 'yes' || nameLower.includes('mikró') || nameLower.includes('mikro') || nameLower.includes('mikrohullámú')) {
+        return 'assets/illustrations/microwave.svg';
+    }
+
+    // 7. ATM / Bankautomata
+    if (p.amenity === 'atm' || p.amenity === 'bank' || nameLower.includes('atm') || nameLower.includes('bankautomata') || nameLower.includes('készpénz')) {
+        return 'assets/illustrations/atm.svg';
+    }
+
+    // 8. Büfé / Kávézó / Étkezés
+    if (p.amenity === 'cafe' || p.amenity === 'fast_food' || p.amenity === 'restaurant' || p.shop || nameLower.includes('büfé') || nameLower.includes('kávézó') || nameLower.includes('menza') || nameLower.includes('étkezde')) {
+        return 'assets/illustrations/buffet.svg';
+    }
+
+    // 9. Ruhatár
+    if (p.amenity === 'cloakroom' || p.room === 'cloakroom' || nameLower.includes('ruhatár') || nameLower.includes('öltöző')) {
+        return 'assets/illustrations/cloakroom.svg';
+    }
+
+    // 10. Számítógépterem / PC labor
+    if (p.room === 'computer_lab' || p.room === 'computer' || nameLower.includes('számítógép') || nameLower.includes('pc labor') || nameLower.includes('számítástechnika') || refLower.includes('pc')) {
+        return 'assets/illustrations/computer.svg';
+    }
+
+    // 11. Labor / Műhely / Kutatóhelyiség
+    if (p.room === 'laboratory' || p.room === 'lab' || nameLower.includes('labor') || nameLower.includes('műhely') || nameLower.includes('kutató')) {
+        return 'assets/illustrations/lab.svg';
+    }
+
+    // 12. Iroda / Tanszék / Adminisztráció
+    if (p.room === 'office' || nameLower.includes('iroda') || nameLower.includes('tanszék') || nameLower.includes('dékán') || nameLower.includes('titkárság') || nameLower.includes('fogadóóra')) {
+        return 'assets/illustrations/office.svg';
+    }
+
+    // 13. Ajtó / Bejárat
+    if (p.door || p.entrance || p.indoor === 'door' || p.indoor === 'entrance' || nameLower.includes('ajtó') || nameLower.includes('bejárat') || nameLower.includes('főbejárat')) {
+        return 'assets/illustrations/door.svg';
+    }
+
+    // 14. Raktár / Tároló / Szertár
+    if (p.room === 'storage' || p.room === 'closet' || nameLower.includes('raktár') || nameLower.includes('tároló') || nameLower.includes('szertár')) {
+        return 'assets/illustrations/storage.svg';
+    }
+
+    // 15. Folyosó / Közlekedő / Aula
+    if (p.highway === 'corridor' || p.indoor === 'corridor' || p.room === 'corridor' || nameLower.includes('folyosó') || nameLower.includes('közlekedő') || nameLower.includes('aula')) {
+        return 'assets/illustrations/corridor.svg';
+    }
+
+    // 16. Nagyelőadó
+    if (p.room === 'auditorium' || p.room === 'lecture_hall' || nameLower.includes('előadó')) {
+        return 'assets/illustrations/lecture_hall.svg';
+    }
+
+    // 17. Sima tanterem / alapértelmezett szoba
+    return 'assets/illustrations/default_room.svg';
+}
+
+/**
+ * Szinkronizálja az információs panel belső DOM elemeinek elrendezését
+ * a képernyőméret (Desktop vs. Mobil) alapján:
+ * - Desktopon:
+ *   1. Képek (hero) a legtetejére (a header elé)
+ *   2. Cím (header) közvetlenül utána
+ *   3. Navigációs akciógombok közvetlenül a cím alá (külön sávban)
+ *   4. Görgethető tartalom: Leírás (room-note) legfelülre, utána a tanterem chipek (room-meta)
+ * - Mobilon:
+ *   1. Képek vissza a room-data-container aljára
+ *   2. Akciógombok vissza a sheet legaljára (a scrollContent után)
+ *   3. Chipek vissza a leírás elé
+ */
+function syncSheetLayoutForViewport() {
+    const isDesktop = isDesktopSidePanel();
+    const sheet = document.getElementById('bottom-sheet');
+    const galleryWrapper = document.getElementById('gallery-container') || document.getElementById('room-gallery');
+    const header = document.querySelector('.sheet-header');
+    const footer = document.querySelector('.sheet-footer');
+    const scrollContent = document.getElementById('sheet-scroll-content');
+    const dataContainer = document.getElementById('room-data-container');
+    const noteEl = document.getElementById('room-note');
+    const metaEl = document.querySelector('.room-meta');
+
+    if (!sheet || !galleryWrapper || !header || !footer || !scrollContent || !dataContainer) return;
+
+    if (isDesktop) {
+        // --- DESKTOP ELRENDEZÉS ---
+        // 1. Képek a legtetejére (a header elé)
+        if (galleryWrapper.parentElement !== sheet) {
+            sheet.insertBefore(galleryWrapper, header);
+        }
+        // 2. Cím (header) marad utána
+        // 3. Navigációs gombok közvetlenül a cím alá (külön sáv)
+        if (footer.parentElement === sheet && footer.previousElementSibling !== header) {
+            header.after(footer);
+        }
+        // 4. Görgethető tartalom logikus sorrendje: Leírás legfelül, utána chipek
+        if (noteEl && metaEl && noteEl.nextElementSibling !== metaEl) {
+            dataContainer.insertBefore(noteEl, metaEl);
+        }
+    } else {
+        // --- MOBIL ELRENDEZÉS (100% eredeti állapot visszaállítása) ---
+        // 1. Képek vissza a tartalomkonténer aljára
+        if (galleryWrapper.parentElement !== dataContainer) {
+            dataContainer.appendChild(galleryWrapper);
+        }
+        // 2. Footer vissza a legalsó fix helyre
+        if (footer.parentElement === sheet && sheet.lastElementChild !== footer) {
+            sheet.appendChild(footer);
+        }
+        // 3. Chipek vissza a leírás elé
+        if (noteEl && metaEl && metaEl.nextElementSibling !== noteEl) {
+            dataContainer.insertBefore(metaEl, noteEl);
+        }
+        // 4. Mobilon az illusztrációs default artot rejtjük
+        const defaultArt = galleryWrapper.querySelector('.gallery-default-art');
+        if (defaultArt) {
+            galleryWrapper.style.display = 'none';
+        }
+    }
+}
+
+let _galleryDragInitialized = false;
+let _isGalleryDragging = false;
+let _galleryStartX = 0;
+let _galleryScrollStart = 0;
+let _galleryMovedDistance = 0;
+
+/**
+ * Kezeli a galéria egérrel történő húzását (drag-to-scroll) desktopon.
+ */
+function initGalleryDrag() {
+    if (_galleryDragInitialized) return;
+    const galleryEl = document.getElementById('room-gallery');
+    if (!galleryEl) return;
+    _galleryDragInitialized = true;
+
+    galleryEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest('.gallery-nav-btn') || e.target.closest('.gallery-dots')) return;
+        if (!isDesktopSidePanel()) return;
+
+        _isGalleryDragging = true;
+        _galleryMovedDistance = 0;
+        _galleryStartX = e.pageX;
+        _galleryScrollStart = galleryEl.scrollLeft;
+        galleryEl.style.scrollBehavior = 'auto';
+        galleryEl.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!_isGalleryDragging) return;
+        const deltaX = e.pageX - _galleryStartX;
+        _galleryMovedDistance = Math.abs(deltaX);
+        const galleryEl = document.getElementById('room-gallery');
+        if (galleryEl) {
+            galleryEl.scrollLeft = _galleryScrollStart - deltaX;
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!_isGalleryDragging) return;
+        _isGalleryDragging = false;
+        const galleryEl = document.getElementById('room-gallery');
+        if (!galleryEl) return;
+        galleryEl.style.cursor = '';
+        galleryEl.style.scrollBehavior = 'smooth';
+        if (_galleryMovedDistance > 10) {
+            const width = galleryEl.clientWidth || 1;
+            const targetIndex = Math.round(galleryEl.scrollLeft / width);
+            galleryEl.scrollTo({ left: targetIndex * width, behavior: 'smooth' });
+        }
+    });
+}
+
+/**
+ * Beállítja a képgaléria Material 3 stílusú lapozását, navigációs gombjait és indikátor pöttyöket.
+ * @param {number} imageCount - A képek száma.
+ */
+function setupGalleryCarousel(imageCount) {
+    const container = document.getElementById('gallery-container');
+    const galleryEl = document.getElementById('room-gallery');
+    const prevBtn = document.getElementById('gallery-nav-prev');
+    const nextBtn = document.getElementById('gallery-nav-next');
+    const dotsContainer = document.getElementById('gallery-dots');
+
+    if (!galleryEl) return;
+
+    // Mindig alaphelyzetbe állítjuk a vízszintes görgetést
+    galleryEl.scrollLeft = 0;
+    initGalleryDrag();
+
+    // Csak desktopon és csak 1-nél több kép esetén jelenítünk meg navigációt
+    const showControls = isDesktopSidePanel() && imageCount > 1;
+
+    if (!showControls) {
+        if (prevBtn) prevBtn.style.display = 'none';
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (dotsContainer) dotsContainer.style.display = 'none';
+        galleryEl.onscroll = null;
+        if (container) container.onkeydown = null;
+        return;
+    }
+
+    if (prevBtn) {
+        prevBtn.style.display = 'flex';
+        prevBtn.disabled = true;
+    }
+    if (nextBtn) {
+        nextBtn.style.display = 'flex';
+        nextBtn.disabled = (imageCount <= 1);
+    }
+
+    // Material 3 indikátor pöttyök (pill capsule) generálása
+    if (dotsContainer) {
+        dotsContainer.style.display = 'flex';
+        dotsContainer.innerHTML = '';
+        for (let i = 0; i < imageCount; i++) {
+            const dot = document.createElement('button');
+            dot.className = `gallery-dot${i === 0 ? ' active' : ''}`;
+            dot.type = 'button';
+            dot.setAttribute('aria-label', `${i + 1}. kép`);
+            dot.onclick = (e) => {
+                e.stopPropagation();
+                const width = galleryEl.clientWidth || 1;
+                galleryEl.scrollTo({ left: i * width, behavior: 'smooth' });
+            };
+            dotsContainer.appendChild(dot);
+        }
+    }
+
+    // Görgetési állapot szinkronizálása (animáció, swipe vagy gombnyomás után)
+    galleryEl.onscroll = () => {
+        const width = galleryEl.clientWidth || 1;
+        const activeIndex = Math.min(imageCount - 1, Math.max(0, Math.round(galleryEl.scrollLeft / width)));
+
+        if (dotsContainer) {
+            const dots = dotsContainer.children;
+            for (let i = 0; i < dots.length; i++) {
+                dots[i].classList.toggle('active', i === activeIndex);
+            }
+        }
+        if (prevBtn) prevBtn.disabled = (activeIndex === 0);
+        if (nextBtn) nextBtn.disabled = (activeIndex >= imageCount - 1);
+    };
+
+    // Lapozó gombok eseménykezelői
+    if (prevBtn) {
+        prevBtn.onclick = (e) => {
+            e.stopPropagation();
+            const width = galleryEl.clientWidth || 1;
+            const activeIndex = Math.round(galleryEl.scrollLeft / width);
+            const targetIndex = Math.max(0, activeIndex - 1);
+            galleryEl.scrollTo({ left: targetIndex * width, behavior: 'smooth' });
+        };
+    }
+
+    if (nextBtn) {
+        nextBtn.onclick = (e) => {
+            e.stopPropagation();
+            const width = galleryEl.clientWidth || 1;
+            const activeIndex = Math.round(galleryEl.scrollLeft / width);
+            const targetIndex = Math.min(imageCount - 1, activeIndex + 1);
+            galleryEl.scrollTo({ left: targetIndex * width, behavior: 'smooth' });
+        };
+    }
+
+    // Billentyűzet navigáció (bal/jobb nyíl, ha a fókusz a galérián vagy benne van)
+    if (container) {
+        container.tabIndex = 0;
+        container.onkeydown = (e) => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (prevBtn && !prevBtn.disabled) prevBtn.click();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (nextBtn && !nextBtn.disabled) nextBtn.click();
+            }
+        };
+    }
+}
+
+/**
  * Megnyitja az alsó információs panelt (Bottom Sheet) a kiválasztott térképelemhez.
  * Ez a funkció felelős az elem adatainak (név, típus, szint, férőhely, képek) 
  * megjelenítéséért, a külső adatbázissal való szinkronizációért, valamint
@@ -3515,6 +3845,9 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
  * @param {Object} feature - A felhasználó által kiválasztott GeoJSON térképelem.
  */
 function openSheet(feature) {
+    // DOM elrendezés szinkronizálása a kijelzőméretnek megfelelően
+    syncSheetLayoutForViewport();
+
     // EMBED MÓD KEZELÉSE: A mini floating info bar megjelenítése a bottom sheet helyett
     if (IS_EMBED_MODE) {
         openEmbedInfo(feature);
@@ -3551,6 +3884,11 @@ function openSheet(feature) {
         document.getElementById('search-input').placeholder = "Keress...";
         return; // Kilépünk a függvényből, mivel a panel megnyitása helyett útvonaltervezés indul
     }
+
+    const header = document.querySelector('.sheet-header');
+    if (header) header.classList.remove('nav-mode');
+    const footer = document.querySelector('.sheet-footer');
+    if (footer) footer.style.display = 'flex';
     
     const p = feature.properties;
     
@@ -3748,6 +4086,7 @@ function openSheet(feature) {
 
     // --- TEREM-ADATBÁZIS SPECIFIKUS ELEMEK KEZELÉSE ---
     const noteEl = document.getElementById('room-note');
+    const galleryContainer = document.getElementById('gallery-container');
     const galleryEl = document.getElementById('room-gallery');
 
     // Chipek (kapacitás, címkék, felszereltség, funkciók, akadálymentesség) dinamikus kirajzolása
@@ -3763,21 +4102,59 @@ function openSheet(feature) {
         if (galleryEl) {
             galleryEl.innerHTML = ""; 
             if (roomData && roomData.images && roomData.images.length > 0) {
+                if (galleryContainer) galleryContainer.style.display = 'block';
                 galleryEl.style.display = 'flex';
                 roomData.images.forEach(url => {
                     const img = document.createElement('img');
                     img.src = url;
                     img.className = 'gallery-img';
-                    img.onclick = () => window.open(url, '_blank');
+                    img.draggable = false;
+                    img.onclick = () => {
+                        if (_galleryMovedDistance > 8) return;
+                        window.open(url, '_blank');
+                    };
                     galleryEl.appendChild(img);
                 });
+                setupGalleryCarousel(roomData.images.length);
+            } else if (isDesktopSidePanel()) {
+                // Desktopon stílusos kategória vektorgrafika, ha nincs fotó
+                if (galleryContainer) galleryContainer.style.display = 'block';
+                galleryEl.style.display = 'flex';
+                const defaultArtSrc = getDefaultIllustration(feature);
+                const img = document.createElement('img');
+                img.src = defaultArtSrc;
+                img.className = 'gallery-img gallery-default-art';
+                img.alt = typeName || 'Terem';
+                img.draggable = false;
+                galleryEl.appendChild(img);
+                setupGalleryCarousel(1);
             } else {
+                if (galleryContainer) galleryContainer.style.display = 'none';
                 galleryEl.style.display = 'none';
+                setupGalleryCarousel(0);
             }
         }
     } else {
         if (noteEl) noteEl.style.display = 'none';
-        if (galleryEl) galleryEl.style.display = 'none';
+        if (galleryEl) {
+            galleryEl.innerHTML = "";
+            if (isDesktopSidePanel()) {
+                if (galleryContainer) galleryContainer.style.display = 'block';
+                galleryEl.style.display = 'flex';
+                const defaultArtSrc = getDefaultIllustration(feature);
+                const img = document.createElement('img');
+                img.src = defaultArtSrc;
+                img.className = 'gallery-img gallery-default-art';
+                img.alt = typeName || 'Helyszín';
+                img.draggable = false;
+                galleryEl.appendChild(img);
+                setupGalleryCarousel(1);
+            } else {
+                if (galleryContainer) galleryContainer.style.display = 'none';
+                galleryEl.style.display = 'none';
+                setupGalleryCarousel(0);
+            }
+        }
     }
 
     // --- 5. INTELLIGENS MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
@@ -3807,7 +4184,11 @@ function openSheet(feature) {
         }
     }
 
-    sheet.style.height = `${targetHeight}px`;
+    if (isDesktopSidePanel()) {
+        sheet.style.height = '';
+    } else {
+        sheet.style.height = `${targetHeight}px`;
+    }
     sheet.classList.add('open');
 
     // A kedvenc (csillag) gomb vizuális állapotának frissítése a jelenlegi elem alapján
@@ -3905,18 +4286,16 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
     // Főcím: Az utazás becsült idejének kiemelt megjelenítése
     const timeText = typeof t === 'function' ? t('nav.time_minutes', { time: stats.time }) : `${stats.time} perc`;
     title.innerHTML = `
-        <div style="text-align:center; width:100%;">
-            <span style="color:var(--color-ui-active); font-size:28px; font-weight:800; letter-spacing:-0.5px;">
-                ${timeText}
-            </span>
+        <div style="color:var(--text-main); font-size:26px; font-weight:800; letter-spacing:-0.5px; line-height:1.2;">
+            ${timeText}
         </div>
     `;
     
     // Alcím: Az össztávolság és a célpont nevének megjelenítése
     const distText = typeof t === 'function' ? t('nav.dist_meters', { dist: stats.dist }) : `${stats.dist} m`;
     sub.innerHTML = `
-        <div style="text-align:center; width:100%; font-size:15px; opacity:0.8; margin-top:-5px;">
-            ${distText} <span style="margin:0 6px; opacity:0.4;">&bull;</span> ${targetName}
+        <div style="font-size:14px; color:var(--text-sub); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${distText} &bull; ${targetName}">
+            ${distText} <span style="margin:0 4px; opacity:0.5;">&bull;</span> ${targetName}
         </div>
     `;
 
@@ -3935,7 +4314,7 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
     itineraryDiv.style.display = 'block';
     
     // Az útvonalterv HTML struktúrájának összeállítása
-    let html = `<div style="margin-top:15px; display:flex; flex-direction:column; gap:12px;">`;
+    let html = `<div style="display:flex; flex-direction:column; gap:12px;">`;
     
     const clickToViewText = typeof t === 'function' ? t('nav.click_to_view') : 'Kattints a megtekintéshez';
     const startText = typeof t === 'function' ? t('nav.start', { source: sourceName }) : `Indulás: ${sourceName}`;
@@ -3946,8 +4325,8 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         <div class="itiner-step clickable-step" onclick="focusOnEndpoint('start')">
             <div class="itiner-icon start"><span class="material-symbols-outlined">trip_origin</span></div>
             <div class="itiner-text">
-                <div style="font-weight:bold; font-size:16px;">${startText}</div>
-                <div style="font-size:12px; opacity:0.6; margin-top:2px;">${clickToViewText}</div>
+                <div style="font-weight:bold; font-size:15px; color:var(--text-main);">${startText}</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">${clickToViewText}</div>
             </div>
         </div>
     `;
@@ -3958,8 +4337,8 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
             <div class="itiner-step clickable-step" onclick="focusOnRouteSegment('${step.level}')">
                 <div class="itiner-icon"><span class="material-symbols-outlined">${step.icon}</span></div>
                 <div class="itiner-text">
-                    <div style="font-weight:bold; font-size:16px;">${step.text}</div>
-                    <div style="font-size:12px; opacity:0.6; margin-top:2px;">${clickToViewText}</div>
+                    <div style="font-weight:bold; font-size:15px; color:var(--text-main);">${step.text}</div>
+                    <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">${clickToViewText}</div>
                 </div>
             </div>
         `;
@@ -3970,15 +4349,21 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         <div class="itiner-step clickable-step" onclick="focusOnEndpoint('end')">
             <div class="itiner-icon end"><span class="material-symbols-outlined">location_on</span></div>
             <div class="itiner-text">
-                <div style="font-weight:bold; font-size:16px;">${arrivalText}</div>
-                <div style="font-size:12px; opacity:0.6; margin-top:2px;">${clickToViewText}</div>
+                <div style="font-weight:bold; font-size:15px; color:var(--text-main);">${arrivalText}</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">${clickToViewText}</div>
             </div>
         </div>
     `;
     // Térköz hozzáadása a tartalom alján a kényelmes görgetés érdekében
-    html += `</div> <div style="height:40px;"></div>`; 
+    html += `</div> <div style="height:24px;"></div>`; 
     
     itineraryDiv.innerHTML = html;
+
+    // A képgaléria elrejtése navigációs nézetben
+    const galleryContainer = document.getElementById('gallery-container');
+    if (galleryContainer) galleryContainer.style.display = 'none';
+    const gallery = document.getElementById('room-gallery');
+    if (gallery) gallery.style.display = 'none';
 
     // A lábléc (footer) elrejtése a letisztult navigációs nézet érdekében
     const footer = document.querySelector('.sheet-footer');
@@ -4016,13 +4401,20 @@ function focusOnRouteSegment(level) {
     const lats = routePoints.map(p => p[1]);
 
     const sheet = document.getElementById('bottom-sheet');
-    const sheetHeight = sheet ? sheet.getBoundingClientRect().height : 100;
+    let padding;
+    if (isDesktopSidePanel()) {
+        const panelW = sheet ? (sheet.getBoundingClientRect().width || 390) : 0;
+        padding = { top: 80, bottom: 50, left: panelW + 50, right: 50 };
+    } else {
+        const sheetHeight = sheet ? sheet.getBoundingClientRect().height : 100;
+        padding = { top: 80, bottom: sheetHeight + 50, left: 50, right: 50 };
+    }
 
     if (routePoints.length > 0) {
         map.flyTo({
             center: [lons[0], lats[0]],
             zoom: 20,
-            padding: { top: 80, bottom: sheetHeight + 50, left: 50, right: 50 },
+            padding: padding,
             animate: true,
             duration: 1000
         });
@@ -4157,6 +4549,9 @@ function closeSheet() {
     }
 
     if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
+
+    const header = document.querySelector('.sheet-header');
+    if (header) header.classList.remove('nav-mode');
 
     document.getElementById('bottom-sheet').classList.remove('open');
     
@@ -5248,8 +5643,10 @@ function toggleNearbyMenu() {
         document.getElementById('room-data-container').style.display = 'block';
         if (btn) btn.classList.remove('active');
         
-        // Visszaanimáljuk az eredeti magasságra
-        setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+        // Visszaanimáljuk az eredeti magasságra mobilon
+        if (!isDesktopSidePanel()) {
+            setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+        }
         return;
     }
 
@@ -5292,8 +5689,10 @@ function toggleNearbyMenu() {
     container.appendChild(grid);
     document.getElementById('sheet-scroll-content').insertBefore(container, document.getElementById('room-data-container'));
     
-    // A sheet magasságának újrakalkulálása a POI rács méretéhez
-    setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+    // A sheet magasságának újrakalkulálása a POI rács méretéhez mobilon
+    if (!isDesktopSidePanel()) {
+        setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
+    }
 }
 
 /**
@@ -6549,6 +6948,15 @@ function smartFlyTo(feature, explicitBottomHeight) {
         bottomPad = (embedBar && embedBar.classList.contains('visible')) ? 90 : 35;
         leftPad = 25;
         rightPad = 65;
+    } else if (isDesktopSidePanel()) {
+        // --- DESKTOP: bal oldali panel kitakarás ---
+        topPad = 75;
+        const sheetEl = document.getElementById('bottom-sheet');
+        const panelOpen = sheetEl && sheetEl.classList.contains('open');
+        const panelW = panelOpen ? (sheetEl.getBoundingClientRect().width || 390) : 0;
+        leftPad = panelW > 0 ? (panelW + 40) : 45;
+        bottomPad = 40;
+        rightPad = 75;
     } else {
         // Felső sáv (#top-bar) kitakarása
         topPad = isMobile ? 120 : 75;
@@ -6650,9 +7058,13 @@ let velocity = 0;         // A mozgás sebessége az inercia és a lendület (sp
  */
 function getPeekHeight() {
     // A UI komponensek aktuális magasságának lekérése, biztonsági alapértelmezett értékekkel (fallback)
-    const handleH = handle.offsetHeight || 25;
-    const headerH = header.offsetHeight || 60;
-    const footerH = footer.offsetHeight || 80;
+    const handleH = (handle && handle.offsetHeight) || 25;
+    const headerH = (header && header.offsetHeight) || 60;
+    const isNav = header && header.classList.contains('nav-mode');
+    if (isNav) {
+        return handleH + headerH + 15;
+    }
+    const footerH = (footer && footer.style.display !== 'none') ? (footer.offsetHeight || 80) : 0;
     
     // A komponensek magasságának összegzése, kiegészítve egy 10px-es vizuális margóval a zsúfoltság elkerülésére
     return handleH + headerH + footerH + 10;
@@ -6683,6 +7095,14 @@ function getAutoHeight() {
  * a tartalom ismét a tetejétől legyen olvasható.
  */
 function collapseToPeek() {
+    if (isDesktopSidePanel()) {
+        sheet.style.height = '';
+        sheet.classList.add('open');
+        const scrollContent = document.getElementById('sheet-scroll-content');
+        if (scrollContent) scrollContent.scrollTop = 0;
+        return;
+    }
+
     const peekH = getPeekHeight();
     
     // A panel magasságának és az animációs átmenet paramétereinek beállítása
@@ -6706,6 +7126,7 @@ function collapseToPeek() {
 let didSheetDrag = false;
 
 function _onSheetDragStart(clientY) {
+    if (isDesktopSidePanel()) return;
     isDragging = true;
     didSheetDrag = false;
     startY = clientY;
@@ -6825,6 +7246,7 @@ window.addEventListener('blur', _onSheetDragEnd);
  * az optimális nyitott (auto) és a betekintő (peek) állapotok között.
  */
 handle.addEventListener('click', () => {
+    if (isDesktopSidePanel()) return;
     if (didSheetDrag) {
         didSheetDrag = false;
         return;
@@ -7608,6 +8030,7 @@ map.on('load', async () => {
     initBuildings();
     renderThemeSelector();
     applyTheme();
+    syncSheetLayoutForViewport();
 
     // Az i18n inicializálása a térkép és UI elkészülése UTÁN történik,
     // így a languageChanged esemény már minden elemet és réteget készen talál.
@@ -7683,6 +8106,31 @@ window.addEventListener('languageChanged', () => {
         } else if (document.getElementById('bottom-sheet') && document.getElementById('bottom-sheet').classList.contains('open')) {
             openSheet(selectedFeature);
         }
+    }
+});
+
+// Képernyőméret változás (Desktop ↔ Mobil) eseményfigyelő
+window.addEventListener('resize', () => {
+    syncSheetLayoutForViewport();
+    const sheet = document.getElementById('bottom-sheet');
+    if (!sheet || !sheet.classList.contains('open')) return;
+
+    if (isDesktopSidePanel()) {
+        sheet.style.height = '';
+        const galleryEl = document.getElementById('room-gallery');
+        const dotsContainer = document.getElementById('gallery-dots');
+        if (galleryEl && dotsContainer) {
+            const activeDot = dotsContainer.querySelector('.gallery-dot.active');
+            if (activeDot) {
+                const index = Array.from(dotsContainer.children).indexOf(activeDot);
+                if (index >= 0) {
+                    galleryEl.scrollLeft = index * galleryEl.clientWidth;
+                }
+            }
+        }
+    } else {
+        const autoH = getAutoHeight();
+        sheet.style.height = `${autoH}px`;
     }
 });
 

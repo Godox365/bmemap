@@ -72,7 +72,9 @@
     "nav_from": "Innen",
     "nearby": "Keresés a közelben",
     "level_prefix": "Szint",
-    "capacity": "{capacity} fő"
+    "capacity": "{capacity} fő",
+    "prev_image": "Előző kép",
+    "next_image": "Következő kép"
   },
   "toasts": {
     "cache_disabled": "Cache kikapcsolva. Nem mentünk új adatot.",

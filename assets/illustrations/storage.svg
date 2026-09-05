@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#241e17"/>
+  <!-- Padló -->
+  <rect y="165" width="400" height="35" fill="#18140f"/>
+  <line x1="0" y1="165" x2="400" y2="165" stroke="#362b21" stroke-width="2"/>
+
+  <!-- Ipari polcrendszer (Industrial Shelving Rack) -->
+  <!-- Függőleges fém lábak / oszlopok -->
+  <rect x="50" y="25" width="6" height="140" fill="#423528"/>
+  <rect x="197" y="25" width="6" height="140" fill="#423528"/>
+  <rect x="344" y="25" width="6" height="140" fill="#423528"/>
+
+  <!-- Keresztmerevítők (Diagonal rack braces) -->
+  <line x1="56" y1="35" x2="197" y2="75" stroke="#2e251c" stroke-width="1.5"/>
+  <line x1="197" y1="35" x2="56" y2="75" stroke="#2e251c" stroke-width="1.5"/>
+  <line x1="56" y1="75" x2="197" y2="115" stroke="#2e251c" stroke-width="1.5"/>
+  <line x1="197" y1="75" x2="56" y2="115" stroke="#2e251c" stroke-width="1.5"/>
+  
+  <line x1="203" y1="35" x2="344" y2="75" stroke="#2e251c" stroke-width="1.5"/>
+  <line x1="344" y1="35" x2="203" y2="75" stroke="#2e251c" stroke-width="1.5"/>
+  <line x1="203" y1="75" x2="344" y2="115" stroke="#2e251c" stroke-width="1.5"/>
+  <line x1="344" y1="75" x2="203" y2="115" stroke="#2e251c" stroke-width="1.5"/>
+
+  <!-- Vízszintes polclapok -->
+  <!-- Felső polc -->
+  <rect x="46" y="65" width="308" height="6" rx="1" fill="#524233"/>
+  <!-- Középső polc -->
+  <rect x="46" y="115" width="308" height="6" rx="1" fill="#524233"/>
+  <!-- Alsó polc -->
+  <rect x="46" y="159" width="308" height="6" rx="1" fill="#524233"/>
+
+  <!-- Dobozok a felső polcon -->
+  <!-- Bal oldal -->
+  <rect x="65" y="38" width="38" height="27" rx="2" fill="#755a41"/>
+  <rect x="79" y="38" width="10" height="27" fill="#5c4531"/> <!-- Ragasztószalag csík -->
+  
+  <rect x="115" y="44" width="32" height="21" rx="2" fill="#8c6c4f"/>
+  <rect x="127" y="44" width="8" height="21" fill="#69513a"/>
+  
+  <rect x="155" y="40" width="30" height="25" rx="2" fill="#6e543c"/>
+
+  <!-- Jobb oldal felső -->
+  <rect x="215" y="35" width="45" height="30" rx="2" fill="#8c6c4f"/>
+  <rect x="232" y="35" width="11" height="30" fill="#69513a"/>
+  
+  <rect x="270" y="42" width="35" height="23" rx="2" fill="#755a41"/>
+  <rect x="312" y="46" width="24" height="19" rx="2" fill="#5c4531"/>
+
+  <!-- Dobozok a középső polcon -->
+  <!-- Bal oldal -->
+  <rect x="62" y="80" width="45" height="35" rx="2" fill="#8c6c4f"/>
+  <rect x="79" y="80" width="11" height="35" fill="#69513a"/>
+  
+  <rect x="115" y="86" width="40" height="29" rx="2" fill="#755a41"/>
+  <rect x="129" y="86" width="10" height="29" fill="#5c4531"/>
+  
+  <rect x="162" y="90" width="28" height="25" rx="2" fill="#634c37"/>
+
+  <!-- Jobb oldal középső (két egymásra rakott kisebb doboz) -->
+  <rect x="215" y="94" width="38" height="21" rx="2" fill="#755a41"/>
+  <rect x="220" y="76" width="30" height="18" rx="2" fill="#8c6c4f"/>
+  
+  <rect x="265" y="83" width="46" height="32" rx="2" fill="#634c37"/>
+  <rect x="282" y="83" width="12" height="32" fill="#4d3b2b"/>
+
+  <!-- Dobozok az alsó polcon / padlón -->
+  <rect x="70" y="127" width="55" height="32" rx="2" fill="#755a41"/>
+  <rect x="91" y="127" width="13" height="32" fill="#5c4531"/>
+
+  <rect x="135" y="132" width="50" height="27" rx="2" fill="#8c6c4f"/>
+  <rect x="153" y="132" width="12" height="27" fill="#69513a"/>
+
+  <rect x="220" y="125" width="58" height="34" rx="2" fill="#8c6c4f"/>
+  <rect x="242" y="125" width="14" height="34" fill="#69513a"/>
+
+  <rect x="288" y="130" width="48" height="29" rx="2" fill="#634c37"/>
+  <rect x="306" y="130" width="12" height="29" fill="#4d3b2b"/>
+</svg>

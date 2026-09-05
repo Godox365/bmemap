@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#172331"/>
+  <!-- Padló -->
+  <rect y="155" width="400" height="45" fill="#111b27"/>
+  <line x1="0" y1="155" x2="400" y2="155" stroke="#22354a" stroke-width="2"/>
+
+  <!-- Bal oldali WC kabinok (Flat stalls) -->
+  <!-- Kabin 1 -->
+  <rect x="45" y="30" width="55" height="120" rx="3" fill="#24364c" stroke="#334d6d" stroke-width="2"/>
+  <rect x="50" y="36" width="45" height="110" fill="#1d2c3e"/>
+  <!-- Fogantyú és zár -->
+  <rect x="85" y="90" width="4" height="14" rx="2" fill="#4a6d96"/>
+  <circle cx="87" cy="80" r="3" fill="#38bdf8"/>
+  <rect x="52" y="150" width="4" height="6" fill="#334d6d"/>
+  <rect x="88" y="150" width="4" height="6" fill="#334d6d"/>
+
+  <!-- Kabin 2 -->
+  <rect x="110" y="30" width="55" height="120" rx="3" fill="#24364c" stroke="#334d6d" stroke-width="2"/>
+  <rect x="115" y="36" width="45" height="110" fill="#1d2c3e"/>
+  <!-- Fogantyú és zár -->
+  <rect x="150" y="90" width="4" height="14" rx="2" fill="#4a6d96"/>
+  <circle cx="152" cy="80" r="3" fill="#38bdf8"/>
+  <rect x="117" y="150" width="4" height="6" fill="#334d6d"/>
+  <rect x="153" y="150" width="4" height="6" fill="#334d6d"/>
+
+  <!-- Jobb oldali mosdópult és szögletes, modern tükrök -->
+  <!-- Tükör 1 (modern szögletes forma) -->
+  <rect x="200" y="28" width="52" height="70" rx="4" fill="#203044" stroke="#3b577a" stroke-width="2"/>
+  <path d="M 210 38 L 242 38" stroke="#38bdf8" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Tükör 2 (modern szögletes forma) -->
+  <rect x="270" y="28" width="52" height="70" rx="4" fill="#203044" stroke="#3b577a" stroke-width="2"/>
+  <path d="M 280 38 L 312 38" stroke="#38bdf8" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Lebegő pultlap -->
+  <rect x="185" y="108" width="152" height="10" rx="2" fill="#2c425c"/>
+  <rect x="190" y="118" width="142" height="24" fill="#1b2a3a"/>
+
+  <!-- Csaptelep és mosdótál 1 -->
+  <ellipse cx="226" cy="108" rx="18" ry="5" fill="#131e2b" stroke="#4a6d96" stroke-width="1.5"/>
+  <path d="M 226 96 L 226 104" stroke="#7aa2cf" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 222 96 L 226 96" stroke="#7aa2cf" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Csaptelep és mosdótál 2 -->
+  <ellipse cx="296" cy="108" rx="18" ry="5" fill="#131e2b" stroke="#4a6d96" stroke-width="1.5"/>
+  <path d="M 296 96 L 296 104" stroke="#7aa2cf" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 292 96 L 296 96" stroke="#7aa2cf" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

@@ -72,7 +72,9 @@
     "nav_from": "From here",
     "nearby": "Search nearby",
     "level_prefix": "Level",
-    "capacity": "{capacity} people"
+    "capacity": "{capacity} people",
+    "prev_image": "Previous image",
+    "next_image": "Next image"
   },
   "toasts": {
     "cache_disabled": "Cache disabled. No new data will be stored.",

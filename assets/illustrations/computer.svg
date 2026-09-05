@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#141c2b"/>
+  <!-- Padló -->
+  <rect y="155" width="400" height="45" fill="#0e131d"/>
+  <line x1="0" y1="155" x2="400" y2="155" stroke="#212c40" stroke-width="2"/>
+
+  <!-- Hátsó sor monitorok és asztal (perspektivikus mélységérzet) -->
+  <rect x="70" y="70" width="260" height="4" fill="#293750"/>
+  <!-- Hátsó monitor 1 -->
+  <rect x="85" y="42" width="42" height="26" rx="2" fill="#1c2638" stroke="#334563" stroke-width="1.5"/>
+  <rect x="88" y="45" width="36" height="20" fill="#273752"/>
+  <rect x="103" y="68" width="6" height="5" fill="#334563"/>
+  <rect x="99" y="73" width="14" height="2" rx="1" fill="#334563"/>
+
+  <!-- Hátsó monitor 2 -->
+  <rect x="150" y="42" width="42" height="26" rx="2" fill="#1c2638" stroke="#334563" stroke-width="1.5"/>
+  <rect x="153" y="45" width="36" height="20" fill="#273752"/>
+  <rect x="168" y="68" width="6" height="5" fill="#334563"/>
+  <rect x="164" y="73" width="14" height="2" rx="1" fill="#334563"/>
+
+  <!-- Hátsó monitor 3 -->
+  <rect x="215" y="42" width="42" height="26" rx="2" fill="#1c2638" stroke="#334563" stroke-width="1.5"/>
+  <rect x="218" y="45" width="36" height="20" fill="#273752"/>
+  <rect x="233" y="68" width="6" height="5" fill="#334563"/>
+  <rect x="229" y="73" width="14" height="2" rx="1" fill="#334563"/>
+
+  <!-- Hátsó monitor 4 -->
+  <rect x="280" y="42" width="42" height="26" rx="2" fill="#1c2638" stroke="#334563" stroke-width="1.5"/>
+  <rect x="283" y="45" width="36" height="20" fill="#273752"/>
+  <rect x="298" y="68" width="6" height="5" fill="#334563"/>
+  <rect x="294" y="73" width="14" height="2" rx="1" fill="#334563"/>
+
+  <!-- Első sor nagy számítógépes munkaasztal -->
+  <rect x="40" y="125" width="320" height="12" rx="2" fill="#27364e" stroke="#384c6e" stroke-width="1.5"/>
+  <rect x="45" y="137" width="310" height="23" fill="#1a2434"/>
+  <!-- Asztallábak / gépház tartók -->
+  <rect x="55" y="137" width="22" height="23" fill="#212c3e"/>
+  <rect x="190" y="137" width="20" height="23" fill="#212c3e"/>
+  <rect x="325" y="137" width="22" height="23" fill="#212c3e"/>
+
+  <!-- 1. Fő munkaállomás (Bal oldal) -->
+  <!-- Monitor állvány -->
+  <rect x="117" y="117" width="10" height="9" fill="#3b5073"/>
+  <rect x="110" y="124" width="24" height="3" rx="1.5" fill="#4d6794"/>
+  <!-- Monitor keret és képernyő -->
+  <rect x="90" y="70" width="64" height="47" rx="3" fill="#1e293c" stroke="#3b5073" stroke-width="2"/>
+  <rect x="94" y="74" width="56" height="39" fill="#162030"/>
+  <!-- Képernyő tartalom (flat kód/terminál sorok kékesszürkében) -->
+  <line x1="100" y1="82" x2="125" y2="82" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="100" y1="90" x2="140" y2="90" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="106" y1="96" x2="135" y2="96" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="106" y1="102" x2="120" y2="102" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Billentyűzet és egér -->
+  <rect x="100" y="128" width="40" height="5" rx="1" fill="#3b5073"/>
+  <rect x="145" y="128" width="8" height="5" rx="2" fill="#4d6794"/>
+
+  <!-- 2. Fő munkaállomás (Jobb oldal) -->
+  <rect x="257" y="117" width="10" height="9" fill="#3b5073"/>
+  <rect x="250" y="124" width="24" height="3" rx="1.5" fill="#4d6794"/>
+  <rect x="230" y="70" width="64" height="47" rx="3" fill="#1e293c" stroke="#3b5073" stroke-width="2"/>
+  <rect x="234" y="74" width="56" height="39" fill="#162030"/>
+  <line x1="240" y1="82" x2="265" y2="82" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="240" y1="90" x2="280" y2="90" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="246" y1="96" x2="275" y2="96" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="246" y1="102" x2="260" y2="102" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
+  <rect x="240" y="128" width="40" height="5" rx="1" fill="#3b5073"/>
+  <rect x="285" y="128" width="8" height="5" rx="2" fill="#4d6794"/>
+</svg>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#082318"/>
+  <!-- Padló -->
+  <rect y="165" width="400" height="35" fill="#04150e"/>
+  <line x1="0" y1="165" x2="400" y2="165" stroke="#123828" stroke-width="2"/>
+
+  <!-- Bankautomata test (ATM Cabinet) -->
+  <rect x="145" y="20" width="110" height="145" rx="6" fill="#0d3826" stroke="#165b3e" stroke-width="2"/>
+  <!-- Talapzat / lábak -->
+  <rect x="153" y="165" width="18" height="5" fill="#062015"/>
+  <rect x="229" y="165" width="18" height="5" fill="#062015"/>
+
+  <!-- Felső világító panel / ATM fejlec (szöveg nélkül) -->
+  <rect x="153" y="27" width="94" height="16" rx="3" fill="#047857" stroke="#10b981" stroke-width="1.5"/>
+  <!-- Két kis dizájn sáv / fénycsík a fejlécben -->
+  <rect x="160" y="32" width="40" height="6" rx="2" fill="#34d399" opacity="0.8"/>
+  <circle cx="236" cy="35" r="3" fill="#6ee7b7"/>
+
+  <!-- ATM Képernyő beugró keret -->
+  <rect x="153" y="49" width="94" height="54" rx="4" fill="#062519" stroke="#114731" stroke-width="1.5"/>
+  <!-- Képernyő (LCD Display) -->
+  <rect x="161" y="55" width="78" height="42" rx="2" fill="#021c13"/>
+  <!-- Képernyő grafikus elemek: üdvözlő kártya és akciósávok -->
+  <rect x="168" y="61" width="42" height="5" rx="1.5" fill="#10b981"/>
+  <rect x="168" y="70" width="28" height="4" rx="1" fill="#059669" opacity="0.8"/>
+  <!-- Funkciógombok a képernyő jobb szélén -->
+  <rect x="220" y="60" width="13" height="4" rx="1" fill="#34d399"/>
+  <rect x="220" y="68" width="13" height="4" rx="1" fill="#34d399"/>
+  <rect x="220" y="76" width="13" height="4" rx="1" fill="#34d399"/>
+  <rect x="220" y="84" width="13" height="4" rx="1" fill="#34d399"/>
+
+  <!-- Interakciós pult (alsó ferde konzol) -->
+  <rect x="153" y="108" width="94" height="48" rx="3" fill="#0b2e1f" stroke="#155338" stroke-width="1.5"/>
+
+  <!-- Bankkártya nyílás világító zöld jelzéssel (balra) -->
+  <rect x="160" y="114" width="24" height="7" rx="2" fill="#042015" stroke="#10b981" stroke-width="1"/>
+  <line x1="163" y1="117.5" x2="181" y2="117.5" stroke="#34d399" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Nyugtanyílás -->
+  <rect x="160" y="125" width="24" height="3" rx="1" fill="#02170f"/>
+
+  <!-- Numerikus PIN billentyűzet (középen) -->
+  <rect x="190" y="113" width="22" height="18" rx="2" fill="#052015"/>
+  <!-- Gombok rácsa (3x3 pötty) -->
+  <circle cx="194" cy="116.5" r="1.2" fill="#34d399"/>
+  <circle cx="201" cy="116.5" r="1.2" fill="#34d399"/>
+  <circle cx="208" cy="116.5" r="1.2" fill="#34d399"/>
+  <circle cx="194" cy="122" r="1.2" fill="#34d399"/>
+  <circle cx="201" cy="122" r="1.2" fill="#34d399"/>
+  <circle cx="208" cy="122" r="1.2" fill="#34d399"/>
+  <circle cx="194" cy="127.5" r="1.2" fill="#34d399"/>
+  <circle cx="201" cy="127.5" r="1.2" fill="#34d399"/>
+  <circle cx="208" cy="127.5" r="1.2" fill="#34d399"/>
+
+  <!-- Készpénz kiadó nyílás (lent) -->
+  <rect x="160" y="137" width="80" height="12" rx="2" fill="#041b12" stroke="#145338" stroke-width="1"/>
+  <!-- Kiadott bankjegy sarka látszik -->
+  <rect x="175" y="141" width="50" height="4" rx="1" fill="#10b981" opacity="0.9"/>
+  <line x1="178" y1="143" x2="222" y2="143" stroke="#047857" stroke-width="0.8"/>
+</svg>

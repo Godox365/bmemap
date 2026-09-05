@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%">
+  <!-- Háttér -->
+  <rect width="400" height="200" fill="#18261e"/>
+  <!-- Padló alapzat -->
+  <rect y="165" width="400" height="35" fill="#121d17"/>
+  <line x1="0" y1="165" x2="400" y2="165" stroke="#253b2f" stroke-width="2"/>
+
+  <!-- Fali szintvonalak (minimalista flat architektúra) -->
+  <line x1="60" y1="0" x2="60" y2="200" stroke="#22362a" stroke-width="1.5" stroke-dasharray="4,4"/>
+  <line x1="340" y1="0" x2="340" y2="200" stroke="#22362a" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+  <!-- Flat lépcsősor geometrikus formákkal -->
+  <!-- Alsó podeszt / induló szint -->
+  <rect x="70" y="152" width="60" height="13" fill="#253e30" stroke="#325442" stroke-width="1.5"/>
+
+  <!-- 1. Fok -->
+  <rect x="110" y="138" width="50" height="14" fill="#2d4a3a" stroke="#3b634e" stroke-width="1.5"/>
+  <!-- 2. Fok -->
+  <rect x="140" y="124" width="50" height="14" fill="#325442" stroke="#427058" stroke-width="1.5"/>
+  <!-- 3. Fok -->
+  <rect x="170" y="110" width="50" height="14" fill="#3b634e" stroke="#4a7d63" stroke-width="1.5"/>
+  <!-- 4. Fok -->
+  <rect x="200" y="96" width="50" height="14" fill="#427058" stroke="#568f71" stroke-width="1.5"/>
+  <!-- 5. Fok -->
+  <rect x="230" y="82" width="50" height="14" fill="#4a7d63" stroke="#609e7d" stroke-width="1.5"/>
+
+  <!-- Felső podeszt / emeleti érkezés -->
+  <rect x="260" y="68" width="75" height="14" fill="#568f71" stroke="#6eb38f" stroke-width="1.5"/>
+  <rect x="270" y="82" width="65" height="83" fill="#1b2e24"/>
+
+  <!-- Korlát és kapaszkodó (letisztult flat vonalak) -->
+  <!-- Fő kapaszkodó sáv -->
+  <line x1="90" y1="120" x2="270" y2="35" stroke="#6eb38f" stroke-width="4" stroke-linecap="round"/>
+  <line x1="270" y1="35" x2="330" y2="35" stroke="#6eb38f" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Függőleges korláttartó pálcák -->
+  <line x1="95" y1="152" x2="95" y2="120" stroke="#4a7d63" stroke-width="2.5"/>
+  <line x1="135" y1="138" x2="135" y2="100" stroke="#4a7d63" stroke-width="2.5"/>
+  <line x1="175" y1="110" x2="175" y2="80" stroke="#4a7d63" stroke-width="2.5"/>
+  <line x1="215" y1="96" x2="215" y2="60" stroke="#4a7d63" stroke-width="2.5"/>
+  <line x1="255" y1="82" x2="255" y2="42" stroke="#4a7d63" stroke-width="2.5"/>
+  <line x1="325" y1="68" x2="325" y2="35" stroke="#4a7d63" stroke-width="2.5"/>
+</svg>
