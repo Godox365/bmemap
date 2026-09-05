@@ -4395,29 +4395,62 @@ function focusOnRouteSegment(level) {
         }
     });
 
-    if (routePoints.length === 0) return;
+    // Ha az indulási pont ezen a szinten van, bevonjuk annak teljes kiterjedését is
+    if (activeNavSource) {
+        const sLevels = getLevelsFromFeature(activeNavSource);
+        if (sLevels.includes(level)) {
+            _addFeatureCoordsToBounds(activeNavSource, routePoints);
+        }
+    }
 
-    const lons = routePoints.map(p => p[0]);
-    const lats = routePoints.map(p => p[1]);
+    // Ha az érkezési pont ezen a szinten van, bevonjuk annak teljes kiterjedését is
+    if (activeNavTarget) {
+        const tLevels = getLevelsFromFeature(activeNavTarget);
+        if (tLevels.includes(level)) {
+            _addFeatureCoordsToBounds(activeNavTarget, routePoints);
+        }
+    }
 
+    const validPoints = routePoints.filter(p => Array.isArray(p) && p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]));
+    if (validPoints.length === 0) return;
+
+    const lons = validPoints.map(p => p[0]);
+    const lats = validPoints.map(p => p[1]);
+
+    const isMobile = window.innerWidth <= 600;
     const sheet = document.getElementById('bottom-sheet');
     let padding;
     if (isDesktopSidePanel()) {
-        const panelW = sheet ? (sheet.getBoundingClientRect().width || 390) : 0;
-        padding = { top: 80, bottom: 50, left: panelW + 50, right: 50 };
+        const panelW = sheet ? (sheet.getBoundingClientRect().width || 390) : 390;
+        padding = { top: 80, bottom: 50, left: panelW + 45, right: 75 };
     } else {
-        const sheetHeight = sheet ? sheet.getBoundingClientRect().height : 100;
-        padding = { top: 80, bottom: sheetHeight + 50, left: 50, right: 50 };
+        const peekH = (typeof getPeekHeight === 'function') ? getPeekHeight() : 110;
+        padding = { top: isMobile ? 125 : 80, bottom: peekH + 35, left: 30, right: 65 };
     }
 
-    if (routePoints.length > 0) {
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+
+    if (minLon === maxLon && minLat === maxLat) {
         map.flyTo({
-            center: [lons[0], lats[0]],
+            center: [minLon, minLat],
             zoom: 20,
             padding: padding,
             animate: true,
             duration: 1000
         });
+    } else {
+        map.fitBounds(
+            [[minLon, minLat], [maxLon, maxLat]],
+            {
+                padding: padding,
+                maxZoom: 20.2,
+                animate: true,
+                duration: 1000
+            }
+        );
     }
 }
 
@@ -5656,7 +5689,8 @@ function toggleNearbyMenu() {
     
     container = document.createElement('div');
     container.id = 'nearby-menu-container';
-    const nearbyTitle = typeof t === 'function' ? t('sheet.nearby_prompt') : "Mit keresel a közelben?";
+    const nearbyPromptResolved = typeof t === 'function' ? t('poi.nearby_title', 'Mit keresel a közelben?') : "Mit keresel a közelben?";
+    const nearbyTitle = (nearbyPromptResolved && nearbyPromptResolved !== 'poi.nearby_title') ? nearbyPromptResolved : "Mit keresel a közelben?";
     container.innerHTML = `<h4 style="margin: 15px 0 5px 0; text-align: center; font-size: 13px; opacity: 0.6; text-transform: uppercase;">${nearbyTitle}</h4>`;
     
     const grid = document.createElement('div');
@@ -5713,7 +5747,7 @@ function resetNearbyMenu() {
  */
 function findNearestPOI(typeKey) {
     if (!selectedFeature) { 
-        alert(typeof t === 'function' ? t('alerts.select_start_first') : "Először válassz ki egy kiindulópontot a térképen!"); 
+        alert(typeof t === 'function' ? t('alerts.choose_start_point', 'Először válassz ki egy kiindulópontot a térképen!') : "Először válassz ki egy kiindulópontot a térképen!"); 
         return; 
     }
 
@@ -5745,7 +5779,7 @@ function findNearestPOI(typeKey) {
 
     if (targets.length === 0) { 
         const poiName = typeof getPoiName === 'function' ? getPoiName(typeKey) : (config ? config.name : typeKey);
-        alert(typeof t === 'function' ? t('alerts.no_poi_found_on_map', { poi: poiName.toLowerCase() }) : `Nem találtam ${poiName.toLowerCase()}t ezen a térképen!`); 
+        alert(typeof t === 'function' ? t('alerts.poi_not_found', { poi: poiName.toLowerCase() }, `Nem találtam ${poiName.toLowerCase()}t ezen a térképen!`) : `Nem találtam ${poiName.toLowerCase()}t ezen a térképen!`); 
         return; 
     }
 
@@ -5955,30 +5989,14 @@ function startNavigation(targetFeature = null, fromFeature = null) {
 
     // --- 4. VIZUÁLIS MEGJELENÍTÉS ÉS UI FRISSÍTÉS ---
     try {
-        // A kiszámított hálózati útvonal kirajzolása a térképre
-        drawRoute(bestPath);
-        
-        // "Last Mile" gyalogos vonalak rajzolása a középpontok és az útvonal kezdő/végpontjai között
-        if(fromFeature) {
-                const c = turf.centroid(fromFeature);
-                drawWalkLine(c.geometry.coordinates[1], c.geometry.coordinates[0], bestStartNode.lat, bestStartNode.lon, bestStartNode.level);
-        } else if (mainEntranceNode) {
-                drawWalkLine(mainEntranceNode.lat, mainEntranceNode.lon, bestStartNode.lat, bestStartNode.lon, bestStartNode.level);
-        }
-        
-        if (target.geometry.type !== "Point") {
-            const c = turf.centroid(target);
-            drawWalkLine(c.geometry.coordinates[1], c.geometry.coordinates[0], bestEndNode.lat, bestEndNode.lon, bestEndNode.level);
-        } else {
-                drawWalkLine(target.geometry.coordinates[1], target.geometry.coordinates[0], bestEndNode.lat, bestEndNode.lon, bestEndNode.level);
-        }
-
-        // A teljes útvonal mentése globális változóba a szint-fókuszáló algoritmus (focusOnRouteSegment) számára
-        currentRoutePath = bestPath; 
+        // A célpont regisztrálása globálisan
+        activeNavTarget = target; 
 
         // --- KIINDULÁSI PONT (activeNavSource) VIZUÁLIS KEZELÉSE ---
         if (pendingNavSource) {
             activeNavSource = pendingNavSource;
+        } else if (fromFeature) {
+            activeNavSource = fromFeature;
         } else {
             // Ha a navigáció a Főbejárattól indult, létrehozunk egy virtuális GeoJSON elemet a megjelenítéshez
             const startParts = bestPath[0].split(',');
@@ -6008,9 +6026,30 @@ function startNavigation(targetFeature = null, fromFeature = null) {
                 }
             };
         }
+
+        // A teljes útvonal mentése globális változóba a szint-fókuszáló algoritmus (focusOnRouteSegment) számára
+        currentRoutePath = bestPath; 
+
+        // A célpont vizuális kiemelése a térképen
+        drawSelectedHighlight(target);
+
+        // A kiszámított hálózati útvonal kirajzolása a térképre (a kiindulási és érkezési objektum teljes befoglalásával)
+        drawRoute(bestPath, activeNavSource, activeNavTarget);
         
-        // A célpont regisztrálása globálisan
-        activeNavTarget = target; 
+        // "Last Mile" gyalogos vonalak rajzolása a középpontok és az útvonal kezdő/végpontjai között
+        if(fromFeature) {
+                const c = turf.centroid(fromFeature);
+                drawWalkLine(c.geometry.coordinates[1], c.geometry.coordinates[0], bestStartNode.lat, bestStartNode.lon, bestStartNode.level);
+        } else if (mainEntranceNode) {
+                drawWalkLine(mainEntranceNode.lat, mainEntranceNode.lon, bestStartNode.lat, bestStartNode.lon, bestStartNode.level);
+        }
+        
+        if (target.geometry.type !== "Point") {
+            const c = turf.centroid(target);
+            drawWalkLine(c.geometry.coordinates[1], c.geometry.coordinates[0], bestEndNode.lat, bestEndNode.lon, bestEndNode.level);
+        } else {
+                drawWalkLine(target.geometry.coordinates[1], target.geometry.coordinates[0], bestEndNode.lat, bestEndNode.lon, bestEndNode.level);
+        } 
 
         // Az útvonal statisztikáinak és az instrukciók (itiner) generálása
         const stats = calculateRouteStats(bestPath);
@@ -6535,14 +6574,73 @@ function drawDirectionArrows(pathKeys) {
 }
 
 /**
+ * Rekurzívan kinyeri az összes [lon, lat] koordinátapárt egy GeoJSON koordináta tömbből.
+ */
+function _extractCoordsRecursive(coords, out) {
+    if (!Array.isArray(coords)) return;
+    if (coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+        out.push([coords[0], coords[1]]);
+    } else {
+        coords.forEach(c => _extractCoordsRecursive(c, out));
+    }
+}
+
+/**
+ * Hozzáadja egy térképi objektum (terem, POI, bejárat) teljes befoglaló téglalapját (bbox)
+ * és minden egyes csúcspontját a kamera befoglaló (bounds) listájához.
+ */
+function _addFeatureCoordsToBounds(feature, boundsPoints) {
+    if (!feature) return;
+    try {
+        if (feature.geometry) {
+            // 1. Befoglaló téglalap (Bounding Box) 4 sarka
+            if (typeof turf !== 'undefined' && typeof turf.bbox === 'function') {
+                const bbox = turf.bbox(feature);
+                if (bbox && bbox.length === 4 && !bbox.some(isNaN)) {
+                    boundsPoints.push([bbox[0], bbox[1]]); // SW
+                    boundsPoints.push([bbox[2], bbox[3]]); // NE
+                    boundsPoints.push([bbox[0], bbox[3]]); // NW
+                    boundsPoints.push([bbox[2], bbox[1]]); // SE
+                }
+            }
+            // 2. Minden konkrét töréspont
+            if (typeof turf !== 'undefined' && typeof turf.coordAll === 'function') {
+                const coords = turf.coordAll(feature);
+                coords.forEach(pt => {
+                    if (Array.isArray(pt) && pt.length >= 2 && !isNaN(pt[0]) && !isNaN(pt[1])) {
+                        boundsPoints.push([pt[0], pt[1]]);
+                    }
+                });
+            } else if (feature.geometry.coordinates) {
+                _extractCoordsRecursive(feature.geometry.coordinates, boundsPoints);
+            }
+            return;
+        }
+        if (feature.coordinates && Array.isArray(feature.coordinates)) {
+            _extractCoordsRecursive(feature.coordinates, boundsPoints);
+            return;
+        }
+        if (feature.lon !== undefined && feature.lat !== undefined) {
+            boundsPoints.push([parseFloat(feature.lon), parseFloat(feature.lat)]);
+            return;
+        }
+    } catch (e) {
+        console.warn("Error adding feature coords to bounds:", e);
+    }
+}
+
+/**
  * Megjeleníti a kiszámított útvonalat a térképen.
  * Kirajzolja a vízszintes és függőleges szakaszokat, elhelyezi a szintváltásokat
  * jelző vizuális markereket (lift, lépcső), felrajzolja az irányjelző nyilakat,
- * majd a kamerát az útvonalat befoglaló téglalapra (bounds) igazítja.
+ * majd a kamerát az útvonalat, valamint a kiindulási és érkezési objektumot
+ * TELJES EGÉSZÉBEN befoglaló téglalapra (fitBounds) igazítja.
  *
  * @param {Array<string>} pathKeys - Az útvonal csomópontjait tartalmazó kulcsok tömbje (formátum: 'lat,lon,level').
+ * @param {Object|null} [sourceFeature=null] - Opcionális kiindulási objektum (terem/hely).
+ * @param {Object|null} [targetFeature=null] - Opcionális érkezési objektum (terem/hely).
  */
-function drawRoute(pathKeys) {
+function drawRoute(pathKeys, sourceFeature = null, targetFeature = null) {
     _clearRouteMarkers();
     _clearArrowMarkers();
     
@@ -6550,6 +6648,7 @@ function drawRoute(pathKeys) {
     const routeFeatures = [];
     const boundsPoints = [];
 
+    // 1. Útvonal pontjainak regisztrálása
     pathKeys.forEach(k => {
         const parts = k.split(',');
         const lat = parseFloat(parts[0]);
@@ -6557,6 +6656,20 @@ function drawRoute(pathKeys) {
         latlngs.push({ lat: lat, lon: lon, level: parts[2] });
         boundsPoints.push([lon, lat]); 
     });
+
+    // 2. Kiindulási objektum (terem / POI / bejárat) teljes bevonása a kameranézetbe
+    const startObj = sourceFeature || activeNavSource || (activeRouteData && activeRouteData.start);
+    if (startObj) {
+        _addFeatureCoordsToBounds(startObj, boundsPoints);
+    } else if (mainEntranceNode) {
+        boundsPoints.push([mainEntranceNode.lon, mainEntranceNode.lat]);
+    }
+
+    // 3. Érkezési objektum (terem / POI) teljes bevonása a kameranézetbe
+    const endObj = targetFeature || activeNavTarget || (activeRouteData && activeRouteData.end);
+    if (endObj) {
+        _addFeatureCoordsToBounds(endObj, boundsPoints);
+    }
 
     for (let i = 0; i < latlngs.length - 1; i++) {
         const p1 = latlngs[i]; 
@@ -6605,24 +6718,65 @@ function drawRoute(pathKeys) {
 
     drawDirectionArrows(pathKeys);
 
-    if (boundsPoints.length > 0) {
-        const lons = boundsPoints.map(p => p[0]);
-        const lats = boundsPoints.map(p => p[1]);
+    // 4. Intelligens fitBounds a teljes útvonal és a kezdő/érkezési objektumok kiterjedésére
+    const validPoints = boundsPoints.filter(p => Array.isArray(p) && p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]));
+    if (validPoints.length > 0) {
+        const lons = validPoints.map(p => p[0]);
+        const lats = validPoints.map(p => p[1]);
 
-        const routePadding = IS_EMBED_MODE 
-            ? { top: 25, bottom: 85, left: 25, right: 25 }
-            : { top: 50, bottom: 150, left: 50, right: 50 };
-        const routeMaxZoom = IS_EMBED_MODE ? 18.5 : 21;
+        const isMobile = window.innerWidth <= 600;
+        let routePadding;
+        
+        if (IS_EMBED_MODE) {
+            const embedBar = document.getElementById('embed-info-bar');
+            const bPad = (embedBar && embedBar.classList.contains('visible')) ? 95 : 35;
+            routePadding = { top: 30, bottom: bPad, left: 30, right: 65 };
+        } else if (isDesktopSidePanel()) {
+            const sheetEl = document.getElementById('bottom-sheet');
+            const panelW = sheetEl ? (sheetEl.getBoundingClientRect().width || 390) : 390;
+            // Desktopon a bal oldali panel szélessége + margó védi a látványt
+            routePadding = { 
+                top: 80, 
+                bottom: 50, 
+                left: panelW + 45, 
+                right: 75 
+            };
+        } else {
+            // Mobilon a felső top-bar és az alsó betekintő sáv magassága
+            const peekH = (typeof getPeekHeight === 'function') ? getPeekHeight() : 110;
+            routePadding = { 
+                top: isMobile ? 125 : 80, 
+                bottom: peekH + 35, 
+                left: 30, 
+                right: 65 
+            };
+        }
 
-        map.fitBounds(
-            [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
-            {
+        const routeMaxZoom = IS_EMBED_MODE ? 18.5 : 20.2;
+        const minLon = Math.min(...lons);
+        const maxLon = Math.max(...lons);
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+
+        if (minLon === maxLon && minLat === maxLat) {
+            map.flyTo({
+                center: [minLon, minLat],
+                zoom: 19.5,
                 padding: routePadding,
-                maxZoom: routeMaxZoom,
                 animate: true,
                 duration: 1000
-            }
-        );
+            });
+        } else {
+            map.fitBounds(
+                [[minLon, minLat], [maxLon, maxLat]],
+                {
+                    padding: routePadding,
+                    maxZoom: routeMaxZoom,
+                    animate: true,
+                    duration: 1000
+                }
+            );
+        }
     }
     
     switchLevel(latlngs[0].level);
@@ -7440,7 +7594,7 @@ function copyEmbedCode() {
         showToast(typeof t === 'function' ? (t('toasts.embed_copied') || "Iframe beágyazási kód másolva! 📋") : "Iframe beágyazási kód másolva! 📋");
     }).catch(err => {
         console.error('Embed copy failed', err);
-        prompt(typeof t === 'function' ? t('alerts.copy_link_prompt') : "Másold ki az iframe kódot:", iframeSnippet);
+        prompt(typeof t === 'function' ? t('alerts.copy_embed_prompt', 'Másold ki az iframe kódot:') : "Másold ki az iframe kódot:", iframeSnippet);
     });
 }
 
@@ -8203,7 +8357,7 @@ if (installBtn) {
 // Ha a felhasználó már telepítette az appot, elrejtjük a gombot
 window.addEventListener('appinstalled', () => {
     if (installSection) installSection.style.display = 'none';
-    showToast(typeof t === 'function' ? t('toasts.pwa_installed') : "BMEmap sikeresen telepítve! 📱");
+    showToast(typeof t === 'function' ? t('toasts.installed', 'BMEmap sikeresen telepítve! 📱') : "BMEmap sikeresen telepítve! 📱");
 });
 
 // Globális függvényexportok a HTML eseménykezelők számára

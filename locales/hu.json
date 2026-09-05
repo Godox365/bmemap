@@ -25,7 +25,6 @@
     "maybe_in_building": "Talán a {building} épületben?",
     "level_badge": "(Szint: {level})",
     "fav_sub": "({building} épület, {level}. szint)",
-    "not_found": "Nincs találat erre a kifejezésre.",
     "search_aria": "Keresés"
   },
   "modal": {
@@ -96,8 +95,11 @@
     "theme_no_changes": "Nincs mit másolni: Minden érték megegyezik az alapértelmezettel!",
     "theme_copied": "Téma kód (csak a változtatások) másolva! 📋",
     "download_error": "Hiba a letöltéskor: Minden szerver elérhetetlen.\n(Ellenőrizd az internetkapcsolatot!)",
+    "confirm_clear_cache": "Biztosan törlöd a mentett térképeket?",
     "choose_start_point": "Először válassz ki egy kiindulópontot a térképen!",
     "poi_not_found": "Nem találtam {poi}-t ezen a térképen!",
+    "copy_link_prompt": "Másold ki a linket:",
+    "copy_embed_prompt": "Másold ki az iframe kódot:",
     "search_error": "Hiba a keresés során.",
     "no_entrance": "Nincs bejárat definiálva!",
     "no_start_point": "Nem található start útvonalpont!",
@@ -112,7 +114,6 @@
     "time_minutes": "{time} perc",
     "dist_meters": "{dist} m",
     "selected_point": "Kijelölt pont",
-    "main_entrance": "Főbejárat",
     "step_elevator_up": "Lift FEL a(z) {level}. szintre",
     "step_elevator_down": "Lift LE a(z) {level}. szintre",
     "step_stairs_up": "Lépcső FEL a(z) {level}. szintre",
@@ -190,8 +191,6 @@
     "mode_light": "Világos",
     "copy_code": "Téma kód másolása",
     "reset": "Alaphelyzet",
-    "save": "Mentés",
-    "cancel": "Mégse",
     "bg_body": "Háttér (Body)",
     "bg_surface": "Kártya Háttér",
     "bg_element": "Gomb/Input Háttér",
@@ -226,7 +225,6 @@
   },
   "impressum": {
     "title": "Rólam & Impresszum",
-    "close_aria": "Bezárás",
     "what_is_title": "Mi ez az app?",
     "what_is_p1": "A BMEmap (Tekergők Térképe) egy ingyenes, hobbi fejlesztésű egyetemi navigációs térkép és teremkereső szolgáltatás. Kifejezetten a Budapesti Műszaki és Gazdaságtudományi Egyetem hallgatói, oktatói és látogatói számára készült, hogy segítse a tájékozódást a campuson.",
     "what_is_p2": "Az alkalmazás részletes beltéri térképeket tartalmaz a BME legfontosabb épületeiről, beleértve a Központi (K) épületet, a Q épületet, valamint az E és I épületeket (cél az összes épület elérhetővé tétele). A rendszer célja, hogy a gólyák és a rutinos hallgatók is könnyen megtalálják az előadótermeket, laborokat, büféket és mosdókat.",
@@ -248,12 +246,11 @@
     "link_kth_desc": "Ügyintézés és Neptun információk.",
     "operator_title": "1. Az oldal üzemeltetője",
     "operator_desc": "Ez egy nem üzleti célú, közösségi információs oldal.",
-    "operator_name_label": "Név:",
+    "name_label": "Név:",
     "operator_name_val": "Egyházi Godó",
     "operator_contact_label": "Kapcsolat:",
     "hosting_title": "2. Tárhelyszolgáltató (Hosting)",
     "hosting_desc": "Az oldal a Cloudflare Pages felhőalapú szolgáltatásán keresztül érhető el.",
-    "hosting_name_label": "Név:",
     "hosting_address_label": "Cím:",
     "hosting_email_label": "Email:",
     "privacy_title": "3. Adatkezelés",
@@ -304,7 +301,6 @@
     "open_full_aria": "Megnyitás a BMEmap weboldalon új lapon",
     "nav_to": "Útvonal ide",
     "nav_to_aria": "Útvonaltervezés indítása a teremhez új lapon",
-    "close": "Bezárás",
     "brand_title": "BMEmap - Megnyitás új lapon"
   }
 }

@@ -25,7 +25,6 @@
     "maybe_in_building": "Maybe in building {building}?",
     "level_badge": "(Floor: {level})",
     "fav_sub": "(Building {building}, Floor {level})",
-    "not_found": "No results found for this query.",
     "search_aria": "Search"
   },
   "modal": {
@@ -96,8 +95,11 @@
     "theme_no_changes": "Nothing to copy: All values match the default theme!",
     "theme_copied": "Theme code (custom overrides only) copied! 📋",
     "download_error": "Download error: All servers are unreachable.\n(Please check your internet connection!)",
+    "confirm_clear_cache": "Are you sure you want to clear saved maps?",
     "choose_start_point": "Please select a starting point on the map first!",
     "poi_not_found": "No {poi} found on this map!",
+    "copy_link_prompt": "Copy the link:",
+    "copy_embed_prompt": "Copy the iframe code:",
     "search_error": "An error occurred during search.",
     "no_entrance": "No entrance defined!",
     "no_start_point": "Starting route node not found!",
@@ -112,7 +114,6 @@
     "time_minutes": "{time} min",
     "dist_meters": "{dist} m",
     "selected_point": "Selected point",
-    "main_entrance": "Main Entrance",
     "step_elevator_up": "Take elevator UP to Floor {level}",
     "step_elevator_down": "Take elevator DOWN to Floor {level}",
     "step_stairs_up": "Take stairs UP to Floor {level}",
@@ -190,8 +191,6 @@
     "mode_light": "Light",
     "copy_code": "Copy Theme Code",
     "reset": "Reset",
-    "save": "Save",
-    "cancel": "Cancel",
     "bg_body": "Background (Body)",
     "bg_surface": "Card Background",
     "bg_element": "Button/Input Background",
@@ -226,7 +225,6 @@
   },
   "impressum": {
     "title": "About & Legal Notice",
-    "close_aria": "Close",
     "what_is_title": "What is this app?",
     "what_is_p1": "BMEmap is a free, hobby university indoor map and classroom finder service. It was designed specifically for students, professors, and visitors of the Budapest University of Technology and Economics (BME) to easily navigate the campus.",
     "what_is_p2": "The application provides detailed indoor floor plans for BME's major buildings, including the Central (K) Building, Building Q, Building E, and Building I (aiming to support all buildings over time). Its goal is to help freshmen and experienced students find lecture halls, labs, buffets, and restrooms.",
@@ -248,12 +246,11 @@
     "link_kth_desc": "Administration and Neptun support.",
     "operator_title": "1. Site Operator",
     "operator_desc": "This is a non-commercial community project.",
-    "operator_name_label": "Name:",
+    "name_label": "Name:",
     "operator_name_val": "Godo Egyhazi",
     "operator_contact_label": "Contact:",
     "hosting_title": "2. Hosting Provider",
     "hosting_desc": "The application is hosted via Cloudflare Pages cloud services.",
-    "hosting_name_label": "Name:",
     "hosting_address_label": "Address:",
     "hosting_email_label": "Email:",
     "privacy_title": "3. Privacy & Data Handling",
@@ -304,7 +301,6 @@
     "open_full_aria": "Open on BMEmap website in a new tab",
     "nav_to": "Directions",
     "nav_to_aria": "Start directions to this room in a new tab",
-    "close": "Close",
     "brand_title": "BMEmap - Open in new tab"
   }
 }

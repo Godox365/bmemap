@@ -200,11 +200,16 @@ class I18nManager {
     /**
      * Szöveg lekérése fordítási kulcs és opcionális helyettesítő paraméterek alapján.
      * @param {string} keyPath - Pl. 'settings.title' vagy 'toasts.building_detected'
-     * @param {Object} [params={}] - Pl. { building: 'Q' }
+     * @param {Object|string} [params={}] - Pl. { building: 'Q' } vagy fallback szöveg
+     * @param {string} [fallback=''] - Opcionális alapértelmezett szöveg, ha nincs fordítás
      * @returns {string}
      */
-    t(keyPath, params = {}) {
+    t(keyPath, params = {}, fallback = '') {
         if (!keyPath || typeof keyPath !== 'string') return '';
+        if (typeof params === 'string') {
+            fallback = params;
+            params = {};
+        }
 
         let value = this._getValue(this.translations, keyPath);
 
@@ -212,8 +217,8 @@ class I18nManager {
         if (value === undefined) {
             value = this._getValue(this.fallbackTranslations, keyPath);
             if (value === undefined) {
-                // Ha semelyik szótárban nincs benne, visszaadjuk a kulcsot
-                return keyPath;
+                // Ha semelyik szótárban nincs benne, visszaadjuk a fallbacket vagy a kulcsot
+                return fallback || keyPath;
             }
         }
 
@@ -299,7 +304,7 @@ class I18nManager {
 
 // Globális singleton példány és t() segédfüggvény
 const i18n = new I18nManager();
-const t = (key, params) => i18n.t(key, params);
+const t = (key, params, fallback) => i18n.t(key, params, fallback);
 
 if (typeof window !== 'undefined') {
     window.i18n = i18n;
