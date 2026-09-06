@@ -377,12 +377,12 @@ const THEME_VARS = {
     '--color-ui-active-text': { dark: '#ffffff', light: '#ffffff', label: 'Aktív Gomb Szöveg' },
 
     // --- TÉRKÉP ELEMEK (Szobák & Falak) ---
-    '--color-room':        { dark: '#00897b', light: '#00897b', label: 'Szoba Kitöltés' },
-    '--color-room-stroke': { dark: '#26a69a', light: '#004d40', label: 'Szoba Körvonal' },
+    '--color-room':        { dark: '#00897b', light: '#c4fff5', label: 'Szoba Kitöltés' },
+    '--color-room-stroke': { dark: '#26a69a', light: '#6aa795', label: 'Szoba Körvonal' },
     '--color-room-text':   { dark: '#ffffff', light: '#000000', label: 'Szoba Felirat' },
     
     '--color-corridor':    { dark: '#444444', light: '#cccccc', label: 'Folyosó Fal' },
-    '--color-corridor-fill':{ dark: 'rgba(34, 34, 34, 0.5)', light: 'rgba(200, 200, 200, 0.3)', label: 'Folyosó Kitöltés' },
+    '--color-corridor-fill':{ dark: 'rgba(34, 34, 34, 0.5)', light: 'rgba(0, 0, 0, 0.08)', label: 'Folyosó Kitöltés' },
     
     '--color-outline':     { dark: '#ffffff', light: '#555555', label: 'Épület Körvonal' },
     '--color-floor-fill':  { dark: '#222222', light: '#f5f5f5', label: 'Épület/Padló Kitöltés' }, // ÚJ
@@ -395,14 +395,14 @@ const THEME_VARS = {
     '--color-route-secondary': { dark: '#ffeb3b', light: '#f9a825', label: 'Útvonal (Lépcső/Más)' },
     '--color-arrow':           { dark: '#8b0000', light: '#8b0000', label: 'Irányjelző Nyíl' },
     
-    '--color-stairs':          { dark: '#2e7d32', light: '#33691e', label: 'Lépcső Kitöltés' },
-    '--color-stairs-stroke':   { dark: '#2e7d32', light: '#1b5e20', label: 'Lépcső Körvonal' }, // ÚJ
+    '--color-stairs':          { dark: '#2e7d32', light: '#5baa3c', label: 'Lépcső Kitöltés' },
+    '--color-stairs-stroke':   { dark: '#2e7d32', light: '#117819', label: 'Lépcső Körvonal' }, // ÚJ
     
     '--color-elevator':        { dark: '#7e57c2', light: '#7e57c2', label: 'Lift Kitöltés' }, // ÚJ (külön)
     '--color-elevator-stroke': { dark: '#7e57c2', light: '#512da8', label: 'Lift Körvonal' }, // ÚJ
     
-    '--color-toilet-fill':     { dark: '#0d47a1', light: '#0d47a1', label: 'WC Kitöltés' },
-    '--color-toilet-stroke':   { dark: '#42a5f5', light: '#42a5f5', label: 'WC Körvonal' },
+    '--color-toilet-fill':     { dark: '#0d47a1', light: '#159fce', label: 'WC Kitöltés' },
+    '--color-toilet-stroke':   { dark: '#42a5f5', light: '#3f7cad', label: 'WC Körvonal' },
     
     '--color-nav-bg':          { dark: '#4a4458', light: '#e0e0e0', label: 'Nav "Innen" Gomb' },
     '--color-nav-text':        { dark: '#e8def8', light: '#333333', label: 'Nav "Innen" Szöveg' }
@@ -428,9 +428,9 @@ const COLOR_THEMES = {
                 '--icon-color-active': '#000000',
                 '--color-ui-active': '#8A2432',
                 '--color-ui-active-text': '#ffffff',
-                '--color-room': 'rgba(61.012373144687864, 198.1596376544658, 184.1445887264592, 1)',
-                '--color-room-stroke': 'rgba(0, 105, 91.99999999999994, 1)',
-                '--color-room-text': 'rgba(0, 105, 91.99999999999994, 1)',
+                '--color-room': '#c4fff5',
+                '--color-room-stroke': '#6aa795',
+                '--color-room-text': '#000000',
                 '--color-corridor': '#cccccc',
                 '--color-corridor-fill': 'rgba(0, 0, 0, 0.08)',
                 '--color-outline': '#555555',
@@ -440,12 +440,12 @@ const COLOR_THEMES = {
                 '--color-route-primary': '#ff1744',
                 '--color-route-secondary': '#f9a825',
                 '--color-arrow': '#8b0000',
-                '--color-stairs': 'rgba(85.99610983164409, 146.51411791072172, 62.46132891200283, 1)',
-                '--color-stairs-stroke': '#1b5e20',
+                '--color-stairs': '#5baa3c',
+                '--color-stairs-stroke': '#117819',
                 '--color-elevator': '#7e57c2',
                 '--color-elevator-stroke': '#512da8',
-                '--color-toilet-fill': 'rgba(144.84324607157689, 185.97696807796, 249.80515739820993, 1)',
-                '--color-toilet-stroke': '#42a5f5',
+                '--color-toilet-fill': '#159fce',
+                '--color-toilet-stroke': '#3f7cad',
                 '--color-nav-bg': '#e0e0e0',
                 '--color-nav-text': '#333333'
             } 
