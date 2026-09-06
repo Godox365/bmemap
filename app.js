@@ -7673,16 +7673,50 @@ handle.addEventListener('click', () => {
 
 
 /**
- * Globális eseménykezelő a keresőmezőn kívüli kattintások (focus lost) detektálására.
- * Ha a felhasználó a keresősávon és a találati listán kívülre kattint, 
- * a rendszer automatikusan elrejti az aktív találati listát.
+ * Globális eseménykezelők a felületen kívüli (focus lost / backdrop) kattintások detektálására.
  */
+let _modalMouseDownTarget = null;
+document.addEventListener('mousedown', (e) => {
+    _modalMouseDownTarget = e.target;
+});
+
 document.addEventListener('click', (e) => {
+    // 1. Keresőmezőn kívüli kattintás -> találati lista elrejtése
     const searchWrapper = document.getElementById('search-wrapper');
     const resultsDiv = document.getElementById('search-results');
     
-    if (!searchWrapper.contains(e.target) && resultsDiv.style.display !== 'none') {
+    if (searchWrapper && resultsDiv && !searchWrapper.contains(e.target) && resultsDiv.style.display !== 'none') {
         resultsDiv.style.display = 'none';
+    }
+
+    // 2. Beállítások kártyán kívüli (backdrop) kattintás -> modal bezárása (desktop és mobil)
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal && settingsModal.classList.contains('visible') && !settingsModal.classList.contains('editor-mode')) {
+        if (e.target === settingsModal && _modalMouseDownTarget === settingsModal) {
+            toggleSettings();
+        }
+    }
+
+    // 3. Impresszum kártyán kívüli (backdrop) kattintás -> modal bezárása
+    const impressumModal = document.getElementById('impressum-modal');
+    if (impressumModal && impressumModal.classList.contains('visible')) {
+        if (e.target === impressumModal && _modalMouseDownTarget === impressumModal) {
+            toggleImpressum();
+        }
+    }
+});
+
+// Escape billentyű leütésére a nyitott modális ablakok bezárása
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const sm = document.getElementById('settings-modal');
+        if (sm && sm.classList.contains('visible') && !sm.classList.contains('editor-mode')) {
+            toggleSettings();
+        }
+        const im = document.getElementById('impressum-modal');
+        if (im && im.classList.contains('visible')) {
+            toggleImpressum();
+        }
     }
 });
 

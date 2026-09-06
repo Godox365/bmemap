@@ -343,36 +343,80 @@
             width: 90%; 
             max-width: 400px;
             border-radius: 28px; 
-            padding: 24px;
+            padding: 0;
             
             box-shadow: 0 10px 30px var(--shadow-color);
             transform: scale(0.9); 
             transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
             
-            /* --- ITT A GÖRGETÉS VARÁZSLATA --- */
-            max-height: 80vh;       /* Max képernyőmagasság 80%-a */
-            overflow-y: auto;       /* Függőleges görgetés, ha kell */
-            overscroll-behavior: contain; /* Ne görgesse a hátteret */
-            
-            /* Mobilon elrejtjük a görgetősávot, de görgethető marad */
-            scrollbar-width: none; 
-        }
-        
-        /* Webkit (Chrome/Safari) scrollbar elrejtés a letisztultságért */
-        .settings-card::-webkit-scrollbar { 
-            display: none; 
+            max-height: 85vh;       /* Max képernyőmagasság 85%-a */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         /* És az animáció is vonatkozzon mindkettőre */
         #settings-modal.visible .settings-card,
         #impressum-modal.visible .settings-card { transform: scale(1); }
 
-        .settings-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .settings-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 20px 24px 16px 24px; 
+            margin: 0; 
+            border-bottom: 1px solid var(--border-color); 
+            background: var(--bg-surface); 
+            flex-shrink: 0; 
+            z-index: 10;
+        }
         .settings-header h3 { 
             margin: 0; 
-            font-size: 22px;
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-main);
         }
-        .btn-close-settings { background: none; border: none; color: #aaa; cursor: pointer; }
+        .btn-close-settings { 
+            background: transparent; 
+            border: none; 
+            color: var(--icon-color); 
+            cursor: pointer; 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            transition: background 0.2s, color 0.2s, transform 0.15s; 
+        }
+        .btn-close-settings:hover {
+            background: var(--bg-element);
+            color: var(--icon-color-active);
+        }
+        .btn-close-settings:active {
+            transform: scale(0.95);
+        }
+
+        #settings-view-main {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #settings-content-body {
+            padding: 20px 24px 24px 24px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            overscroll-behavior: contain;
+            scrollbar-width: none;
+        }
+        #settings-content-body::-webkit-scrollbar {
+            display: none;
+        }
 
         .settings-section { margin-bottom: 25px; }
         .settings-section label { display: block; margin-bottom: 10px; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
@@ -1033,17 +1077,17 @@
         .impressum-link:hover { color: var(--color-ui-active); text-decoration: underline; }
 
         .impressum-content {
-            text-align: left; /* Balra zárt szöveg */
-            max-height: 60vh; /* Görgethető legyen, ha hosszú */
+            text-align: left;
             overflow-y: auto;
-            padding-right: 5px; /* Hely a görgetősávnak */
+            flex: 1;
+            min-height: 0;
+            padding: 20px 24px 24px 24px;
             font-size: 14px;
-            color: #ddd;
+            color: var(--text-main);
             line-height: 1.6;
+            scrollbar-width: none;
         }
-        /* Custom scrollbar az impresszumnak */
-        .impressum-content::-webkit-scrollbar { width: 4px; }
-        .impressum-content::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        .impressum-content::-webkit-scrollbar { display: none; }
 
         .impressum-content h4 {
             margin: 20px 0 10px 0;
