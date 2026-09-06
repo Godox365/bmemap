@@ -1737,6 +1737,14 @@ function _applyThemeToMapLayers() {
         }
     }
 
+    // OpenFreeMap egyirányú utcanyilak elrejtése (a hibás 90 fokos elfordulás és a letisztultabb gyalogos megjelenés érdekében)
+    if (map.getLayer('road_oneway')) {
+        map.setLayoutProperty('road_oneway', 'visibility', 'none');
+    }
+    if (map.getLayer('road_oneway_opposite')) {
+        map.setLayoutProperty('road_oneway_opposite', 'visibility', 'none');
+    }
+
     _loadRouteArrowImage();
 }
 
