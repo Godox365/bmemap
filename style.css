@@ -110,8 +110,8 @@
             color: var(--color-ui-active-text) !important;
         }
         
-        /* Hover effekt a lista elemekre (Light mode-ban is látsszon) */
-        .result-item:hover, .option:hover {
+        /* Hover és billentyűzetes kijelölés effekt a lista elemekre */
+        .result-item:hover, .result-item.selected, .option:hover {
             background: var(--bg-element);
         }
 
@@ -313,7 +313,7 @@
             overflow-y: auto; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Árnyék, hogy elváljon a térképtől */
         }
-        .result-item { padding: 12px 20px; color: var(--text-main); border-bottom: 1px solid var(--border-color); cursor: pointer; }
+        .result-item { padding: 12px 20px; color: var(--text-main); border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.15s; }
 
         .btn-settings {
             position: absolute; right: 5px; top: 5px; bottom: 5px; width: 40px;

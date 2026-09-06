@@ -1004,6 +1004,8 @@ function showFavoritesInSearch() {
     // Ha a felhasználó már elkezdett gépelni valamit, nem írjuk felül a keresési eredményeket.
     if (input.value.trim() !== "") return; 
     
+    _searchSelectedIndex = -1;
+    _searchUserNavigated = false;
     const resultsDiv = document.getElementById('search-results');
     resultsDiv.innerHTML = ''; // A találati lista előzetes ürítése
     
@@ -1084,6 +1086,12 @@ function showFavoritesInSearch() {
                     alert(typeof t === 'function' ? t('alerts.place_not_found') : "Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
                 }
             };
+            div.addEventListener('mouseenter', () => {
+                const currentItems = _getSelectableSearchResults();
+                _searchSelectedIndex = currentItems.indexOf(div);
+                _searchUserNavigated = true;
+                _updateSearchSelection(currentItems);
+            });
             resultsDiv.appendChild(div);
         });
     }
@@ -4716,6 +4724,86 @@ function clearRouteAndClose() {
     closeSheet();
 }
 
+let _searchSelectedIndex = -1;
+let _searchEnterHandled = false;
+let _searchUserNavigated = false;
+
+function _getSelectableSearchResults() {
+    const resultsDiv = document.getElementById('search-results');
+    if (!resultsDiv || resultsDiv.style.display === 'none') return [];
+    return Array.from(resultsDiv.querySelectorAll('.result-item')).filter(el => {
+        return typeof el.onclick === 'function' && el.style.cursor !== 'default';
+    });
+}
+
+function _updateSearchSelection(items) {
+    items.forEach((item, idx) => {
+        if (idx === _searchSelectedIndex) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+function handleSearchKeyDown(e) {
+    const resultsDiv = document.getElementById('search-results');
+    if (!resultsDiv || resultsDiv.style.display === 'none') return;
+    
+    const items = _getSelectableSearchResults();
+    if (items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _searchUserNavigated = true;
+        if (_searchSelectedIndex < items.length - 1) {
+            _searchSelectedIndex++;
+        } else {
+            _searchSelectedIndex = 0;
+        }
+        _updateSearchSelection(items);
+        items[_searchSelectedIndex].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _searchUserNavigated = true;
+        if (_searchSelectedIndex > 0) {
+            _searchSelectedIndex--;
+        } else {
+            _searchSelectedIndex = items.length - 1;
+        }
+        _updateSearchSelection(items);
+        items[_searchSelectedIndex].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+        if (_searchSelectedIndex >= 0 && _searchSelectedIndex < items.length) {
+            // Ha a felhasználó nem navigált a nyilakkal, hanem közvetlenül gépelés után nyomott Entert,
+            // és a beírt kifejezés egy POI kategória (pl. "kávé", "mosdó", "wc"),
+            // akkor engedjük tovább a handleSearch keyup eseményére a POI kategória térképes megjelenítéséhez:
+            if (!_searchUserNavigated) {
+                const term = (document.getElementById('search-input').value || '').trim().toLowerCase();
+                let matchedPoiKey = null;
+                if (typeof POI_TYPES !== 'undefined') {
+                    for (const [key, config] of Object.entries(POI_TYPES)) {
+                        if (config.aliases && config.aliases.some(alias => term.includes(alias))) {
+                            matchedPoiKey = key;
+                            break;
+                        }
+                    }
+                }
+                if (matchedPoiKey) {
+                    return;
+                }
+            }
+            e.preventDefault();
+            _searchEnterHandled = true;
+            items[_searchSelectedIndex].click();
+        }
+    } else if (e.key === 'Escape') {
+        resultsDiv.style.display = 'none';
+        _searchSelectedIndex = -1;
+        _searchUserNavigated = false;
+    }
+}
+
 /**
  * Központi eseménykezelő a felhasználói keresések feldolgozására.
  * Két fő funkciót lát el:
@@ -4726,6 +4814,15 @@ function clearRouteAndClose() {
  * @param {KeyboardEvent|InputEvent} e - A keresőmező (input) által kiváltott DOM esemény.
  */
 function handleSearch(e) {
+    if (_searchEnterHandled) {
+        _searchEnterHandled = false;
+        return;
+    }
+
+    if (e && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Escape')) {
+        return;
+    }
+
     // A keresett kifejezés kinyerése és a felesleges szóközök eltávolítása
     const term = e.target.value.trim();
     const resultsDiv = document.getElementById('search-results');
@@ -4749,6 +4846,7 @@ function handleSearch(e) {
         if (matchedPoiKey) {
             showPoiCategory(matchedPoiKey); 
             resultsDiv.style.display = 'none'; 
+            _searchSelectedIndex = -1;
             updateRightButtonState();
             return;
         }
@@ -4793,11 +4891,15 @@ function handleSearch(e) {
     
     // Az előző javaslatok törlése a tiszta újrarendereléshez
     resultsDiv.innerHTML = '';
+    _searchSelectedIndex = -1;
+    _searchUserNavigated = false;
     let hasResults = false;
 
     // Ha a felhasználó kiürítette a mezőt (pl. Backspace), elrejtjük a listát
     if (term.length < 1) { 
         resultsDiv.style.display = 'none'; 
+        _searchSelectedIndex = -1;
+        _searchUserNavigated = false;
         updateRightButtonState();
         return; 
     }
@@ -4815,6 +4917,12 @@ function handleSearch(e) {
             
             // Kattintás esemény: azonnali épületváltás a beírt keresőszó átadásával
             div.onclick = () => changeBuilding(key, term);
+            div.addEventListener('mouseenter', () => {
+                const currentItems = _getSelectableSearchResults();
+                _searchSelectedIndex = currentItems.indexOf(div);
+                _searchUserNavigated = true;
+                _updateSearchSelection(currentItems);
+            });
             
             resultsDiv.appendChild(div);
             hasResults = true;
@@ -4842,11 +4950,19 @@ function handleSearch(e) {
                 div.onclick = () => { 
                     openSheet(hit); 
                     resultsDiv.style.display = 'none'; 
+                    _searchSelectedIndex = -1;
+                    _searchUserNavigated = false;
                     document.getElementById('search-input').value = name; 
 
                     // UI frissítés a kiválasztás után
                     updateRightButtonState();
                 };
+                div.addEventListener('mouseenter', () => {
+                    const currentItems = _getSelectableSearchResults();
+                    _searchSelectedIndex = currentItems.indexOf(div);
+                    _searchUserNavigated = true;
+                    _updateSearchSelection(currentItems);
+                });
                 resultsDiv.appendChild(div);
                 hasResults = true;
             });
@@ -4856,8 +4972,19 @@ function handleSearch(e) {
     // A javaslatokat tartalmazó konténer (div) megjelenítése vagy elrejtése a találatok függvényében
     if (hasResults) {
         resultsDiv.style.display = 'block';
+        const currentItems = _getSelectableSearchResults();
+        if (currentItems.length > 0) {
+            _searchSelectedIndex = 0;
+            _searchUserNavigated = false;
+            _updateSearchSelection(currentItems);
+        } else {
+            _searchSelectedIndex = -1;
+            _searchUserNavigated = false;
+        }
     } else {
         resultsDiv.style.display = 'none';
+        _searchSelectedIndex = -1;
+        _searchUserNavigated = false;
     }
 
     // A jobb oldali akciógomb (Törlés X vagy Beállítások) aktuális állapotának szinkronizálása
@@ -4906,6 +5033,8 @@ function handleSearchBlur() {
  */
 function handleSearchLeftClick() {
     // A találati lista és a POI grid azonnali elrejtése
+    _searchSelectedIndex = -1;
+    _searchUserNavigated = false;
     document.getElementById('search-results').style.display = 'none';
     
     // A fókusz eltávolítása az input mezőről (blur esemény kiváltása)
@@ -4962,6 +5091,8 @@ function handleRightAction(e) {
         updateRightButtonState(); 
         
         // A találati lista elrejtése és a kedvencek manuális újratöltése az üres állapothoz
+        _searchSelectedIndex = -1;
+        _searchUserNavigated = false;
         document.getElementById('search-results').style.display = 'none';
         showFavoritesInSearch(); 
         
