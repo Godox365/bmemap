@@ -340,13 +340,24 @@ function normalizeRoomId(str) {
 
 // === ÉPÜLET KONFIGURÁCIÓ ===
 const BUILDINGS = {
-    "K": { name: "K Épület", center: [47.4816562, 19.0559196], zoom: 19, regex: /^K/i },
+    "K": { name: "K Épület", center: [47.4816562, 19.0559196], zoom: 19, regex: /^K/i, defaultLevel: "1" },
     "I": { name: "I Épület", center: [47.472616, 19.059552], zoom: 20, regex: /^I/i },
     "Q": { name: "Q Épület", center: [47.473410, 19.059555], zoom: 20, regex: /^Q/i },
     "E": { name: "E Épület", center: [47.477857, 19.057739], zoom: 20, regex: /^E/i },
     "R": { name: "R Épület", center: [47.4789527, 19.0591848], zoom: 19, regex: /^R/i },
     "KT": { name: "Könyvtár", center: [47.480874, 19.054276], zoom: 20, regex: /^KT/i }
 };
+
+/**
+ * Visszaadja az adott épülethez tartozó alapértelmezett kezdő szintet.
+ * @param {string} [buildingKey=currentBuildingKey] - Az épület azonosítója (pl. "K", "I").
+ * @returns {string} Az alapértelmezett szint azonosítója (pl. "1" a K épületnél, "0" másutt).
+ */
+function getDefaultLevelForBuilding(buildingKey = currentBuildingKey) {
+    const b = BUILDINGS[buildingKey];
+    return (b && b.defaultLevel) ? b.defaultLevel : "0";
+}
+
 
 // === A NAGY SZÍN-BIBLIA ===
 // Itt vannak definiálva a változók és az alapértelmezett értékeik (Dark / Light)
@@ -1773,7 +1784,7 @@ function _loadRouteArrowImage() {
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
-let currentLevel = "0";
+let currentLevel = getDefaultLevelForBuilding(currentBuildingKey);
 let availableLevels = [];
 let levelAliases = {}; // (Szintszám -> Megjelenített Név)
 let geoJsonData = null;
@@ -2667,6 +2678,7 @@ function changeBuilding(key, autoSearchTerm = null) {
 
     currentBuildingKey = key;
     currentBuilding = BUILDINGS[key];
+    currentLevel = getDefaultLevelForBuilding(key);
     
     if (autoSearchTerm) pendingSearchTerm = autoSearchTerm;
 
@@ -2981,13 +2993,15 @@ function processOsmData(osmData, isUpdate = false) {
     buildRoutingGraph(); 
     
     // 2. Az előzőleg mentett szint (emelet) állapotának biztonságos visszaállítása
-    if (availableLevels.includes(savedLevel)) {
+    if (isUpdate && availableLevels.includes(savedLevel)) {
         currentLevel = savedLevel;
     } else {
-        // Ha a mentett szint nem elérhető az új adatokban, 
-        // alapértelmezetten a földszintet ('0') vagy a legelső elérhető szintet választjuk
+        // Ha nem háttérfrissítésről van szó, vagy a mentett szint nem elérhető az új adatokban:
+        const defaultLvl = getDefaultLevelForBuilding(currentBuildingKey);
         if (!availableLevels.includes(currentLevel)) {
-            currentLevel = availableLevels.includes('0') ? '0' : (availableLevels[0] || "0");
+            currentLevel = availableLevels.includes(defaultLvl) 
+                ? defaultLvl 
+                : (availableLevels.includes('0') ? '0' : (availableLevels[0] || "0"));
         }
     }
 
@@ -7085,13 +7099,17 @@ function processLevels() {
     availableLevels = Array.from(levels).sort((a, b) => parseFloat(a) - parseFloat(b));
     
     // Az alapértelmezett (indulási) szint meghatározása.
-    // Prioritás: Földszint ("0"), ha létezik, egyébként a legalacsonyabb elérhető szint.
-    if (availableLevels.includes("0")) {
+    // Prioritás: Az épület konfigurált alapértelmezett szintje (K esetén "1", máshol "0"), ha létezik,
+    // egyébként a földszint ("0"), majd a legalacsonyabb elérhető szint.
+    const defaultLvl = getDefaultLevelForBuilding(currentBuildingKey);
+    if (availableLevels.includes(defaultLvl)) {
+        currentLevel = defaultLvl;
+    } else if (availableLevels.includes("0")) {
         currentLevel = "0";
     } else if (availableLevels.length > 0) {
         currentLevel = availableLevels[0];
     } else {
-        currentLevel = "0"; // Biztonsági alapértelmezés (Fallback)
+        currentLevel = defaultLvl; // Biztonsági alapértelmezés (Fallback)
     }
 }
 
