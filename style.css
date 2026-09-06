@@ -427,14 +427,15 @@
             position: absolute; bottom: 0; left: 0; right: 0; 
             background: var(--bg-surface); 
             border-radius: 24px 24px 0 0; 
-            z-index: 3500; 
+            z-index: 4500; /* A top-bar (4000) felett, de a toast/modal (6000+) alatt */
             box-shadow: 0 -5px 20px rgba(0,0,0,0.5); color: var(--text-main);
             
             /* Flex layout: Header + Scroll Content + Footer (Buttons) */
             display: flex; flex-direction: column;
-            max-height: 85vh; /* Max magasság */
+            max-height: 100vh; /* Teljes képernyős állapothoz */
             transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), height 0.35s cubic-bezier(0.2, 0, 0, 1);
             transform: translateY(105%); /* Alapból rejtve */
+            touch-action: none; /* JS kezeli a gesztusokat mobilon */
         }
         #bottom-sheet.open { transform: translateY(0); }
 
@@ -808,12 +809,18 @@
         /* Görgethető tartalom (Adatok, Képek) */
         #sheet-scroll-content {
             padding: 0 24px;
-            overflow-y: auto; /* Csak ez görgethető */
+            overflow-y: hidden; /* Alapból letiltva mobilon — a JS vezérli (full-screen állapotban auto lesz) */
             overscroll-behavior: contain;
+            flex: 1;
+            min-height: 0;
             /* Alapból rejtjük a scrollbar-t mobilon */
             scrollbar-width: none; 
         }
         #sheet-scroll-content::-webkit-scrollbar { display: none; }
+        /* Full-screen állapotban a belső tartalom görgethető */
+        #bottom-sheet.sheet-full #sheet-scroll-content {
+            overflow-y: auto;
+        }
 
         /* Fix lábléc a gomboknak */
         .sheet-footer {

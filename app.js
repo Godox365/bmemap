@@ -4229,8 +4229,11 @@ function openSheet(feature) {
         sheet.style.height = '';
     } else {
         sheet.style.height = `${targetHeight}px`;
+        // Állapot nyilvántartás frissítése
+        _sheetState = (targetHeight >= getAutoHeight() - 5) ? 'auto' : 'peek';
     }
     sheet.classList.add('open');
+    sheet.classList.remove('sheet-full');
 
     // A kedvenc (csillag) gomb vizuális állapotának frissítése a jelenlegi elem alapján
     updateFavoriteUI(); 
@@ -4627,7 +4630,17 @@ function closeSheet() {
     const header = document.querySelector('.sheet-header');
     if (header) header.classList.remove('nav-mode');
 
-    document.getElementById('bottom-sheet').classList.remove('open');
+    const sheetEl = document.getElementById('bottom-sheet');
+    if (sheetEl) {
+        sheetEl.classList.remove('open');
+        sheetEl.classList.remove('sheet-full');
+        _sheetState = 'peek';
+        setTimeout(() => {
+            if (!sheetEl.classList.contains('open')) {
+                sheetEl.style.height = '';
+            }
+        }, 350);
+    }
     
     document.querySelectorAll('.selected-poi').forEach(el => el.classList.remove('selected-poi'));
 
@@ -5719,6 +5732,8 @@ function toggleNearbyMenu() {
         
         // Visszaanimáljuk az eredeti magasságra mobilon
         if (!isDesktopSidePanel()) {
+            _sheetState = 'auto';
+            document.getElementById('bottom-sheet').classList.remove('sheet-full');
             setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
         }
         return;
@@ -5766,6 +5781,8 @@ function toggleNearbyMenu() {
     
     // A sheet magasságának újrakalkulálása a POI rács méretéhez mobilon
     if (!isDesktopSidePanel()) {
+        _sheetState = 'auto';
+        document.getElementById('bottom-sheet').classList.remove('sheet-full');
         setTimeout(() => { document.getElementById('bottom-sheet').style.height = `${getAutoHeight()}px`; }, 50);
     }
 }
@@ -7238,11 +7255,16 @@ const footer = document.querySelector('.sheet-footer');
 const header = document.querySelector('.sheet-header');
 
 // Állapotváltozók a húzási (drag) interakció és a fizikai szimuláció nyomon követéséhez
-let startY = 0;           // Az érintés/kattintás kezdeti Y koordinátája
-let startHeight = 0;      // A panel magassága a húzás megkezdésekor
-let isDragging = false;   // Logikai jelző a húzási folyamat állapotáról
-let lastY = 0;            // Az előző mérési pont Y koordinátája a mozgási sebesség (velocity) számításához
-let velocity = 0;         // A mozgás sebessége az inercia és a lendület (spring) logikájához
+let _sheetState = 'peek';        // 'peek' | 'auto' | 'full' — aktuális snap pont állapot
+let _isDraggingSheet = false;     // Logikai jelző a húzási folyamat állapotáról
+let _potentialScrollDrag = false; // Full módban a scroll tetejéről indult-e lefelé húzás
+let _dragStartY = 0;              // Az érintés/kattintás kezdeti Y koordinátája
+let _dragStartHeight = 0;         // A panel magassága a húzás megkezdésekor
+let _dragLastY = 0;               // Az előző mérési pont Y koordinátája
+let _dragLastTime = 0;            // Az előző mérési pont időbélyege (performance.now())
+let _dragVelocity = 0;            // Időalapú mozgási sebesség (px/ms)
+let _didSheetDrag = false;        // Kattintás vs húzás megkülönböztetése
+let _activeTouchId = null;        // Aktív érintés azonosítója (multi-touch védelem)
 
 /**
  * Kiszámítja az alsó információs panel minimális (betekintő / peek) magasságát.
@@ -7266,6 +7288,35 @@ function getPeekHeight() {
 }
 
 /**
+ * Kiszámítja a belső görgethető tartalom valós, természetes magasságát.
+ * Elkerüli a flex: 1 által mesterségesen kifeszített méretek (content.scrollHeight) téves mérését.
+ * @returns {number} A belső elemek tényleges magassága pixelben.
+ */
+function getScrollContentHeight() {
+    if (!content) return 0;
+    const nearby = document.getElementById('nearby-menu-container');
+    if (nearby && nearby.style.display !== 'none' && nearby.offsetHeight > 0) {
+        return nearby.offsetHeight;
+    }
+    const itinerary = document.getElementById('nav-itinerary');
+    if (itinerary && itinerary.style.display !== 'none' && itinerary.offsetHeight > 0) {
+        return itinerary.offsetHeight;
+    }
+    const dataContainer = document.getElementById('room-data-container');
+    if (dataContainer && dataContainer.style.display !== 'none' && dataContainer.offsetHeight > 0) {
+        return dataContainer.offsetHeight;
+    }
+    let sum = 0;
+    for (const child of content.children) {
+        if (child.style.display !== 'none') {
+            sum += (child.offsetHeight || 0);
+        }
+    }
+    if (sum > 0) return sum;
+    return content.scrollHeight || 0;
+}
+
+/**
  * Kiszámítja a panel automatikus (optimális) magasságát a belső tartalom kiterjedése alapján.
  * A függvény biztosítja, hogy a panel alapértelmezetten ne takarja ki a képernyőt teljesen,
  * és egy meghatározott aránynál (60%) megálljon.
@@ -7273,14 +7324,34 @@ function getPeekHeight() {
  * @returns {number} Az ideális magasság pixelben kifejezve.
  */
 function getAutoHeight() {
-    const contentH = content.scrollHeight;
+    const contentH = getScrollContentHeight();
     const peekH = getPeekHeight();
     
-    // A teljes szükséges magasság: a fix elemek (peek) és a görgethető belső tartalom összege
-    const total = peekH + contentH;
+    // A teljes szükséges magasság: a fix elemek (peek) és a valós belső tartalom összege
+    const total = peekH + contentH + 15;
     
     // A visszaadott érték maximalizálása az elérhető ablakmagasság 60%-ában
     return Math.min(total, window.innerHeight * 0.6);
+}
+
+/**
+ * Kiszámítja a teljes képernyős állapot magasságát.
+ * @returns {number} A teljes viewport magasság pixelben.
+ */
+function getFullHeight() {
+    return window.innerHeight;
+}
+
+/**
+ * Visszaadja az elérhető snap pontok magasságait egy objektumban.
+ * @returns {{peek: number, auto: number, full: number}}
+ */
+function _getSnapPoints() {
+    return {
+        peek: getPeekHeight(),
+        auto: getAutoHeight(),
+        full: getFullHeight()
+    };
 }
 
 /**
@@ -7306,106 +7377,292 @@ function collapseToPeek() {
     
     // A nyitott állapotot jelző CSS osztály fenntartása (mivel a peek is egy látható, interaktív állapot)
     sheet.classList.add('open');
+    sheet.classList.remove('sheet-full');
+    _sheetState = 'peek';
     
     // A belső görgetősáv (scroll) pozíciójának nullázása a tiszta állapot eléréséhez
-    document.getElementById('sheet-scroll-content').scrollTop = 0;
+    content.scrollTop = 0;
 }
 
 // === ESEMÉNYKEZELŐK (EVENT LISTENERS) ===
 
 /**
- * Eseménykezelő a panel húzásának (drag) megkezdéséhez érintőképernyős eszközökön.
- * Inicializálja az állapotváltozókat és kikapcsolja a CSS animációkat az azonnali, 
- * késleltetés nélküli ujjkövetés (1:1 tracking) érdekében.
+ * Beállítja a panelt egy adott snap pontra, animációval.
+ * @param {'peek'|'auto'|'full'} target - A cél snap pont neve.
  */
-let didSheetDrag = false;
-
-function _onSheetDragStart(clientY) {
-    if (isDesktopSidePanel()) return;
-    isDragging = true;
-    didSheetDrag = false;
-    startY = clientY;
-    lastY = startY;
-    velocity = 0;
-    startHeight = sheet.getBoundingClientRect().height;
-    
-    // Animáció letiltása a sima, azonnali reakcióhoz a húzás alatt
-    sheet.style.transition = 'none'; 
-    handle.style.cursor = 'grabbing';
-}
-
-function _onSheetDragMove(clientY) {
-    if (!isDragging) return;
-    
-    const deltaY = startY - clientY;
-    if (Math.abs(deltaY) > 5) {
-        didSheetDrag = true;
-    }
-    const newHeight = startHeight + deltaY;
-    
-    velocity = clientY - lastY; 
-    lastY = clientY;
-
-    const peekH = getPeekHeight();
-    const maxH = window.innerHeight * 0.9;
-
-    if (newHeight >= peekH * 0.8 && newHeight <= maxH) {
-        sheet.style.height = `${newHeight}px`;
-    }
-}
-
-function _onSheetDragEnd() {
-    if (!isDragging) return;
-    
-    isDragging = false;
-    handle.style.cursor = 'grab';
+function _snapSheetTo(target) {
+    const snaps = _getSnapPoints();
+    const targetH = snaps[target];
     
     // Ruganyos (spring) animációs görbe alkalmazása a természetesebb fizikai hatásért
-    sheet.style.transition = 'height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; 
+    sheet.style.transition = 'height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    sheet.style.height = `${targetH}px`;
     
-    const currentHeight = sheet.getBoundingClientRect().height;
-    const peekH = getPeekHeight();
-    const autoH = getAutoHeight();
-    const maxH = window.innerHeight * 0.85;
-
-    if (velocity > 10) {
-        sheet.style.height = `${peekH}px`;
-    }
-    else if (velocity < -10) {
-        if (currentHeight < autoH) {
-            sheet.style.height = `${autoH}px`;
-        } else {
-            sheet.style.height = `${maxH}px`;
-        }
-    }
-    else {
-        const distToPeek = Math.abs(currentHeight - peekH);
-        const distToAuto = Math.abs(currentHeight - autoH);
-        const distToMax = Math.abs(currentHeight - maxH);
-
-        if (distToPeek < distToAuto && distToPeek < distToMax) {
-            sheet.style.height = `${peekH}px`;
-        } else if (distToMax < distToAuto) {
-            sheet.style.height = `${maxH}px`;
-        } else {
-            sheet.style.height = `${autoH}px`;
-        }
+    // Állapot frissítés
+    _sheetState = target;
+    
+    if (target === 'full') {
+        sheet.classList.add('sheet-full');
+    } else {
+        sheet.classList.remove('sheet-full');
     }
     
-    if (sheet.style.height === `${peekH}px`) {
+    if (target === 'peek') {
         content.scrollTop = 0;
     }
 }
 
-handle.addEventListener('touchstart', (e) => {
-    _onSheetDragStart(e.touches[0].clientY);
-}, {passive: true});
+/**
+ * Események: A panel húzásának megkezdése.
+ * A teljes sheet felületéről indítható, nem csak a handle-ből.
+ * @param {number} clientY - Az érintés/kattintás Y koordinátája.
+ * @param {'handle'|'content'} source - Honnan indult a gesztus.
+ */
+function _onSheetDragStart(clientY, source) {
+    if (isDesktopSidePanel()) return;
+    
+    _dragStartY = clientY;
+    _dragLastY = clientY;
+    _dragLastTime = performance.now();
+    _dragVelocity = 0;
+    _didSheetDrag = false;
+    _dragStartHeight = sheet.getBoundingClientRect().height;
+    
+    if (_sheetState === 'full') {
+        if (source === 'handle') {
+            // Full módban a fejléc/handle érintése azonnal sheet draget indít
+            _isDraggingSheet = true;
+            _potentialScrollDrag = false;
+            sheet.style.transition = 'none';
+        } else {
+            // Tartalom érintése full módban:
+            if (content.scrollTop <= 0) {
+                // A tartalom legtetején vagyunk: potenciális visszahúzás
+                _potentialScrollDrag = true;
+                _isDraggingSheet = false;
+            } else {
+                // A tartalom le van görgetve: hagyjuk a belső scrollt
+                _potentialScrollDrag = false;
+                _isDraggingSheet = false;
+            }
+        }
+    } else {
+        // Peek vagy Auto módban a sheet BÁRMELY pontjának érintése sheet draget indít
+        _isDraggingSheet = true;
+        _potentialScrollDrag = false;
+        sheet.style.transition = 'none';
+    }
+}
 
-handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    _onSheetDragStart(e.clientY);
+/**
+ * Események: A panel húzása közben (touchmove / mousemove).
+ * Kezeli a scroll↔drag koordinációt.
+ * @param {number} clientY - Az érintés/kattintás aktuális Y koordinátája.
+ * @param {Event} event - Az eredeti touch/mouse event a preventDefault() híváshoz.
+ */
+function _onSheetDragMove(clientY, event) {
+    const deltaY = _dragStartY - clientY; // >0: felfelé húzás, <0: lefelé húzás
+    
+    // Disambiguálás full-screen módban a scroll tetején:
+    if (_potentialScrollDrag) {
+        if (deltaY < -6 && content.scrollTop <= 0) {
+            // Lefelé húzás a tartalom tetejéről -> sheet drag aktiválása!
+            _potentialScrollDrag = false;
+            _isDraggingSheet = true;
+            _dragStartHeight = sheet.getBoundingClientRect().height;
+            _dragStartY = clientY;
+            _dragLastY = clientY;
+            _dragLastTime = performance.now();
+            sheet.style.transition = 'none';
+        } else if (deltaY > 6) {
+            // Felfelé húzás -> a user lejjebb akar görgetni a tartalomban!
+            _potentialScrollDrag = false;
+            _isDraggingSheet = false;
+            return;
+        } else {
+            return;
+        }
+    }
+    
+    if (!_isDraggingSheet) return;
+    
+    if (Math.abs(deltaY) > 5) {
+        _didSheetDrag = true;
+    }
+    
+    // Időalapú velocity számítás (px/ms)
+    const now = performance.now();
+    const dt = now - _dragLastTime;
+    if (dt > 0) {
+        _dragVelocity = (clientY - _dragLastY) / dt;
+    }
+    _dragLastY = clientY;
+    _dragLastTime = now;
+    
+    // Húzás közben tiltjuk a natív böngésző scrollt
+    if (event && event.cancelable) {
+        event.preventDefault();
+    }
+    
+    const snaps = _getSnapPoints();
+    const newHeight = _dragStartHeight + deltaY;
+    
+    // Lágy határok: alulról peek * 0.75, felülről a képernyő teteje
+    if (newHeight >= snaps.peek * 0.75 && newHeight <= snaps.full) {
+        sheet.style.height = `${newHeight}px`;
+    }
+}
+
+/**
+ * Események: A húzás befejeződése (touchend / mouseup).
+ * Snap logika: a panel a legközelebbi snap pontra ugrik, velocity és zónák alapján.
+ */
+function _onSheetDragEnd() {
+    _potentialScrollDrag = false;
+    
+    if (!_isDraggingSheet) return;
+    _isDraggingSheet = false;
+    
+    const currentHeight = sheet.getBoundingClientRect().height;
+    const snaps = _getSnapPoints();
+    
+    let target;
+    
+    // 1. Határozott lendület (Flick) esetén sebesség alapú döntés
+    if (_dragVelocity > 0.35) {
+        // Lefelé flick
+        if (currentHeight > snaps.auto + 30) {
+            target = (_dragVelocity > 0.9) ? 'peek' : 'auto';
+        } else {
+            target = 'peek';
+        }
+    } else if (_dragVelocity < -0.35) {
+        // Felfelé flick
+        if (currentHeight < snaps.auto - 20) {
+            target = 'auto';
+        } else {
+            target = 'full';
+        }
+    } else {
+        // 2. Távolság / Pozíció alapú felezőpontos snap zónák:
+        // Garantálja, hogy MINDEN pozícióból a megfelelő snap pontra ugrik,
+        // soha semmilyen körülmények között nem maradhat a kettő között!
+        const midPeekAuto = (snaps.peek + snaps.auto) / 2;
+        const midAutoFull = (snaps.auto + snaps.full) / 2;
+        
+        if (currentHeight < midPeekAuto) {
+            target = 'peek';
+        } else if (currentHeight < midAutoFull) {
+            target = 'auto';
+        } else {
+            target = 'full';
+        }
+    }
+    
+    _snapSheetTo(target);
+}
+
+// --- ESEMÉNYFIGYELŐK REGISZTRÁLÁSA ---
+
+// Érintés indítása a sheet teljes felületén
+sheet.addEventListener('touchstart', (e) => {
+    if (isDesktopSidePanel()) return;
+    
+    // Ne zavarjuk a gombokat, linkeket, űrlapmezőket, galériaképeket
+    const tag = e.target.tagName;
+    if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.gallery-img')) return;
+    
+    const touch = e.changedTouches[0];
+    _activeTouchId = touch.identifier;
+    
+    const source = (e.target.closest('#sheet-handle') || e.target.closest('.sheet-header')) ? 'handle' : 'content';
+    _onSheetDragStart(touch.clientY, source);
+}, { passive: true });
+
+// Érintés mozgatása és befejezése a WINDOW objektumon (így ujjcsúszáskor sem vész el az esemény!)
+window.addEventListener('touchmove', (e) => {
+    if (!_isDraggingSheet && !_potentialScrollDrag) return;
+    
+    let touch = null;
+    for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === _activeTouchId) {
+            touch = e.touches[i];
+            break;
+        }
+    }
+    if (!touch) touch = e.touches[0];
+    if (!touch) return;
+    
+    _onSheetDragMove(touch.clientY, e);
+}, { passive: false });
+
+window.addEventListener('touchend', () => {
+    if (_isDraggingSheet || _potentialScrollDrag) {
+        _onSheetDragEnd();
+    }
 });
+
+window.addEventListener('touchcancel', () => {
+    if (_isDraggingSheet || _potentialScrollDrag) {
+        _onSheetDragEnd();
+    }
+});
+
+// Egér események (asztali / laptop touchpad teszteléshez)
+sheet.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (isDesktopSidePanel()) return;
+    
+    const tag = e.target.tagName;
+    if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.gallery-img')) return;
+    
+    e.preventDefault();
+    const source = (e.target.closest('#sheet-handle') || e.target.closest('.sheet-header')) ? 'handle' : 'content';
+    _onSheetDragStart(e.clientY, source);
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (!_isDraggingSheet && !_potentialScrollDrag) return;
+    _onSheetDragMove(e.clientY, e);
+});
+
+window.addEventListener('mouseup', () => {
+    if (_isDraggingSheet || _potentialScrollDrag) {
+        _onSheetDragEnd();
+    }
+});
+
+window.addEventListener('blur', () => {
+    if (_isDraggingSheet || _potentialScrollDrag) {
+        _onSheetDragEnd();
+    }
+});
+
+/**
+ * Eseménykezelő a húzófogantyúra (handle) történő normál kattintásra.
+ * 3 állapot közti váltás: Peek → Auto → Full → Peek
+ */
+handle.addEventListener('click', () => {
+    if (isDesktopSidePanel()) return;
+    if (_didSheetDrag) {
+        _didSheetDrag = false;
+        return;
+    }
+    
+    // Egyenletes (ease-out) animáció alkalmazása a kattintásos állapotváltásnál
+    sheet.style.transition = 'height 0.3s ease-out';
+
+    if (_sheetState === 'peek') {
+        _snapSheetTo('auto');
+    } else if (_sheetState === 'auto') {
+        _snapSheetTo('full');
+    } else {
+        _snapSheetTo('peek');
+    }
+});
+
 
 /**
  * Globális eseménykezelő a keresőmezőn kívüli kattintások (focus lost) detektálására.
@@ -7416,50 +7673,8 @@ document.addEventListener('click', (e) => {
     const searchWrapper = document.getElementById('search-wrapper');
     const resultsDiv = document.getElementById('search-results');
     
-    // Ellenőrzés: ha a kattintás nem a kereső komponensein belül történt, 
-    // és a találati lista jelenleg látható
     if (!searchWrapper.contains(e.target) && resultsDiv.style.display !== 'none') {
         resultsDiv.style.display = 'none';
-    }
-});
-
-document.addEventListener('touchmove', (e) => {
-    _onSheetDragMove(e.touches[0].clientY);
-}, {passive: true});
-
-document.addEventListener('mousemove', (e) => {
-    _onSheetDragMove(e.clientY);
-});
-
-document.addEventListener('touchend', _onSheetDragEnd);
-document.addEventListener('mouseup', _onSheetDragEnd);
-window.addEventListener('blur', _onSheetDragEnd);
-
-/**
- * Eseménykezelő a húzófogantyúra (handle) történő normál kattintásra.
- * Alternatívát nyújt a húzás (drag) interakció helyett: egyszerű kattintással vált (toggle)
- * az optimális nyitott (auto) és a betekintő (peek) állapotok között.
- */
-handle.addEventListener('click', () => {
-    if (isDesktopSidePanel()) return;
-    if (didSheetDrag) {
-        didSheetDrag = false;
-        return;
-    }
-    const currentH = sheet.getBoundingClientRect().height;
-    const peekH = getPeekHeight();
-    const autoH = getAutoHeight();
-
-    // Egyenletes (ease-out) animáció alkalmazása a kattintásos állapotváltásnál
-    sheet.style.transition = 'height 0.3s ease-out';
-
-    // Állapotvizsgálat: ha a panel a betekintő magasság közelében van, kinyitjuk
-    if (currentH < peekH + 50) {
-        sheet.style.height = `${autoH}px`;
-    } 
-    // Ha a panel nyitva van, összecsukjuk a betekintő állapotba
-    else {
-        sheet.style.height = `${peekH}px`;
     }
 });
 
@@ -8324,8 +8539,14 @@ window.addEventListener('resize', () => {
             }
         }
     } else {
-        const autoH = getAutoHeight();
-        sheet.style.height = `${autoH}px`;
+        const snaps = _getSnapPoints();
+        if (_sheetState === 'full') {
+            sheet.style.height = `${snaps.full}px`;
+        } else if (_sheetState === 'peek') {
+            sheet.style.height = `${snaps.peek}px`;
+        } else {
+            sheet.style.height = `${snaps.auto}px`;
+        }
     }
 });
 
