@@ -4158,14 +4158,14 @@ function openSheet(feature) {
             if (roomData && roomData.images && roomData.images.length > 0) {
                 if (galleryContainer) galleryContainer.style.display = 'block';
                 galleryEl.style.display = 'flex';
-                roomData.images.forEach(url => {
+                roomData.images.forEach((url, idx) => {
                     const img = document.createElement('img');
                     img.src = url;
                     img.className = 'gallery-img';
                     img.draggable = false;
                     img.onclick = () => {
                         if (_galleryMovedDistance > 8) return;
-                        window.open(url, '_blank');
+                        openImageViewer(roomData.images, idx);
                     };
                     galleryEl.appendChild(img);
                 });
@@ -8802,3 +8802,380 @@ window.closeEmbedInfo = closeEmbedInfo;
 window.copyEmbedCode = copyEmbedCode;
 window.toggleDevMode = toggleDevMode;
 window.startNavigationToHere = startNavigationToHere;
+
+// ==========================================================================
+// BEÉPÍTETT KÉPNÉZEGETŐ (LIGHTBOX) MODUL
+// ==========================================================================
+
+let _viewerImages = [];
+let _viewerIndex = 0;
+let _viewerScale = 1;
+let _viewerPanX = 0;
+let _viewerPanY = 0;
+let _viewerIsOpen = false;
+let _viewerIsDragging = false;
+let _viewerDragStartX = 0;
+let _viewerDragStartY = 0;
+let _viewerInitialPanX = 0;
+let _viewerInitialPanY = 0;
+let _viewerPinchStartDistance = 0;
+let _viewerPinchStartScale = 1;
+let _viewerTouchStartX = 0;
+let _viewerTouchStartY = 0;
+let _viewerTouchStartTime = 0;
+let _viewerLastTapTime = 0;
+let _viewerEventsInitialized = false;
+
+function _getTouchDistance(t1, t2) {
+    return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+}
+
+function _clampViewerPan() {
+    if (_viewerScale <= 1) {
+        _viewerPanX = 0;
+        _viewerPanY = 0;
+        return;
+    }
+    const container = document.getElementById('viewer-image-container');
+    const img = document.getElementById('viewer-img');
+    if (!container || !img) return;
+    
+    const scaledW = img.offsetWidth * _viewerScale;
+    const scaledH = img.offsetHeight * _viewerScale;
+    const maxPanX = Math.max(0, (scaledW - container.clientWidth) / 2 + 50);
+    const maxPanY = Math.max(0, (scaledH - container.clientHeight) / 2 + 50);
+    
+    _viewerPanX = Math.max(-maxPanX, Math.min(maxPanX, _viewerPanX));
+    _viewerPanY = Math.max(-maxPanY, Math.min(maxPanY, _viewerPanY));
+}
+
+function _applyViewerTransform(animate = false) {
+    const img = document.getElementById('viewer-img');
+    const container = document.getElementById('viewer-image-container');
+    if (!img) return;
+    
+    img.style.transition = animate ? 'transform 0.2s cubic-bezier(0.2, 0, 0, 1)' : 'none';
+    img.style.transform = `translate(${_viewerPanX}px, ${_viewerPanY}px) scale(${_viewerScale})`;
+    
+    if (container) {
+        if (_viewerScale > 1) {
+            container.classList.add('grabbing');
+        } else {
+            container.classList.remove('grabbing');
+        }
+    }
+}
+
+function _resetViewerTransform(animate = false) {
+    _viewerScale = 1;
+    _viewerPanX = 0;
+    _viewerPanY = 0;
+    _viewerIsDragging = false;
+    _applyViewerTransform(animate);
+}
+
+function _renderViewerContent() {
+    const img = document.getElementById('viewer-img');
+    const counter = document.getElementById('viewer-counter');
+    const prevBtn = document.getElementById('viewer-prev-btn');
+    const nextBtn = document.getElementById('viewer-next-btn');
+    
+    if (img && _viewerImages[_viewerIndex]) {
+        img.src = _viewerImages[_viewerIndex];
+    }
+    
+    const count = _viewerImages.length;
+    if (count > 1) {
+        if (prevBtn) prevBtn.style.display = 'flex';
+        if (nextBtn) nextBtn.style.display = 'flex';
+        if (counter) {
+            counter.style.display = 'block';
+            counter.innerText = `${_viewerIndex + 1} / ${count}`;
+        }
+    } else {
+        if (prevBtn) prevBtn.style.display = 'none';
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (counter) counter.style.display = 'none';
+    }
+}
+
+function openImageViewer(images, startIndex = 0) {
+    if (!images) return;
+    _viewerImages = Array.isArray(images) ? images : [images];
+    if (_viewerImages.length === 0) return;
+    
+    _viewerIndex = Math.max(0, Math.min(startIndex, _viewerImages.length - 1));
+    _viewerIsOpen = true;
+    
+    _resetViewerTransform(false);
+    _renderViewerContent();
+    
+    const modal = document.getElementById('image-viewer-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        void modal.offsetWidth; // Reflow az animációhoz
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+    
+    _initViewerEvents();
+    window.addEventListener('keydown', _onViewerKeyDown);
+}
+
+function closeImageViewer() {
+    _viewerIsOpen = false;
+    const modal = document.getElementById('image-viewer-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        setTimeout(() => {
+            if (!modal.classList.contains('open')) {
+                modal.style.display = 'none';
+                const img = document.getElementById('viewer-img');
+                if (img) img.src = '';
+            }
+        }, 250);
+    }
+    window.removeEventListener('keydown', _onViewerKeyDown);
+    _resetViewerTransform(false);
+}
+
+function navigateImageViewer(direction) {
+    if (!_viewerImages || _viewerImages.length <= 1) return;
+    _resetViewerTransform(false);
+    
+    _viewerIndex += direction;
+    if (_viewerIndex < 0) {
+        _viewerIndex = _viewerImages.length - 1;
+    } else if (_viewerIndex >= _viewerImages.length) {
+        _viewerIndex = 0;
+    }
+    
+    _renderViewerContent();
+}
+
+function _onViewerWheel(e) {
+    if (!_viewerIsOpen) return;
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.18 : 0.85;
+    const newScale = Math.max(1, Math.min(5, _viewerScale * zoomFactor));
+    
+    if (newScale === 1) {
+        _viewerScale = 1;
+        _viewerPanX = 0;
+        _viewerPanY = 0;
+    } else {
+        _viewerScale = newScale;
+        _clampViewerPan();
+    }
+    _applyViewerTransform(true);
+}
+
+function _onViewerMouseDown(e) {
+    if (!_viewerIsOpen || e.button !== 0) return;
+    if (e.target.closest('.viewer-btn')) return;
+    
+    _viewerIsDragging = true;
+    _viewerDragStartX = e.clientX;
+    _viewerDragStartY = e.clientY;
+    _viewerInitialPanX = _viewerPanX;
+    _viewerInitialPanY = _viewerPanY;
+}
+
+function _onViewerMouseMove(e) {
+    if (!_viewerIsOpen || !_viewerIsDragging) return;
+    const dx = e.clientX - _viewerDragStartX;
+    const dy = e.clientY - _viewerDragStartY;
+    
+    if (_viewerScale > 1) {
+        _viewerPanX = _viewerInitialPanX + dx;
+        _viewerPanY = _viewerInitialPanY + dy;
+        _clampViewerPan();
+        _applyViewerTransform(false);
+    }
+}
+
+function _onViewerMouseUp(e) {
+    if (!_viewerIsOpen || !_viewerIsDragging) return;
+    _viewerIsDragging = false;
+    
+    const dx = e.clientX - _viewerDragStartX;
+    const dy = e.clientY - _viewerDragStartY;
+    const dist = Math.hypot(dx, dy);
+    
+    // Háttérre kattintva záródjon be
+    if (_viewerScale === 1 && dist < 6 && e.target === document.getElementById('viewer-image-container')) {
+        closeImageViewer();
+        return;
+    }
+    
+    // Egérrel vízszintesen elhúzva lapozás (ha nincs nagyítva)
+    if (_viewerScale === 1 && Math.abs(dx) > 50 && Math.abs(dy) < 80) {
+        if (dx < 0) {
+            navigateImageViewer(1);
+        } else {
+            navigateImageViewer(-1);
+        }
+        return;
+    }
+    
+    if (_viewerScale > 1) {
+        _clampViewerPan();
+        _applyViewerTransform(true);
+    }
+}
+
+function _onViewerTouchStart(e) {
+    if (!_viewerIsOpen) return;
+    if (e.target.closest('.viewer-btn')) return;
+    
+    if (e.touches.length === 2) {
+        // Kétujjas pinch kezdete
+        _viewerPinchStartDistance = _getTouchDistance(e.touches[0], e.touches[1]);
+        _viewerPinchStartScale = _viewerScale;
+        _viewerIsDragging = false;
+    } else if (e.touches.length === 1) {
+        // Egyujjas érintés (pan, swipe vagy koppintás)
+        _viewerIsDragging = true;
+        _viewerTouchStartX = e.touches[0].clientX;
+        _viewerTouchStartY = e.touches[0].clientY;
+        _viewerTouchStartTime = Date.now();
+        _viewerInitialPanX = _viewerPanX;
+        _viewerInitialPanY = _viewerPanY;
+        
+        // Dupla koppintás detektálása (zoom toggle 1x <-> 2.5x)
+        const now = Date.now();
+        if (now - _viewerLastTapTime < 300) {
+            e.preventDefault();
+            if (_viewerScale > 1.05) {
+                _resetViewerTransform(true);
+            } else {
+                _viewerScale = 2.5;
+                _clampViewerPan();
+                _applyViewerTransform(true);
+            }
+            _viewerLastTapTime = 0;
+            _viewerIsDragging = false;
+            return;
+        }
+        _viewerLastTapTime = now;
+    }
+}
+
+function _onViewerTouchMove(e) {
+    if (!_viewerIsOpen) return;
+    
+    if (e.touches.length === 2 && _viewerPinchStartDistance > 0) {
+        e.preventDefault();
+        const currentDist = _getTouchDistance(e.touches[0], e.touches[1]);
+        const ratio = currentDist / _viewerPinchStartDistance;
+        _viewerScale = Math.max(0.8, Math.min(5, _viewerPinchStartScale * ratio));
+        if (_viewerScale > 1) {
+            _clampViewerPan();
+        } else {
+            _viewerPanX = 0;
+            _viewerPanY = 0;
+        }
+        _applyViewerTransform(false);
+    } else if (e.touches.length === 1 && _viewerIsDragging) {
+        const dx = e.touches[0].clientX - _viewerTouchStartX;
+        const dy = e.touches[0].clientY - _viewerTouchStartY;
+        
+        if (_viewerScale > 1.05) {
+            e.preventDefault();
+            _viewerPanX = _viewerInitialPanX + dx;
+            _viewerPanY = _viewerInitialPanY + dy;
+            _clampViewerPan();
+            _applyViewerTransform(false);
+        }
+    }
+}
+
+function _onViewerTouchEnd(e) {
+    if (!_viewerIsOpen) return;
+    
+    if (e.touches.length === 0) {
+        if (_viewerScale < 1.05) {
+            _resetViewerTransform(true);
+        } else {
+            _clampViewerPan();
+            _applyViewerTransform(true);
+        }
+        
+        // Swipe észlelés normál 1x méretnél
+        if (_viewerScale === 1 && _viewerIsDragging && e.changedTouches && e.changedTouches.length > 0) {
+            const dx = e.changedTouches[0].clientX - _viewerTouchStartX;
+            const dy = e.changedTouches[0].clientY - _viewerTouchStartY;
+            const dt = Date.now() - _viewerTouchStartTime;
+            
+            if (dt < 400 && Math.abs(dx) > 45 && Math.abs(dy) < 80) {
+                if (dx < 0) {
+                    navigateImageViewer(1);
+                } else {
+                    navigateImageViewer(-1);
+                }
+            } else if (Math.hypot(dx, dy) < 10 && e.target === document.getElementById('viewer-image-container')) {
+                closeImageViewer();
+            }
+        }
+        _viewerIsDragging = false;
+        _viewerPinchStartDistance = 0;
+    } else if (e.touches.length === 1) {
+        _viewerTouchStartX = e.touches[0].clientX;
+        _viewerTouchStartY = e.touches[0].clientY;
+        _viewerInitialPanX = _viewerPanX;
+        _viewerInitialPanY = _viewerPanY;
+        _viewerIsDragging = true;
+    }
+}
+
+function _onViewerDoubleClick(e) {
+    if (!_viewerIsOpen) return;
+    if (e.target.closest('.viewer-btn')) return;
+    
+    if (_viewerScale > 1.05) {
+        _resetViewerTransform(true);
+    } else {
+        _viewerScale = 2.5;
+        _clampViewerPan();
+        _applyViewerTransform(true);
+    }
+}
+
+function _onViewerKeyDown(e) {
+    if (!_viewerIsOpen) return;
+    
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        closeImageViewer();
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateImageViewer(-1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateImageViewer(1);
+    }
+}
+
+function _initViewerEvents() {
+    if (_viewerEventsInitialized) return;
+    _viewerEventsInitialized = true;
+    
+    const container = document.getElementById('viewer-image-container');
+    if (container) {
+        container.addEventListener('wheel', _onViewerWheel, { passive: false });
+        container.addEventListener('mousedown', _onViewerMouseDown);
+        container.addEventListener('touchstart', _onViewerTouchStart, { passive: false });
+        container.addEventListener('dblclick', _onViewerDoubleClick);
+    }
+    
+    window.addEventListener('mousemove', _onViewerMouseMove);
+    window.addEventListener('mouseup', _onViewerMouseUp);
+    window.addEventListener('touchmove', _onViewerTouchMove, { passive: false });
+    window.addEventListener('touchend', _onViewerTouchEnd);
+    window.addEventListener('touchcancel', _onViewerTouchEnd);
+}
+
+window.openImageViewer = openImageViewer;
+window.closeImageViewer = closeImageViewer;
+window.navigateImageViewer = navigateImageViewer;

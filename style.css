@@ -2083,3 +2083,160 @@ body:not(.embed-mode) .embed-info-bar {
     .embed-btn { width: 34px; height: 34px; }
     .embed-btn .material-symbols-outlined { font-size: 18px; }
 }
+
+/* ==========================================================================
+   BEÉPÍTETT KÉPNÉZEGETŐ (LIGHTBOX)
+   ========================================================================== */
+
+.image-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    opacity: 0;
+    transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+    pointer-events: none;
+}
+
+.image-viewer-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.viewer-image-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.viewer-image-container.grabbing {
+    cursor: grabbing;
+}
+
+.viewer-img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    transform-origin: center center;
+    will-change: transform;
+    pointer-events: auto;
+    transition: transform 0.15s ease-out;
+}
+
+/* Lebegő akciógombok (Bezárás, Lapozás) */
+.viewer-btn {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s, transform 0.15s, opacity 0.2s;
+    padding: 0;
+}
+
+.viewer-btn .material-symbols-outlined {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.viewer-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.08);
+}
+
+.viewer-btn:active {
+    transform: scale(0.95);
+}
+
+.viewer-close-btn {
+    top: max(20px, env(safe-area-inset-top, 20px));
+    right: max(20px, env(safe-area-inset-right, 20px));
+}
+
+.viewer-nav-btn {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.viewer-nav-btn:hover {
+    transform: translateY(-50%) scale(1.08);
+}
+
+.viewer-nav-btn:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+.viewer-prev-btn {
+    left: max(16px, env(safe-area-inset-left, 16px));
+}
+
+.viewer-next-btn {
+    right: max(16px, env(safe-area-inset-right, 16px));
+}
+
+/* Képszámláló Kapszula */
+.viewer-counter {
+    position: absolute;
+    bottom: max(24px, env(safe-area-inset-bottom, 24px));
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    pointer-events: none;
+    z-index: 20;
+}
+
+@media (max-width: 600px) {
+    .viewer-img {
+        max-width: 96vw;
+        max-height: 80vh;
+        border-radius: 6px;
+    }
+    .viewer-btn {
+        width: 40px;
+        height: 40px;
+    }
+    .viewer-prev-btn {
+        left: 10px;
+    }
+    .viewer-next-btn {
+        right: 10px;
+    }
+    .viewer-close-btn {
+        top: 14px;
+        right: 14px;
+    }
+}
