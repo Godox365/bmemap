@@ -708,15 +708,14 @@
                 border-radius: 3px;
             }
 
-            /* Kiemelt leírás doboz és chipek */
+            /* Leírás és chipek */
             #bottom-sheet .room-note {
+                font-style: normal;
                 font-size: 14px;
-                line-height: 1.5;
+                line-height: 1.55;
+                color: var(--text-main);
                 margin-bottom: 14px;
-                padding: 12px 14px;
-                background: var(--bg-element);
-                border-radius: 12px;
-                border-left: 3px solid var(--color-ui-active);
+                word-break: break-word;
             }
             #bottom-sheet .room-meta {
                 margin-bottom: 14px;
@@ -892,7 +891,14 @@
         .room-meta { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
         .meta-tag { background: var(--bg-tag); color: var(--text-tag); padding: 5px 12px; border-radius: 15px; font-size: 13px; display: flex; align-items: center; gap: 5px; }
         .meta-tag span { font-size: 16px; }
-        .room-note { font-style: italic; color: #888; margin-bottom: 15px; font-size: 14px; }
+        .room-note {
+            font-style: normal;
+            font-size: 14px;
+            line-height: 1.55;
+            color: var(--text-main);
+            margin-bottom: 14px;
+            word-break: break-word;
+        }
         
         /* ÚJ: POI Részletek (Nyitvatartás, Weboldal) */
         #poi-details-container { margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
@@ -918,11 +924,63 @@
         }
         .gallery-img:hover { opacity: 0.92; }
 
-        /* Mobil nézetben (< 768px) nincsenek lapozógombok vagy pöttyök */
+        /* Mobil nézetben (< 768px) nincsenek lapozógombok vagy pöttyök, a képek szélesek és betekintést engednek a következő képbe */
         @media (max-width: 767px) {
             .gallery-nav-btn,
             .gallery-dots {
                 display: none !important;
+            }
+
+            #bottom-sheet .room-gallery-container {
+                position: relative;
+                width: 100%;
+                margin: 6px 0 16px 0;
+            }
+
+            #bottom-sheet #room-gallery {
+                display: flex;
+                gap: 12px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+                scroll-behavior: smooth;
+                padding-bottom: 4px;
+                margin: 0;
+                scrollbar-width: none;
+            }
+
+            #bottom-sheet #room-gallery::-webkit-scrollbar {
+                display: none;
+            }
+
+            #bottom-sheet #room-gallery .gallery-img {
+                flex: 0 0 calc(85% - 8px);
+                width: calc(85% - 8px);
+                min-width: calc(85% - 8px);
+                max-width: calc(85% - 8px);
+                height: clamp(160px, 46vw, 210px);
+                aspect-ratio: 16 / 10;
+                object-fit: cover;
+                border-radius: 14px;
+                border: 1px solid var(--border-color);
+                scroll-snap-align: start;
+                cursor: pointer;
+                transition: opacity 0.2s, transform 0.15s;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+                user-select: none;
+                -webkit-user-drag: none;
+            }
+
+            #bottom-sheet #room-gallery .gallery-img:only-child {
+                flex: 0 0 100%;
+                width: 100%;
+                min-width: 100%;
+                max-width: 100%;
+            }
+
+            #bottom-sheet #room-gallery .gallery-img:hover {
+                opacity: 0.95;
             }
         }
 

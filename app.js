@@ -3620,11 +3620,11 @@ function getDefaultIllustration(feature) {
  *   1. Képek (hero) a legtetejére (a header elé)
  *   2. Cím (header) közvetlenül utána
  *   3. Navigációs akciógombok közvetlenül a cím alá (külön sávban)
- *   4. Görgethető tartalom: Leírás (room-note) legfelülre, utána a tanterem chipek (room-meta)
+ *   4. Görgethető tartalom: Nyitvatartás (poi-details-container) legfelülre, utána leírás (room-note), utána tanterem chipek (room-meta)
  * - Mobilon:
  *   1. Képek vissza a room-data-container aljára
  *   2. Akciógombok vissza a sheet legaljára (a scrollContent után)
- *   3. Chipek vissza a leírás elé
+ *   3. Chipek legfelül, utána nyitvatartás, utána leírás
  */
 function syncSheetLayoutForViewport() {
     const isDesktop = isDesktopSidePanel();
@@ -3634,6 +3634,7 @@ function syncSheetLayoutForViewport() {
     const footer = document.querySelector('.sheet-footer');
     const scrollContent = document.getElementById('sheet-scroll-content');
     const dataContainer = document.getElementById('room-data-container');
+    const poiContainer = document.getElementById('poi-details-container');
     const noteEl = document.getElementById('room-note');
     const metaEl = document.querySelector('.room-meta');
 
@@ -3650,9 +3651,15 @@ function syncSheetLayoutForViewport() {
         if (footer.parentElement === sheet && footer.previousElementSibling !== header) {
             header.after(footer);
         }
-        // 4. Görgethető tartalom logikus sorrendje: Leírás legfelül, utána chipek
-        if (noteEl && metaEl && noteEl.nextElementSibling !== metaEl) {
-            dataContainer.insertBefore(noteEl, metaEl);
+        // 4. Görgethető tartalom logikus sorrendje: Nyitvatartás legfelül -> Leírás -> Chipek
+        if (poiContainer && dataContainer.firstElementChild !== poiContainer) {
+            dataContainer.insertBefore(poiContainer, dataContainer.firstElementChild);
+        }
+        if (noteEl && poiContainer && noteEl.previousElementSibling !== poiContainer) {
+            poiContainer.after(noteEl);
+        }
+        if (metaEl && noteEl && metaEl.previousElementSibling !== noteEl) {
+            noteEl.after(metaEl);
         }
     } else {
         // --- MOBIL ELRENDEZÉS (100% eredeti állapot visszaállítása) ---
@@ -3664,9 +3671,15 @@ function syncSheetLayoutForViewport() {
         if (footer.parentElement === sheet && sheet.lastElementChild !== footer) {
             sheet.appendChild(footer);
         }
-        // 3. Chipek vissza a leírás elé
-        if (noteEl && metaEl && metaEl.nextElementSibling !== noteEl) {
-            dataContainer.insertBefore(metaEl, noteEl);
+        // 3. Mobilon: Chipek legfelül -> Nyitvatartás -> Leírás -> Galéria
+        if (metaEl && dataContainer.firstElementChild !== metaEl) {
+            dataContainer.insertBefore(metaEl, dataContainer.firstElementChild);
+        }
+        if (poiContainer && metaEl && poiContainer.previousElementSibling !== metaEl) {
+            metaEl.after(poiContainer);
+        }
+        if (noteEl && poiContainer && noteEl.previousElementSibling !== poiContainer) {
+            poiContainer.after(noteEl);
         }
         // 4. Mobilon az illusztrációs default artot rejtjük
         const defaultArt = galleryWrapper.querySelector('.gallery-default-art');
@@ -3679,17 +3692,35 @@ function syncSheetLayoutForViewport() {
 let _galleryDragInitialized = false;
 let _isGalleryDragging = false;
 let _galleryStartX = 0;
+let _galleryStartY = 0;
 let _galleryScrollStart = 0;
 let _galleryMovedDistance = 0;
 
 /**
- * Kezeli a galéria egérrel történő húzását (drag-to-scroll) desktopon.
+ * Kezeli a galéria egérrel és érintéssel történő húzását (drag-to-scroll / swipe).
  */
 function initGalleryDrag() {
     if (_galleryDragInitialized) return;
     const galleryEl = document.getElementById('room-gallery');
     if (!galleryEl) return;
     _galleryDragInitialized = true;
+
+    // Érintéses (touch) események kezelése mobilon az akaratlan képkattintások megelőzésére húzás közben
+    galleryEl.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
+            _galleryStartX = e.touches[0].pageX;
+            _galleryStartY = e.touches[0].pageY;
+            _galleryMovedDistance = 0;
+        }
+    }, { passive: true });
+
+    galleryEl.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 0) {
+            const deltaX = Math.abs(e.touches[0].pageX - _galleryStartX);
+            const deltaY = Math.abs(e.touches[0].pageY - _galleryStartY);
+            _galleryMovedDistance = Math.max(_galleryMovedDistance, deltaX, deltaY);
+        }
+    }, { passive: true });
 
     galleryEl.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
@@ -4095,8 +4126,15 @@ function openSheet(feature) {
     if (roomData || isAccessible) {
         if (noteEl) {
             const noteText = getRoomNote(roomData);
-            noteEl.innerText = noteText;
-            noteEl.style.display = (noteText && noteText.trim() !== "") ? 'block' : 'none';
+            if (noteText && noteText.trim() !== "") {
+                const escaped = escapeHTML(noteText.trim());
+                const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: var(--color-ui-active); text-decoration: underline; font-weight: 500;">$1</a>');
+                noteEl.innerHTML = linked;
+                noteEl.style.display = 'block';
+            } else {
+                noteEl.innerHTML = "";
+                noteEl.style.display = 'none';
+            }
         }
         
         if (galleryEl) {
@@ -4135,7 +4173,10 @@ function openSheet(feature) {
             }
         }
     } else {
-        if (noteEl) noteEl.style.display = 'none';
+        if (noteEl) {
+            noteEl.innerHTML = "";
+            noteEl.style.display = 'none';
+        }
         if (galleryEl) {
             galleryEl.innerHTML = "";
             if (isDesktopSidePanel()) {
