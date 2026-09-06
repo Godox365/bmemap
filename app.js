@@ -8870,7 +8870,6 @@ function _resetViewerTransform(animate = false) {
     _viewerScale = 1;
     _viewerPanX = 0;
     _viewerPanY = 0;
-    _viewerIsDragging = false;
     _applyViewerTransform(animate);
 }
 
@@ -8906,6 +8905,7 @@ function openImageViewer(images, startIndex = 0) {
     
     _viewerIndex = Math.max(0, Math.min(startIndex, _viewerImages.length - 1));
     _viewerIsOpen = true;
+    _viewerIsDragging = false;
     
     _resetViewerTransform(false);
     _renderViewerContent();
@@ -8924,6 +8924,7 @@ function openImageViewer(images, startIndex = 0) {
 
 function closeImageViewer() {
     _viewerIsOpen = false;
+    _viewerIsDragging = false;
     const modal = document.getElementById('image-viewer-modal');
     if (modal) {
         modal.classList.remove('open');
@@ -8992,6 +8993,9 @@ function _onViewerMouseMove(e) {
         _viewerPanY = _viewerInitialPanY + dy;
         _clampViewerPan();
         _applyViewerTransform(false);
+    } else if (_viewerImages.length > 1) {
+        _viewerPanX = dx;
+        _applyViewerTransform(false);
     }
 }
 
@@ -9003,25 +9007,24 @@ function _onViewerMouseUp(e) {
     const dy = e.clientY - _viewerDragStartY;
     const dist = Math.hypot(dx, dy);
     
-    // Háttérre kattintva záródjon be
-    if (_viewerScale === 1 && dist < 6 && e.target === document.getElementById('viewer-image-container')) {
-        closeImageViewer();
+    if (_viewerScale > 1) {
+        _clampViewerPan();
+        _applyViewerTransform(true);
         return;
     }
     
-    // Egérrel vízszintesen elhúzva lapozás (ha nincs nagyítva)
-    if (_viewerScale === 1 && Math.abs(dx) > 50 && Math.abs(dy) < 80) {
+    // Normál méret
+    _viewerScale = 1;
+    if (_viewerImages.length > 1 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (dx < 0) {
             navigateImageViewer(1);
         } else {
             navigateImageViewer(-1);
         }
-        return;
-    }
-    
-    if (_viewerScale > 1) {
-        _clampViewerPan();
-        _applyViewerTransform(true);
+    } else if (dist < 6 && (e.target === document.getElementById('viewer-image-container') || e.target === document.getElementById('image-viewer-modal'))) {
+        closeImageViewer();
+    } else {
+        _resetViewerTransform(true);
     }
 }
 
@@ -9045,7 +9048,7 @@ function _onViewerTouchStart(e) {
         
         // Dupla koppintás detektálása (zoom toggle 1x <-> 2.5x)
         const now = Date.now();
-        if (now - _viewerLastTapTime < 300) {
+        if (now - _viewerLastTapTime < 320) {
             e.preventDefault();
             if (_viewerScale > 1.05) {
                 _resetViewerTransform(true);
@@ -9078,14 +9081,18 @@ function _onViewerTouchMove(e) {
         }
         _applyViewerTransform(false);
     } else if (e.touches.length === 1 && _viewerIsDragging) {
+        e.preventDefault();
         const dx = e.touches[0].clientX - _viewerTouchStartX;
         const dy = e.touches[0].clientY - _viewerTouchStartY;
         
         if (_viewerScale > 1.05) {
-            e.preventDefault();
             _viewerPanX = _viewerInitialPanX + dx;
             _viewerPanY = _viewerInitialPanY + dy;
             _clampViewerPan();
+            _applyViewerTransform(false);
+        } else if (_viewerImages.length > 1) {
+            // Normál méretben élőkép lapozási feedback (vízszintes elmozdulás)
+            _viewerPanX = dx;
             _applyViewerTransform(false);
         }
     }
@@ -9095,27 +9102,35 @@ function _onViewerTouchEnd(e) {
     if (!_viewerIsOpen) return;
     
     if (e.touches.length === 0) {
-        if (_viewerScale < 1.05) {
-            _resetViewerTransform(true);
-        } else {
+        const touch = e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0] : null;
+        const dx = touch ? touch.clientX - _viewerTouchStartX : 0;
+        const dy = touch ? touch.clientY - _viewerTouchStartY : 0;
+        const dt = Date.now() - _viewerTouchStartTime;
+        
+        if (_viewerScale > 1.05) {
             _clampViewerPan();
             _applyViewerTransform(true);
-        }
-        
-        // Swipe észlelés normál 1x méretnél
-        if (_viewerScale === 1 && _viewerIsDragging && e.changedTouches && e.changedTouches.length > 0) {
-            const dx = e.changedTouches[0].clientX - _viewerTouchStartX;
-            const dy = e.changedTouches[0].clientY - _viewerTouchStartY;
-            const dt = Date.now() - _viewerTouchStartTime;
+        } else {
+            // Normál méret (scale <= 1.05)
+            _viewerScale = 1;
             
-            if (dt < 400 && Math.abs(dx) > 45 && Math.abs(dy) < 80) {
+            // Swipe észlelés, ha több kép van
+            if (_viewerIsDragging && _viewerImages.length > 1 && 
+                (Math.abs(dx) > 40 || (dt < 350 && Math.abs(dx) > 25)) && 
+                Math.abs(dx) > Math.abs(dy)) {
                 if (dx < 0) {
                     navigateImageViewer(1);
                 } else {
                     navigateImageViewer(-1);
                 }
-            } else if (Math.hypot(dx, dy) < 10 && e.target === document.getElementById('viewer-image-container')) {
+            } else if (_viewerIsDragging && Math.hypot(dx, dy) < 8 && 
+                       (e.target === document.getElementById('viewer-image-container') || 
+                        e.target === document.getElementById('image-viewer-modal'))) {
+                // Koppintás a háttérre -> bezárás
                 closeImageViewer();
+            } else {
+                // Nem érte el a swipe küszöböt, finoman visszaugrik 0-ra
+                _resetViewerTransform(true);
             }
         }
         _viewerIsDragging = false;
@@ -9161,12 +9176,16 @@ function _initViewerEvents() {
     if (_viewerEventsInitialized) return;
     _viewerEventsInitialized = true;
     
+    const modal = document.getElementById('image-viewer-modal');
     const container = document.getElementById('viewer-image-container');
     if (container) {
         container.addEventListener('wheel', _onViewerWheel, { passive: false });
         container.addEventListener('mousedown', _onViewerMouseDown);
-        container.addEventListener('touchstart', _onViewerTouchStart, { passive: false });
         container.addEventListener('dblclick', _onViewerDoubleClick);
+    }
+    
+    if (modal) {
+        modal.addEventListener('touchstart', _onViewerTouchStart, { passive: false });
     }
     
     window.addEventListener('mousemove', _onViewerMouseMove);
