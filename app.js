@@ -403,7 +403,201 @@ function smartFilter(term) {
 
     // Relevancia szerint csökkenő sorrendbe rendezés
     scored.sort((a, b) => b.score - a.score);
-    return scored.map(s => s.feature);
+    return scored.map(s => {
+        s.feature._isLocal = true;
+        s.feature._buildingKey = currentBuildingKey;
+        s.feature._score = s.score;
+        return s.feature;
+    });
+}
+
+/**
+ * Aszinkron módon betölti a campus összes épületét tartalmazó könnyűsúlyú keresési indexet.
+ * @returns {Promise<Object[]>}
+ */
+async function loadSearchIndex() {
+    if (globalSearchIndex) return globalSearchIndex;
+    if (isSearchIndexLoading) return [];
+    isSearchIndexLoading = true;
+    try {
+        const res = await fetch('./data/search_index.json');
+        if (res.ok) {
+            globalSearchIndex = await res.json();
+        }
+    } catch (err) {
+        console.warn('⚠️ Nem sikerült betölteni a globális keresési indexet:', err);
+    } finally {
+        isSearchIndexLoading = false;
+    }
+    return globalSearchIndex;
+}
+
+/**
+ * A globális keresési indexben keres az aktuális épülettől ELTÉRŐ épületekben.
+ * Ugyanazt a pontozási logikát használja, mint a smartFilter, de egy fix pontlevonással (-150),
+ * hogy az aktuális épület találatai mindig prioritást élvezzenek.
+ * @param {string} term - A keresési kifejezés.
+ * @returns {Object[]} A más épületekből származó találati elemek.
+ */
+function searchOtherBuildings(term) {
+    if (!globalSearchIndex || !Array.isArray(globalSearchIndex) || globalSearchIndex.length === 0) {
+        loadSearchIndex();
+        return [];
+    }
+
+    const cleanTerm = normalizeRoomId(term);
+    if (cleanTerm.length < 2) return [];
+
+    const words = term.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[\s.\-_/()]+/).filter(w => w.length > 1);
+    const scored = [];
+
+    for (const item of globalSearchIndex) {
+        // Kizárólag más épületekben keresünk (nincs duplikáció a jelenlegi épülettel!)
+        if (item.b === currentBuildingKey) continue;
+
+        const bKey = item.b.toLowerCase();
+        const name = normalizeRoomId(item.name);
+        const ref = normalizeRoomId(item.ref);
+        const altName = normalizeRoomId(item.alt);
+
+        if (!name && !ref && !altName) continue;
+
+        const rawLvl = item.lvl || "0";
+        const lvlChars = getLevelChars(item.b, rawLvl);
+
+        const aliases = new Set();
+        if (ref) {
+            aliases.add(ref);
+            aliases.add(bKey + ref);
+            lvlChars.forEach(lvl => {
+                if (!ref.startsWith(lvl)) {
+                    aliases.add(lvl + ref);
+                    aliases.add(bKey + lvl + ref);
+                }
+            });
+            if (ref.startsWith(bKey) && ref.length > bKey.length) {
+                aliases.add(ref.slice(bKey.length));
+            }
+        }
+        if (altName) {
+            aliases.add(altName);
+            aliases.add(bKey + altName);
+        }
+
+        let bestScore = 0;
+
+        // 1. Prioritás: Pontos egyezés (Exact Match)
+        if (ref && (cleanTerm === ref || cleanTerm === bKey + ref)) {
+            bestScore = Math.max(bestScore, 1100);
+        } else if (altName && (cleanTerm === altName || cleanTerm === bKey + altName)) {
+            bestScore = Math.max(bestScore, 1050);
+        } else if (name && (cleanTerm === name || cleanTerm === bKey + name)) {
+            bestScore = Math.max(bestScore, 1020);
+        } else if (aliases.has(cleanTerm)) {
+            bestScore = Math.max(bestScore, 1000);
+        }
+
+        // 2. Prioritás: Prefixes egyezés (Prefix Match)
+        if (bestScore < 1000) {
+            if (ref && (bKey + ref).startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 850 - ((bKey + ref).length - cleanTerm.length) * 5);
+            } else if (ref && ref.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 800 - (ref.length - cleanTerm.length) * 5);
+            } else if (altName && altName.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 750);
+            } else if (name && name.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 700);
+            } else {
+                for (const alias of aliases) {
+                    if (alias.startsWith(cleanTerm)) {
+                        bestScore = Math.max(bestScore, 750 - (alias.length - cleanTerm.length) * 5);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Prioritás: Tartalmazási egyezés (Contains Match) & Többszavas keresés
+        if (bestScore < 700) {
+            if (words.length > 1) {
+                const allWordsMatch = words.every(w => (name && name.includes(w)) || (altName && altName.includes(w)) || (ref && ref.includes(w)));
+                if (allWordsMatch) {
+                    bestScore = Math.max(bestScore, 650);
+                }
+            }
+            if (altName && altName.includes(cleanTerm)) {
+                bestScore = Math.max(bestScore, 600);
+            } else if (name && name.includes(cleanTerm)) {
+                bestScore = Math.max(bestScore, 500);
+            } else if (ref && ref.includes(cleanTerm) && cleanTerm.length >= 3) {
+                bestScore = Math.max(bestScore, 400);
+            }
+        }
+
+        // 4. Prioritás: Természetes nyelvi keresés fallback (pl. "keresem a ib028-at")
+        if (bestScore === 0 && cleanTerm.length > 5) {
+            for (const alias of aliases) {
+                if (alias.length >= 3 && cleanTerm.includes(alias)) {
+                    bestScore = Math.max(bestScore, 300);
+                    break;
+                }
+            }
+        }
+
+        if (bestScore > 0) {
+            // Enyhe pontszám-levonás (-150) a más épületbeli találatoknak,
+            // hogy az aktuális épület azonos szintű egyezései mindig előrébb végezzenek
+            const adjustedScore = bestScore - 150;
+            scored.push({
+                item: {
+                    id: item.id,
+                    properties: {
+                        ref: item.ref,
+                        name: item.name,
+                        alt_name: item.alt,
+                        level: item.lvl,
+                        'level:ref': item.lref
+                    },
+                    _buildingKey: item.b,
+                    _isLocal: false,
+                    _score: adjustedScore
+                },
+                score: adjustedScore
+            });
+        }
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored;
+}
+
+/**
+ * Összefűzi a helyi és más épületek találatait pontszám szerint,
+ * biztosítva a duplikációmentességet és a helyi épület prioritását.
+ * @param {Object[]} localHits - A jelenlegi épületből származó találatok (smartFilter).
+ * @param {Object[]} otherHits - A más épületekből származó találatok (searchOtherBuildings).
+ * @returns {Object[]} A rendezett, egyesített találati lista.
+ */
+function mergeSearchResults(localHits, otherHits) {
+    const combined = [];
+    const seenIds = new Set();
+
+    for (const h of localHits) {
+        h._isLocal = true;
+        h._buildingKey = currentBuildingKey;
+        seenIds.add(h.id);
+        combined.push({ hit: h, score: h._score || 1000 });
+    }
+
+    for (const o of otherHits) {
+        if (!seenIds.has(o.item.id)) {
+            seenIds.add(o.item.id);
+            combined.push({ hit: o.item, score: o.score });
+        }
+    }
+
+    combined.sort((a, b) => b.score - a.score);
+    return combined.map(c => c.hit);
 }
 
 /**
@@ -1240,6 +1434,11 @@ let currentBuilding = BUILDINGS[currentBuildingKey];
 let pendingNavSource = null;
 /** Automatikus keresési kifejezés, amelyet épületváltás után azonnal végre kell hajtani. */
 let pendingSearchTerm = null;
+/** Automatikus célelem azonosító (feature ID), amelyet épületváltás után közvetlenül meg kell nyitni. */
+let pendingTargetId = null;
+/** Globális keresési index a campus összes épületének termeivel. */
+let globalSearchIndex = null;
+let isSearchIndexLoading = false;
 
 /** Az aktív útvonaltervezés alapadatait tartalmazó objektum (kezdő és cél térképelemek). */
 let activeRouteData = null; // { start: feature/null, end: feature }
@@ -2737,8 +2936,9 @@ function toggleBuildingMenu() {
  * majd elindítja az új épület adatainak betöltését és a nézet beállítását.
  * * @param {string} key - Az újonnan kiválasztott épület egyedi azonosítója.
  * @param {string|null} [autoSearchTerm=null] - Opcionális keresési kifejezés, amely a betöltés után automatikusan lefut.
+ * @param {string|null} [targetId=null] - Opcionális célterem azonosító (feature ID), amely azonnal fókuszba kerül betöltés után.
  */
-function changeBuilding(key, autoSearchTerm = null) {
+function changeBuilding(key, autoSearchTerm = null, targetId = null) {
     if (!BUILDINGS[key]) return;
     
     const settingsModal = document.getElementById('settings-modal');
@@ -2756,6 +2956,7 @@ function changeBuilding(key, autoSearchTerm = null) {
     currentLevel = getDefaultLevelForBuilding(key);
     
     if (autoSearchTerm) pendingSearchTerm = autoSearchTerm;
+    if (targetId) pendingTargetId = targetId;
 
     geoJsonData = null;
     
@@ -3076,15 +3277,29 @@ async function loadOsmData() {
             loader.style.display = 'none';
             loadedFromCache = true;
             
-            // Függőben lévő keresés végrehajtása kis késleltetéssel (pl. automatikus épületváltás után)
-            if (pendingSearchTerm) {
+            // Függőben lévő célterem vagy keresés végrehajtása kis késleltetéssel (pl. automatikus épületváltás után)
+            if (pendingTargetId || pendingSearchTerm) {
                 setTimeout(() => {
-                        if(pendingSearchTerm) {
-                            document.getElementById('search-input').value = pendingSearchTerm;
-                            handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
+                    if (pendingTargetId && geoJsonData && geoJsonData.features) {
+                        const target = geoJsonData.features.find(f => f.id === pendingTargetId);
+                        if (target) {
+                            openSheet(target);
+                            const lvls = getLevelsFromFeature(target);
+                            if (lvls.length > 0) switchLevel(lvls[0]);
+                            const tVal = target.properties.name || target.properties.ref || pendingSearchTerm || "";
+                            document.getElementById('search-input').value = tVal;
+                            updateRightButtonState();
+                            pendingTargetId = null;
                             pendingSearchTerm = null;
+                            return;
                         }
-                }, 100);
+                    }
+                    if (pendingSearchTerm) {
+                        document.getElementById('search-input').value = pendingSearchTerm;
+                        handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
+                        pendingSearchTerm = null;
+                    }
+                }, 120);
             }
             
             // URL paraméterek (pl. Deep Link megosztás) feldolgozása a betöltés befejezésekor
@@ -3124,10 +3339,28 @@ async function loadOsmData() {
         // Ha eddig a pontig csak a betöltőképernyő volt látható, most elrejtjük és futtatjuk a kiegészítő funkciókat
         if (!loadedFromCache) {
             loader.style.display = 'none';
-            if (pendingSearchTerm) {
-                document.getElementById('search-input').value = pendingSearchTerm;
-                handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
-                pendingSearchTerm = null;
+            if (pendingTargetId || pendingSearchTerm) {
+                setTimeout(() => {
+                    if (pendingTargetId && geoJsonData && geoJsonData.features) {
+                        const target = geoJsonData.features.find(f => f.id === pendingTargetId);
+                        if (target) {
+                            openSheet(target);
+                            const lvls = getLevelsFromFeature(target);
+                            if (lvls.length > 0) switchLevel(lvls[0]);
+                            const tVal = target.properties.name || target.properties.ref || pendingSearchTerm || "";
+                            document.getElementById('search-input').value = tVal;
+                            updateRightButtonState();
+                            pendingTargetId = null;
+                            pendingSearchTerm = null;
+                            return;
+                        }
+                    }
+                    if (pendingSearchTerm) {
+                        document.getElementById('search-input').value = pendingSearchTerm;
+                        handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
+                        pendingSearchTerm = null;
+                    }
+                }, 120);
             }
             processUrlParams();
         }
@@ -4853,36 +5086,33 @@ function handleSearch(e) {
             return;
         }
 
-        // --- 2. Prioritás: Helyi térképelemek keresése (Jelenlegi épület) ---
-        const hits = smartFilter(term); 
-        if (hits.length > 0) {
-            openSheet(hits[0]);
-            resultsDiv.style.display = 'none'; 
-            
-            const val = hits[0].properties.name || hits[0].properties.ref || term;
-            document.getElementById('search-input').value = val;
-            updateRightButtonState();
-            return; 
-        }
+        // --- 2. Prioritás: Helyi és Globális térképelemek keresése ---
+        const localHits = smartFilter(term); 
+        const otherHits = searchOtherBuildings(term);
+        const allHits = mergeSearchResults(localHits, otherHits);
 
-        // --- 3. Prioritás (Végső Fallback): Intelligens Épületváltás ---
-        // Ha semmi találat nincs az aktuális épületben, megnézzük, hogy a regex alapján máshol van-e
-        for (const [key, data] of Object.entries(BUILDINGS)) {
-            if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
-                const bName = getBuildingName(key);
-                showModal(
-                    typeof t === 'function' ? t('modal.switch_building_title') : "Épület Váltás", 
-                    typeof t === 'function' ? t('modal.switch_building_prompt', { building: bName }) : `Nincs találat itt. A keresett hely (${term}) valószínűleg a(z) ${bName}-ben van. Átváltsunk?`, 
-                    () => { changeBuilding(key, term); }
-                );
-                // A UI frissítése: becsukjuk a listát, fókusz levétele
-                resultsDiv.style.display = 'none';
-                e.target.blur();
+        if (allHits.length > 0) {
+            const topHit = allHits[0];
+            resultsDiv.style.display = 'none'; 
+            _searchSelectedIndex = -1;
+            _searchUserNavigated = false;
+
+            if (topHit._isLocal) {
+                openSheet(topHit);
+                const val = topHit.properties.name || topHit.properties.ref || term;
+                document.getElementById('search-input').value = val;
+                updateRightButtonState();
                 return; 
+            } else {
+                // Közvetlen épületváltás a célteremhez megerősítő kérdés nélkül!
+                document.getElementById('search-input').value = topHit.properties.name || topHit.properties.ref || term;
+                updateRightButtonState();
+                changeBuilding(topHit._buildingKey, topHit.properties.name || topHit.properties.ref, topHit.id);
+                return;
             }
         }
 
-        // --- 4. Ha végképp semmi ---
+        // --- 3. Ha végképp semmi ---
         showToast(typeof t === 'function' ? t('toasts.no_search_results') : "Nincs találat erre a kifejezésre.");
         return; 
     }
@@ -4906,38 +5136,16 @@ function handleSearch(e) {
         return; 
     }
 
-    // --- 1. Automatikus Épület Javaslatok ---
-    // Valós idejű ellenőrzés: figyelmezteti a felhasználót, ha valószínűleg rossz épületben keres
-    for (const [key, data] of Object.entries(BUILDINGS)) {
-        // Illesztés a regex szabályokra (pl. "QBF..." beírása esetén Q épület javaslata)
-        if (key !== currentBuildingKey && data.regex && data.regex.test(term)) {
-            const div = document.createElement('div');
-            // Figyelemfelkeltő vizuális stílus (sárga szöveg) a javaslathoz
-            div.className = 'result-item warning-text';
-            const maybeText = typeof t === 'function' ? t('search.maybe_in_building', { building: key }) : `Talán a ${key} épületben?`;
-            div.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle; margin-right:5px;">travel_explore</span> ${maybeText}`;
-            
-            // Kattintás esemény: azonnali épületváltás a beírt keresőszó átadásával
-            div.onclick = () => changeBuilding(key, term);
-            div.addEventListener('mouseenter', () => {
-                const currentItems = _getSelectableSearchResults();
-                _searchSelectedIndex = currentItems.indexOf(div);
-                _searchUserNavigated = true;
-                _updateSearchSelection(currentItems);
-            });
-            
-            resultsDiv.appendChild(div);
-            hasResults = true;
-        }
-    }
-
-    // --- 2. Helyi Autocomplete Találatok ---
+    // --- Autocomplete Találatok (Helyi és Más Épületek) ---
     // Csak akkor indítunk keresést, ha legalább 2 karaktert beírt a felhasználó (teljesítményoptimalizálás)
     if (term.length >= 2) {
-        const hits = smartFilter(term);
-        if (hits.length > 0) {
-            // A találati listát korlátozzuk az első 5 legrelevánsabb elemre a felület túlcsordulásának elkerülésére
-            hits.slice(0, 5).forEach(hit => {
+        const localHits = smartFilter(term);
+        const otherHits = searchOtherBuildings(term);
+        const allHits = mergeSearchResults(localHits, otherHits);
+
+        if (allHits.length > 0) {
+            // A találati listát 7 legrelevánsabb elemre korlátozzuk
+            allHits.slice(0, 7).forEach(hit => {
                 const div = document.createElement('div');
                 div.className = 'result-item';
                 
@@ -4949,23 +5157,35 @@ function handleSearch(e) {
                         displayName = `${hit.properties.name} (${hit.properties.ref})`;
                     }
                 }
-                const rawLvl = getLevelsFromFeature(hit)[0] || "?";
-                const lvl = hit.properties['level:ref'] || (typeof levelAliases !== 'undefined' && levelAliases[rawLvl]) || rawLvl;
-                const levelBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `(Szint: ${escapeHTML(lvl)})`;
+                const rawLvl = getLevelsFromFeature(hit)[0] || hit.properties.level || "?";
+                const lvl = hit.properties['level:ref'] || (hit._isLocal && typeof levelAliases !== 'undefined' && levelAliases[rawLvl]) || rawLvl;
                 
-                // A javaslat összeállítása: Név (kiemelve) és a szint (halványan)
+                let levelBadge = "";
+                if (hit._isLocal) {
+                    levelBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `(Szint: ${escapeHTML(lvl)})`;
+                } else {
+                    const bName = getBuildingName(hit._buildingKey);
+                    const rawBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `Szint: ${escapeHTML(lvl)}`;
+                    levelBadge = `(${escapeHTML(bName)}, ${rawBadge.replace(/^\(|\)$/g, '')})`;
+                }
+                
+                // A javaslat összeállítása: Név (kiemelve) és a szint / épület (halványan)
                 div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                 div.onclick = () => { 
-                    openSheet(hit); 
                     resultsDiv.style.display = 'none'; 
                     _searchSelectedIndex = -1;
                     _searchUserNavigated = false;
                     document.getElementById('search-input').value = hit.properties.name || hit.properties.ref || displayName; 
-
-                    // UI frissítés a kiválasztás után
                     updateRightButtonState();
+
+                    if (hit._isLocal) {
+                        openSheet(hit); 
+                    } else {
+                        // Közvetlen épületváltás a célteremhez megerősítő kérdés nélkül!
+                        changeBuilding(hit._buildingKey, hit.properties.name || hit.properties.ref, hit.id);
+                    }
                 };
                 div.addEventListener('mouseenter', () => {
                     const currentItems = _getSelectableSearchResults();
@@ -5009,6 +5229,7 @@ function handleSearch(e) {
  * és megjeleníti a kedvencek listáját, ha a mező még üres.
  */
 function handleSearchFocus() {
+    loadSearchIndex(); // Aszinkron előtöltés a kereső fókuszba kerülésekor
     const leftIcon = document.getElementById('search-left-icon');
     
     // Bal oldali ikon cseréje nyílra a navigációs visszajelzéshez
@@ -8684,6 +8905,11 @@ map.on('load', async () => {
     } else {
         processEmbedParams();
     }
+
+    // Globális keresési index csendes előtöltése a háttérben
+    setTimeout(() => {
+        loadSearchIndex();
+    }, 1200);
 });
 
 // Nyelvváltás eseményfigyelő

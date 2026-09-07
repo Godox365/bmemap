@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bmemap-shell-v36';
+const CACHE_NAME = 'bmemap-shell-v37';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -27,6 +27,7 @@ const ASSETS_TO_CACHE = [
     './assets/illustrations/atm.svg',
     './app.js',
     './room_data.js',
+    './data/search_index.json',
     './manifest.json',
     './icon-192.png',
     'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css',

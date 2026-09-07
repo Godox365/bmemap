@@ -247,6 +247,38 @@ async function updateMaps() {
             console.log(`💾 Mentve: ${filename.padEnd(22)} (${features.length} elem, ${sizeKb} KB)`);
         }
 
+        // Globális keresési index generálása
+        console.log(`🔍 Keresési index generálása az összes épületből...`);
+        const searchIndex = [];
+        for (const [key, features] of Object.entries(separated)) {
+            const bKey = key.toUpperCase();
+            for (const f of features) {
+                const p = f.properties || {};
+                const isCorridor = p.highway === 'corridor' || p.indoor === 'corridor' || p.room === 'corridor';
+                const isStairs = p.highway === 'steps' || p.indoor === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase' || p.stairs === 'yes';
+                const isElevator = p.highway === 'elevator' || p.room === 'elevator' || p.indoor === 'elevator' || p.amenity === 'elevator';
+                if (isCorridor || isStairs || isElevator) continue;
+                if (p.building && !p.indoor && !p.room) continue;
+                if (p.indoor === 'level' || p.indoor === 'wall') continue;
+
+                if (p.name || p.ref || p.alt_name) {
+                    searchIndex.push({
+                        id: f.id,
+                        b: bKey,
+                        ref: p.ref || undefined,
+                        name: p.name || undefined,
+                        alt: p.alt_name || undefined,
+                        lvl: p.level !== undefined ? String(p.level).split(';')[0].trim() : '0',
+                        lref: p['level:ref'] || undefined
+                    });
+                }
+            }
+        }
+        const indexStr = JSON.stringify(searchIndex);
+        fs.writeFileSync('./data/search_index.json', indexStr, 'utf8');
+        const indexKb = (Buffer.byteLength(indexStr, 'utf8') / 1024).toFixed(1);
+        console.log(`💾 Keresési index mentve: ./data/search_index.json (${searchIndex.length} terem, ${indexKb} KB)`);
+
         const totalElapsed = ((Date.now() - totalStart) / 1000).toFixed(2);
         console.log(`\n🎉 A FRISSÍTÉSI CIKLUS SIKERESEN LEFUTOTT ${totalElapsed} MÁSODPERC ALATT!`);
 
