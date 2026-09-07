@@ -238,9 +238,32 @@ function getLevelChars(buildingKey, rawLevel) {
         chars.add(normalizeRoomId(levelAliases[l]));
     }
 
-    // 3. Biztonságos Fallback szabályok (kigyomlálva a veszélyes K épület 0->1 bugot)
+    // 3. Épület-specifikus szabályok
     if (b === 'K') {
-        if (l === '-1') chars.add('f'); // Földszint/Alagsor
+        if (l === '0') {
+            chars.add('f');
+            chars.add('0');
+            chars.add('kf');
+        } else if (l === '1') {
+            chars.add('mf');
+            chars.add('m');
+            chars.add('kmf');
+            chars.add('km');
+            // Magasföldszinten (1) töröljük a nyers '1'-et, hogy ne generáljon I. emeleti k1xx szobakódokat
+            chars.delete('1');
+        } else if (l === '2') {
+            // A 2-es OSM szint az 1. emelet, a termek k1xx kódúak (pl. K174, K150)
+            chars.add('1');
+            chars.delete('2');
+        } else if (l === '3') {
+            // A 3-as OSM szint a 2. emelet, a termek k2xx kódúak (pl. K234, K250)
+            chars.add('2');
+            chars.delete('3');
+        } else if (l === '4') {
+            // A 4-es OSM szint a 3. emelet, a termek k3xx kódúak (pl. K350, K371)
+            chars.add('3');
+            chars.delete('4');
+        }
     } else if (b === 'Q') {
         if (l === '-1') chars.add('p'); // Parkoló
         if (l === '0') chars.add('f');  // Földszint
@@ -261,81 +284,138 @@ function getLevelChars(buildingKey, rawLevel) {
  * @returns {Object[]} A keresési feltételeknek megfelelő térképelemek (features) tömbje.
  */
 function smartFilter(term) {
-    // A keresett kifejezés normalizálása (kisbetűsítés, speciális karakterek eltávolítása)
+    // A keresett kifejezés normalizálása (kisbetűsítés, ékezetmentesítés, speciális karakterek eltávolítása)
     const cleanTerm = normalizeRoomId(term); 
-    
-    // Ha a keresési kifejezés 2 karakternél rövidebb, nem végzünk keresést a teljesítmény érdekében
     if (cleanTerm.length < 2) return [];
 
-    // Az aktuális épület azonosítójának kisbetűsített formája (pl. 'k', 'q')
     const bKey = currentBuildingKey.toLowerCase();
+    const words = term.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[\s.\-_/()]+/).filter(w => w.length > 1);
 
-    return geoJsonData.features.filter(f => {
-        const p = f.properties;
+    const scored = [];
+
+    for (const f of geoJsonData.features) {
+        const p = f.properties || {};
+
+        // 1. Kizárjuk a folyosókat, lépcsőket és lifteket (ezek nem kereshető szobák/célpontok)
+        const isCorridor = p.highway === 'corridor' || p.indoor === 'corridor' || p.room === 'corridor';
+        const isStairs = p.highway === 'steps' || p.indoor === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase' || p.stairs === 'yes';
+        const isElevator = p.highway === 'elevator' || p.room === 'elevator' || p.indoor === 'elevator' || p.amenity === 'elevator';
+        if (isCorridor || isStairs || isElevator) continue;
+
+        // Épület körvonal és szint/fal elemek kizárása
+        if (p.building && !p.indoor && !p.room) continue;
+        if (p.indoor === 'level' || p.indoor === 'wall') continue;
+
         const name = normalizeRoomId(p.name);
         const ref = normalizeRoomId(p.ref);
+        const altName = normalizeRoomId(p.alt_name);
+
+        // Csak nevesített vagy ref számmal ellátott elemeket keresünk
+        if (!name && !ref && !altName) continue;
+
         const rawLvl = getLevelsFromFeature(f)[0] || "0";
-        
-        // 1. Direkt egyezés vizsgálata
-        // Ha a normalizált név vagy a referenciaszám közvetlenül tartalmazza a keresett kifejezést
-        if (name.includes(cleanTerm) || (ref && ref.includes(cleanTerm))) return true;
-
-        // A célpont alapvető azonosítója (referencia vagy név prioritás szerint)
-        const targetCore = ref || name;
-        if (!targetCore) return false;
-
-        // A szinthez tartozó azonosító karakterek lekérése
         const lvlChars = getLevelChars(currentBuildingKey, rawLvl);
-        
-        // 2. Aliasok (kombinációk) generálása és vizsgálata
+
+        // Aliasok (kombinációk) dinamikus generálása
         const aliases = new Set();
-        lvlChars.forEach(lvl => {
-            // Szint + alap azonosító (pl. 'p107')
-            aliases.add(lvl + targetCore);          
-            // Épület azonosító + Szint + alap azonosító (pl. 'qp107')
-            aliases.add(bKey + lvl + targetCore);   
-            // Épület azonosító + alap azonosító (pl. 'ib028' - I épület specifikus esetekre)
-            aliases.add(bKey + targetCore);         
-        });
-
-        for (const alias of aliases) {
-            // Pontos egyezés a generált aliassal
-            if (alias === cleanTerm) return true;
-            
-            // Fordított részleges egyezés (Reverse Fuzzy): 
-            // Ha a felhasználó által beírt szöveg tartalmazza a generált aliast (pl. "keresem a ib028-at")
-            if (cleanTerm.includes(alias)) return true;
+        if (ref) {
+            aliases.add(ref);
+            aliases.add(bKey + ref);
+            lvlChars.forEach(lvl => {
+                if (!ref.startsWith(lvl)) {
+                    aliases.add(lvl + ref);
+                    aliases.add(bKey + lvl + ref);
+                }
+            });
+            if (ref.startsWith(bKey) && ref.length > bKey.length) {
+                aliases.add(ref.slice(bKey.length));
+            }
+        }
+        if (altName) {
+            aliases.add(altName);
+            aliases.add(bKey + altName);
         }
 
-        // 3. Brute Force összetétel vizsgálata (Végső fallback)
-        // Ha a keresett kifejezés az épület betűjével kezdődik, és tartalmazza a célpont magját
-        if (cleanTerm.startsWith(bKey) && cleanTerm.includes(targetCore)) {
-            return true; 
+        let bestScore = 0;
+
+        // 1. Prioritás: Pontos egyezés (Exact Match)
+        if (ref && (cleanTerm === ref || cleanTerm === bKey + ref)) {
+            bestScore = Math.max(bestScore, 1100);
+        } else if (altName && (cleanTerm === altName || cleanTerm === bKey + altName)) {
+            bestScore = Math.max(bestScore, 1050);
+        } else if (name && (cleanTerm === name || cleanTerm === bKey + name)) {
+            bestScore = Math.max(bestScore, 1020);
+        } else if (aliases.has(cleanTerm)) {
+            bestScore = Math.max(bestScore, 1000);
         }
 
-        // 4. Szint alapú, nem numerikus karaktereket tartalmazó keresés (Régi logika megtartása)
-        // Ellenőrzi, hogy a keresési kifejezés tartalmazza-e a szint betűjelét és a szoba azonosítóját
-        for (const lvlChar of lvlChars) {
-            if (isNaN(parseInt(lvlChar))) { 
-                if (cleanTerm.includes(lvlChar) && cleanTerm.includes(targetCore)) return true; 
+        // 2. Prioritás: Prefixes egyezés (Prefix Match)
+        if (bestScore < 1000) {
+            if (ref && (bKey + ref).startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 850 - ((bKey + ref).length - cleanTerm.length) * 5);
+            } else if (ref && ref.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 800 - (ref.length - cleanTerm.length) * 5);
+            } else if (altName && altName.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 750);
+            } else if (name && name.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 700);
+            } else {
+                for (const alias of aliases) {
+                    if (alias.startsWith(cleanTerm)) {
+                        bestScore = Math.max(bestScore, 750 - (alias.length - cleanTerm.length) * 5);
+                        break;
+                    }
+                }
             }
         }
 
-        // Ha semmilyen egyezés nem található, az elem kiszűrésre kerül
-        return false;
-    });
+        // 3. Prioritás: Tartalmazási egyezés (Contains Match) & Többszavas keresés
+        if (bestScore < 700) {
+            if (words.length > 1) {
+                const allWordsMatch = words.every(w => (name && name.includes(w)) || (altName && altName.includes(w)) || (ref && ref.includes(w)));
+                if (allWordsMatch) {
+                    bestScore = Math.max(bestScore, 650);
+                }
+            }
+            if (altName && altName.includes(cleanTerm)) {
+                bestScore = Math.max(bestScore, 600);
+            } else if (name && name.includes(cleanTerm)) {
+                bestScore = Math.max(bestScore, 500);
+            } else if (ref && ref.includes(cleanTerm) && cleanTerm.length >= 3) {
+                bestScore = Math.max(bestScore, 400);
+            }
+        }
+
+        // 4. Prioritás: Természetes nyelvi keresés fallback (pl. "keresem a k133-at")
+        if (bestScore === 0 && cleanTerm.length > 5) {
+            for (const alias of aliases) {
+                if (alias.length >= 3 && cleanTerm.includes(alias)) {
+                    bestScore = Math.max(bestScore, 300);
+                    break;
+                }
+            }
+        }
+
+        if (bestScore > 0) {
+            scored.push({ feature: f, score: bestScore });
+        }
+    }
+
+    // Relevancia szerint csökkenő sorrendbe rendezés
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map(s => s.feature);
 }
 
 /**
  * Segédfüggvény a szobaazonosítók és keresési kifejezések normalizálására.
- * Eltávolítja a szóközöket, a pontokat és a kötőjeleket, majd a szöveget kisbetűssé alakítja.
- * Ez biztosítja a robusztus és formázástól független keresést.
+ * Eltávolítja az ékezeteket, szóközöket, pontokat és kötőjeleket, majd kisbetűssé alakítja a szöveget.
+ * Ez biztosítja a robusztus és elgépelés-biztos keresést.
  * * @param {string} str - A formázandó, eredeti szöveg.
  * @returns {string} A normalizált, megtisztított szöveg.
  */
 function normalizeRoomId(str) {
     if(!str) return "";
-    return str.replace(/[\s.\-]/g, '').toLowerCase();
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\s.\-_/()]/g, '').toLowerCase();
 }
 
 // === ÉPÜLET KONFIGURÁCIÓ ===
@@ -3344,16 +3424,16 @@ function _drawFavoriteIcons(level) {
  * @param {string} buildingKey - Az aktuális épület azonosítója (pl. 'K', 'Q').
  * @returns {Object|null} A megtalált adatbázis rekord, vagy null, ha nincs találat.
  */
-function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
-    if (!osmName && !osmRef) return null;
+function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
+    if (!osmName && !osmRef && !osmAltName) return null;
     
     // A keresési mag meghatározása
-    let core = (osmRef || osmName || "").trim();
+    let core = (osmRef || osmName || osmAltName || "").trim();
     if (core.toLowerCase().includes("névtelen") || core === "") return null;
     core = normalizeRoomId(core); 
     
     const b = buildingKey.toLowerCase(); 
-    const rawLvl = osmLevel.split(';')[0];
+    const rawLvl = (osmLevel || "0").split(';')[0];
     const lvlChars = getLevelChars(buildingKey, rawLvl);
 
     // Különszedjük a betűs szárnyat (wing) és a számot, pl. "kf50" -> wing:"kf", num:"50"
@@ -3374,52 +3454,70 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey) {
 
     // 3. Szint alapú kombinációk
     lvlChars.forEach(lvl => {
-        candidates.add(b + lvl + core); // pl. q + f + 11 -> qf11
+        candidates.add(b + lvl + core); // pl. q + f + 11 -> qf11, k + 1 + 50 -> k150
+        candidates.add(b + lvl + num);  // pl. k + 1 + 50 -> k150
         if (wing) {
             // Ha van betűs szárny (pl. KF50), megpróbáljuk az Épület + Szint + Szám kombót is (K + MF + 50)
-            candidates.add(b + lvl + num);
             candidates.add(wing + lvl + num);
         }
     });
 
     const dbKeys = Object.keys(ROOM_DATABASE);
+
+    // --- 0. KÖR: NÉV SZERINTI ILLESZTÉS (szöveges megnevezésű terek, alt_name támogatással) ---
+    // Hasznos olyan speciális helyekhez, mint "Auditorium Maximum" / "AudMax", "Gazdaság- és Társadalomtudományi Olvasó", "Tankönyvolvasó", "Sóhajok Hídja"
+    const namesToCheck = [osmName, osmAltName].filter(Boolean).map(normalizeRoomId);
+    for (const n of namesToCheck) {
+        if (n.length >= 4 && !/^\d+$/.test(n)) {
+            for (const dbKey of dbKeys) {
+                const entry = ROOM_DATABASE[dbKey];
+                if (!entry || !entry.name) continue;
+                const dbName = normalizeRoomId(entry.name);
+                if (dbName === n || dbName.includes(n) || n.includes(dbName)) {
+                    return entry;
+                }
+            }
+        }
+    }
     
     // --- 1. KÖR: PONTOS EGYEZÉS ---
-    // Ez a legbiztosabb, itt nincs kecmec.
+    // Támogatja a zárójeles kiegészítéssel ellátott DB kulcsokat is (pl. "kf51" === "kf51(audmax)")
     for (const cand of candidates) {
         for (const dbKey of dbKeys) {
-            if (normalizeRoomId(dbKey) === cand) {
+            const cleanKey = normalizeRoomId(dbKey);
+            const baseKey = normalizeRoomId(dbKey.replace(/\(.*?\)/g, ""));
+            if (cleanKey === cand || baseKey === cand) {
                 return ROOM_DATABASE[dbKey]; 
             }
         }
     }
     
     // --- 2. KÖR: SZIGORÚ RÉSZLEGES EGYEZÉS (Fuzzy) ---
+    // Megszünteti a veszélyes includes(cand) logikát, ami miatt k37 megtalálta a k371-et, vagy k1 a k134-et.
     for (const cand of candidates) {
-        // Túl rövid karaktereket nem engedünk fuzzy keresésbe a fals pozitívok miatt
         if (cand.length < 2) continue; 
         
-        const isOnlyNumbers = /^\d+$/.test(cand);
+        const candNum = cand.replace(new RegExp('^' + b), '');
+        const isNumeric = /^\d+$/.test(candNum);
 
         for (const dbKey of dbKeys) {
             const cleanDbKey = normalizeRoomId(dbKey);
             
             // SZABÁLY 1: Az adatbázis kulcsnak az aktuális épület betűjével kell kezdődnie!
-            // Megakadályozza, hogy az I épület "B007" keresése megtalálja az "E007"-et.
             if (!cleanDbKey.startsWith(b)) continue;
 
+            const baseDbKey = normalizeRoomId(dbKey.replace(/\(.*?\)/g, ''));
+            const dbNum = baseDbKey.replace(new RegExp('^' + b), '');
+
             // SZABÁLY 2: Részleges egyezés vizsgálata
-            if (isOnlyNumbers) {
-                // Ha csak számot keresünk (pl. "150"), levágjuk az épület betűjét a DB kulcsról.
-                // A maradéknak (pl. "150") PONTOSAN egyeznie kell, nem lehet csak a része (pl. "2150").
-                const withoutBuilding = cleanDbKey.replace(b, '');
-                if (withoutBuilding === cand || withoutBuilding.startsWith(cand + '_')) {
+            if (isNumeric) {
+                // Numerikus terem esetén PONTOS számazonosság kell (pl. 37 nem lehet 371)
+                if (dbNum === candNum || dbNum.startsWith(candNum + '_') || dbNum.startsWith(candNum + '/')) {
                     return ROOM_DATABASE[dbKey];
                 }
             } else {
-                // Ha a keresett szóban van betű is (pl. "bf11" vagy "kf50"), az már elég specifikus
-                // ahhoz, hogy sima "includes" vizsgálattal is biztonságos legyen (mivel az épület már egyezik).
-                if (cleanDbKey.includes(cand)) {
+                // Betűs szárny esetén a teljes kódnak egyeznie kell a DB kulcs prefixével
+                if (baseDbKey === cand || baseDbKey.startsWith(cand + '_') || baseDbKey.startsWith(cand + '/')) {
                     return ROOM_DATABASE[dbKey];
                 }
             }
@@ -3939,7 +4037,7 @@ function openSheet(feature) {
     // Kinyerjük a legelső szintet a kereséshez
     const rawLevel = getLevelsFromFeature(feature)[0] || "0";
     // Agresszív (Wingman támogatott) keresés indítása a részletesebb metaadatokért
-    const roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey);
+    const roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey, p.alt_name);
     
     const dataContainer = document.getElementById('room-data-container');
 
@@ -4843,12 +4941,20 @@ function handleSearch(e) {
                 const div = document.createElement('div');
                 div.className = 'result-item';
                 
-                const name = hit.properties.name || hit.properties.ref || "???";
-                const lvl = getLevelsFromFeature(hit)[0] || "?";
+                let displayName = hit.properties.name || hit.properties.ref || "???";
+                if (hit.properties.name && hit.properties.ref && hit.properties.name !== hit.properties.ref) {
+                    const cleanN = normalizeRoomId(hit.properties.name);
+                    const cleanR = normalizeRoomId(hit.properties.ref);
+                    if (!cleanN.includes(cleanR)) {
+                        displayName = `${hit.properties.name} (${hit.properties.ref})`;
+                    }
+                }
+                const rawLvl = getLevelsFromFeature(hit)[0] || "?";
+                const lvl = hit.properties['level:ref'] || (typeof levelAliases !== 'undefined' && levelAliases[rawLvl]) || rawLvl;
                 const levelBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `(Szint: ${escapeHTML(lvl)})`;
                 
                 // A javaslat összeállítása: Név (kiemelve) és a szint (halványan)
-                div.innerHTML = `${escapeHTML(name)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
+                div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                 div.onclick = () => { 
@@ -4856,7 +4962,7 @@ function handleSearch(e) {
                     resultsDiv.style.display = 'none'; 
                     _searchSelectedIndex = -1;
                     _searchUserNavigated = false;
-                    document.getElementById('search-input').value = name; 
+                    document.getElementById('search-input').value = hit.properties.name || hit.properties.ref || displayName; 
 
                     // UI frissítés a kiválasztás után
                     updateRightButtonState();

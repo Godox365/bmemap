@@ -1434,7 +1434,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf51(audmax)": {
-        "name": "KF51(AUD.MAX)",
+        "name": "KF51(AUDMAX)",
         "capacity": "594",
         "tags": [
             "key",
