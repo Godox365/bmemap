@@ -1288,12 +1288,7 @@ function focusOnEndpoint(type) {
     }
 }
 
-const PRECISION = 6; 
-const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter",  // Legstabilabb
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter"
-];
+const PRECISION = 6;
 
 /**
  * A MapLibre GL JS térképpéldány inicializálása és konfigurálása.
@@ -2824,50 +2819,6 @@ function getLevelsFromFeature(feature) {
     return Array.from(levels).sort((a,b) => parseFloat(a) - parseFloat(b));
 }
 
-/**
- * Aszinkron függvény az OpenStreetMap Overpass API lekérdezésére.
- * Tartalmaz egy beépített hibatűrő mechanizmust (fallback): amennyiben az aktuális szerver
- * nem válaszol vagy időtúllépés (timeout) történik, automatikusan megpróbálja
- * a listában szereplő következő szervert.
- * @param {string} query - Az Overpass QL nyelven írt lekérdezés törzse.
- * @param {number} [serverIndex=0] - Az aktuálisan próbált szerver indexe az OVERPASS_SERVERS tömbben.
- * @returns {Promise<Object>} A lekérdezés eredménye JSON objektumként.
- * @throws {Error} Hibát dob, ha az összes elérhető szerver lekérdezése sikertelen.
- */
-async function fetchOverpass(query, serverIndex = 0) {
-    // Ellenőrizzük, hogy elfogytak-e a próbálkozásra szánt szerverek
-    if (serverIndex >= OVERPASS_SERVERS.length) throw new Error("Minden szerver halott.");
-    
-    const server = OVERPASS_SERVERS[serverIndex];
-    
-    // Felhasználói felület frissítése az aktuális kapcsolat állapotáról
-    document.getElementById('loader-status').innerText = `Connecting to ${new URL(server).hostname}...`;
-    
-    try {
-        // Megszakításvezérlő inicializálása az időtúllépés (timeout) kezeléséhez
-        const controller = new AbortController();
-        
-        // 10 másodperces időtúllépés beállítása a lekérdezésre
-        const timeoutId = setTimeout(() => controller.abort(), 10000); 
-        
-        // Hálózati kérés küldése a kiválasztott szerver felé
-        const response = await fetch(server, { method: "POST", body: query, signal: controller.signal });
-        
-        // Ha a kérés befejeződött, töröljük az időtúllépés időzítőjét
-        clearTimeout(timeoutId);
-        
-        // Ha a válasz nem sikeres (pl. 404 vagy 500-as hiba), kivételt dobunk
-        if (!response.ok) throw new Error(`Status ${response.status}`);
-        
-        // Sikeres válasz esetén a JSON adat visszaadása
-        return await response.json();
-    } catch (e) {
-        // Hiba esetén (pl. hálózati hiba vagy timeout) naplózzuk a figyelmeztetést,
-        // és rekurzívan megpróbáljuk a lekérdezést a következő szerverrel
-        console.warn(`Server ${server} failed. Trying next...`);
-        return fetchOverpass(query, serverIndex + 1);
-    }
-}
 
 /**
  * A térkép nézetét automatikusan a betöltött épület geometriájához igazítja.
@@ -2970,8 +2921,8 @@ function processOsmData(osmData, isUpdate = false) {
     if (osmData && osmData.type === 'FeatureCollection') {
         // Statikus, előkészített GeoJSON fájl (pl. GitHub Actions által generálva) feldolgozása
         geoJsonData = osmData;
-    } else {
-        // Nyers OSM adatok konvertálása GeoJSON formátumba (Fallback API esetén)
+    } else if (typeof osmtogeojson === 'function') {
+        // Nyers OSM adatok konvertálása GeoJSON formátumba (ha elérhető a könyvtár)
         geoJsonData = osmtogeojson(osmData);
     }
     
@@ -3101,75 +3052,14 @@ async function loadOsmData() {
             processUrlParams();
         }
         
-        // Sikeres adatbetöltés esetén kilépünk, nincs szükség a tartalék (fallback) megoldásra
-        return; 
-
     } catch (localError) {
-        // Hibakezelés: Ha a statikus fájl letöltése sikertelen, továbblépünk a 3. lépésre
-        console.warn("⚠️ Hiba a statikus fájl betöltésekor, indul a FALLBACK az Overpass API-ra!", localError);
-        if (!loadedFromCache) document.getElementById('loader-status').innerText = "Fallback API csatlakozás...";
-    }
-
-    // 3. TARTALÉK MEGOLDÁS (FALLBACK): ÉLŐ OVERPASS API LEKÉRDEZÉS
-    // Ha a statikus fájl nem elérhető, a szükséges adatokat közvetlenül az OpenStreetMap szervereiről kérjük le.
-    const radius = 250;
-    const center = currentBuilding.center;
-    
-    // Az Overpass QL lekérdezés összeállítása a releváns épületi adatok (szobák, folyosók, lépcsők) kinyeréséhez
-    const query = `
-        [out:json][timeout:25];
-        (
-            way(around:20, ${center[0]}, ${center[1]})["building"];
-            relation(around:20, ${center[0]}, ${center[1]})["building"];
-        )->.targetBuilding;
-        .targetBuilding map_to_area -> .searchArea;
-        (
-            way["indoor"](area.searchArea);
-            relation["indoor"](area.searchArea);
-            way["highway"="corridor"](area.searchArea);
-            way["highway"="steps"](area.searchArea);
-            node["entrance"](area.searchArea);
-            node["door"](area.searchArea);
-            way["building:part"](area.searchArea);
-            way["room"~"stairs|toilet|toilets"](area.searchArea);
-            way(around:20, ${center[0]}, ${center[1]})["building"];
-        );
-        out body;
-        >;
-        out skel qt;
-    `;
-
-    try {
-        // A lekérdezés végrehajtása a hálózaton keresztül
-        const osmData = await fetchOverpass(query);
-        
-        // Az élő adat összehasonlítása az esetlegesen gyorsítótárazott állapottal
-        const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(osmData);
-
-        if (isDataNew) {
-            processOsmData(osmData, loadedFromCache);
-            saveToCache(buildingKey, osmData);
-        }
-
-        // A felület frissítése az élő adatok sikeres betöltése után
-        if (!loadedFromCache) {
-            loader.style.display = 'none';
-            if (pendingSearchTerm) {
-                document.getElementById('search-input').value = pendingSearchTerm;
-                handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
-                pendingSearchTerm = null;
-            }
-            processUrlParams();
-        }
-
-    } catch (e) {
-        // Végső hibakezelés: Ha sem a statikus, sem a fallback adatforrás nem működik
-        console.error("Végzetes hiba, a fallback szerverek is elszálltak:", e);
+        // Hibakezelés: Ha a statikus térképfájl letöltése sikertelen
+        console.warn("⚠️ Hiba a térképadatok betöltésekor:", localError);
         
         if (!loadedFromCache) {
             // Teljes adatkimaradás esetén vizuális hibaüzenet a felhasználónak
             document.getElementById('loader-status').innerText = "FAILED.";
-            alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: Minden szerver elérhetetlen.\n(Ellenőrizd az internetkapcsolatot!)");
+            alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: A térképfájl nem érhető el.\n(Ellenőrizd az internetkapcsolatot!)");
         } else {
             // Ha van gyorsítótárazott változat, tájékoztatjuk a felhasználót az offline üzemmódról
             showToast(typeof t === 'function' ? t('toasts.offline_fallback') : "Offline mód: Nem sikerült frissíteni a szerverről.");
