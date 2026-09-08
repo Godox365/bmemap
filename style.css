@@ -1599,6 +1599,32 @@
             display: flex; justify-content: space-between; align-items: center; gap: 12px;
             padding: 4px 0;
         }
+        .cache-row-info {
+            min-width: 0;
+            flex: 1;
+        }
+        .cache-title-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 2px;
+        }
+        .cache-size-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-sub);
+            background: var(--bg-element);
+            padding: 1px 6px;
+            border-radius: 6px;
+            letter-spacing: 0.2px;
+            display: inline-block;
+            line-height: 1.4;
+        }
+        .cache-row .settings-hint {
+            text-align: left;
+            margin-top: 0;
+            white-space: normal;
+        }
         .btn-cache-clear {
             width: auto; padding: 6px 12px; border-radius: 8px;
             background: rgba(255, 255, 255, 0.05); color: var(--text-sub);

@@ -1046,13 +1046,11 @@ async function updateCacheSizeDisplay() {
     if (!el) return;
     try {
         const bytes = await getCacheSize();
-        if (bytes > 0) {
-            el.innerText = `(${formatBytes(bytes)})`;
-        } else {
-            el.innerText = '(0 B)';
-        }
+        el.innerText = formatBytes(bytes);
+        el.style.display = 'inline-block';
     } catch (e) {
-        el.innerText = '';
+        el.innerText = '0 B';
+        el.style.display = 'inline-block';
     }
 }
 

@@ -193,12 +193,12 @@
 
                 <div class="settings-section">
                     <div class="cache-row">
-                        <div>
-                            <label style="margin-bottom: 2px;" data-i18n="settings.cache">Gyorsítótár</label>
-                            <div class="settings-hint">
-                                <span data-i18n="settings.cache_hint">Térképek offline tárolása.</span>
-                                <span id="cache-size-display" style="opacity: 0.85; margin-left: 3px;"></span>
+                        <div class="cache-row-info">
+                            <div class="cache-title-group">
+                                <label style="margin-bottom: 0;" data-i18n="settings.cache">Gyorsítótár</label>
+                                <span id="cache-size-display" class="cache-size-badge"></span>
                             </div>
+                            <div class="settings-hint" data-i18n="settings.cache_hint">Térképek offline tárolása.</div>
                         </div>
                         <button class="btn-cache-clear" onclick="clearAllCache()" data-i18n-aria="settings.cache_clear">
                             <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
