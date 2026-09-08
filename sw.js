@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bmemap-shell-v37';
+const CACHE_NAME = 'bmemap-shell-v38';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -28,11 +28,13 @@ const ASSETS_TO_CACHE = [
     './app.js',
     './room_data.js',
     './data/search_index.json',
+    './data/k_epulet.json',
+    './data/q_epulet.json',
+    './data/i_epulet.json',
     './manifest.json',
     './icon-192.png',
     'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css',
     'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js',
-    'https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js',
     'https://unpkg.com/@turf/turf@6/turf.min.js',
     'https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css',
     'https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js'
@@ -74,36 +76,66 @@ self.addEventListener('activate', (e) => {
     );
 });
 
-// --- NETWORK FIRST STRATÉGIA + MEGBÍZHATÓ OFFLINE FALLBACK ---
+// --- STRATÉGIA: NAVIGÁCIÓRA NETWORK-FIRST (TIMEOUT-TAL), STATIKUS FÁJLOKRA SWR ---
 self.addEventListener('fetch', (e) => {
-    // Csak HTTP és HTTPS kérések kezelése
     if (!e.request.url.startsWith('http')) return;
+    if (e.request.method !== 'GET') return;
 
-    e.respondWith(
-        fetch(e.request)
-            .then((networkResponse) => {
-                // Ha van internet, elmentjük a friss választ a cache-be
-                // Mind a helyi ('basic'), mind a külső CDN ('cors') válaszokat elmentjük offline célra
-                if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(e.request, responseToCache);
-                    });
-                }
-                return networkResponse;
-            })
-            .catch(() => {
-                // Ha NINCS internet (offline állapot), a mentett cache-ből adjuk oda a választ
-                // Az { ignoreSearch: true } opcióval a ?v=14 query paraméterrel ellátott fájlokat is megtalálja!
-                return caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
-                    if (cachedResponse) return cachedResponse;
+    const url = new URL(e.request.url);
 
-                    // Offline navigációs fallback a főoldalra
-                    if (e.request.mode === 'navigate') {
-                        return caches.match('./index.html', { ignoreSearch: true });
+    // 1. Navigációs kérések (HTML): Network-First 1.5 mp-es időtúllépéssel
+    if (e.request.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname === '/') {
+        e.respondWith(
+            new Promise((resolve) => {
+                let resolved = false;
+                const timeoutId = setTimeout(async () => {
+                    if (!resolved) {
+                        resolved = true;
+                        const cached = await caches.match('./index.html', { ignoreSearch: true });
+                        if (cached) resolve(cached);
                     }
-                    return null;
-                });
+                }, 1500);
+
+                fetch(e.request)
+                    .then(async (networkResponse) => {
+                        clearTimeout(timeoutId);
+                        if (networkResponse && networkResponse.status === 200) {
+                            const cache = await caches.open(CACHE_NAME);
+                            cache.put(e.request, networkResponse.clone());
+                        }
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(networkResponse);
+                        }
+                    })
+                    .catch(async () => {
+                        clearTimeout(timeoutId);
+                        if (!resolved) {
+                            resolved = true;
+                            const cached = await caches.match(e.request, { ignoreSearch: true })
+                                        || await caches.match('./index.html', { ignoreSearch: true });
+                            resolve(cached);
+                        }
+                    });
             })
+        );
+        return;
+    }
+
+    // 2. Statikus erőforrások (JS, CSS, SVG, képek, GeoJSON): Stale-While-Revalidate
+    e.respondWith(
+        caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
+            const fetchPromise = fetch(e.request)
+                .then(async (networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
+                        const cache = await caches.open(CACHE_NAME);
+                        cache.put(e.request, networkResponse.clone());
+                    }
+                    return networkResponse;
+                })
+                .catch(() => null);
+
+            return cachedResponse || fetchPromise;
+        })
     );
 });

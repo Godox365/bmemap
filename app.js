@@ -20,6 +20,38 @@ function escapeHTML(str) {
 }
 
 /**
+ * Gyors, allokációmentes síkbeli távolságszámítás méterben (WGS84 koordinátákhoz helyi skálán).
+ * Nincs GeoJSON objektum létrehozás, nagyságrendekkel gyorsabb a turf.distance-nél belső hurkokban.
+ * @param {number} lat1
+ * @param {number} lon1
+ * @param {number} lat2
+ * @param {number} lon2
+ * @returns {number} Távolság méterben
+ */
+function fastDistMeters(lat1, lon1, lat2, lon2) {
+    const dLat = (lat2 - lat1) * 111139;
+    const meanLatRad = ((lat1 + lat2) * 0.5) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (111139 * Math.cos(meanLatRad));
+    return Math.sqrt(dLat * dLat + dLon * dLon);
+}
+
+/**
+ * Kezdő épület adatainak azonnali, párhuzamos lekérése az oldal betöltésekor.
+ */
+let _initialBuildingFetchPromise = null;
+try {
+    let _initB = 'K';
+    if (typeof window !== 'undefined' && window.location) {
+        const _params = new URLSearchParams(window.location.search);
+        const _b = _params.get('b');
+        if (_b) _initB = _b.toUpperCase();
+    }
+    _initialBuildingFetchPromise = fetch(`./data/${_initB.toLowerCase()}_epulet.json`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+} catch(e) {}
+
+/**
  * EMBED MÓD DETEKTÁLÁS ÉS BEÁLLÍTÁS
  * Támogatja az /embed útvonalat, a ?mode=embed és a ?embed=true paramétereket.
  */
@@ -34,42 +66,6 @@ if (IS_EMBED_MODE && typeof document !== 'undefined') {
     if (document.documentElement) document.documentElement.classList.add('embed-mode');
     if (document.body) document.body.classList.add('embed-mode');
     else window.addEventListener('DOMContentLoaded', () => document.body.classList.add('embed-mode'));
-}
-
-/**
- * FEJLESZTŐI (DEV) MÓD DETEKTÁLÁS ÉS BEÁLLÍTÁS
- * Aktiválás: ?dev=true vagy ?dev=1 (elmenti a böngészőbe),
- * Kikapcsolás: ?dev=false vagy ?dev=0.
- */
-const IS_DEV_MODE = (() => {
-    if (typeof window === 'undefined' || !window.location) return false;
-    const params = new URLSearchParams(window.location.search);
-    const devParam = params.get('dev');
-    if (devParam === 'true' || devParam === '1') {
-        try { localStorage.setItem('bmemap_dev_mode', 'true'); } catch(e){}
-        return true;
-    }
-    if (devParam === 'false' || devParam === '0') {
-        try { localStorage.removeItem('bmemap_dev_mode'); } catch(e){}
-        return false;
-    }
-    try {
-        return localStorage.getItem('bmemap_dev_mode') === 'true';
-    } catch(e) { return false; }
-})();
-
-if (IS_DEV_MODE && typeof document !== 'undefined') {
-    if (document.documentElement) document.documentElement.classList.add('dev-mode');
-    if (document.body) document.body.classList.add('dev-mode');
-    else window.addEventListener('DOMContentLoaded', () => document.body.classList.add('dev-mode'));
-}
-
-function toggleDevMode(enable) {
-    try {
-        if (enable) localStorage.setItem('bmemap_dev_mode', 'true');
-        else localStorage.removeItem('bmemap_dev_mode');
-    } catch(e){}
-    window.location.reload();
 }
 
 /**
@@ -1628,11 +1624,25 @@ map.on('rotateend', () => {
  * Minden egyes zoomolás után frissíti a térképen lévő dinamikus elemek 
  * láthatóságát a megfelelő részletességi szint (LOD) fenntartása érdekében.
  */
+let _zoomVisibilityRaf = null;
+
+function requestDynamicVisibilityUpdate() {
+    if (_zoomVisibilityRaf) return;
+    _zoomVisibilityRaf = requestAnimationFrame(() => {
+        updateDynamicVisibility();
+        _zoomVisibilityRaf = null;
+    });
+}
+
 map.on('zoom', function() {
-    updateDynamicVisibility();
+    requestDynamicVisibilityUpdate();
 });
 
 map.on('zoomend', function() {
+    if (_zoomVisibilityRaf) {
+        cancelAnimationFrame(_zoomVisibilityRaf);
+        _zoomVisibilityRaf = null;
+    }
     updateDynamicVisibility();      
 });
 
@@ -2330,6 +2340,34 @@ function renderThemeSelector() {
  */
 let activePickrs = []; 
 
+let _pickrLoadedPromise = null;
+/**
+ * A Pickr CSS és JS erőforrások aszinkron, igény szerinti (lazy) betöltése.
+ */
+function loadPickrAssets() {
+    if (typeof window !== 'undefined' && window.Pickr) {
+        return Promise.resolve();
+    }
+    if (_pickrLoadedPromise) return _pickrLoadedPromise;
+    _pickrLoadedPromise = new Promise((resolve, reject) => {
+        if (!document.querySelector('link[href*="pickr"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css';
+            document.head.appendChild(link);
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js';
+        script.onload = () => resolve();
+        script.onerror = (err) => {
+            _pickrLoadedPromise = null;
+            reject(err);
+        };
+        document.head.appendChild(script);
+    });
+    return _pickrLoadedPromise;
+}
+
 /**
  * Megnyitja és inicializálja a témaszerkesztő (Theme Editor) felületet.
  * Átváltja a beállítások modális ablakát szerkesztő módba, dinamikusan legenerálja 
@@ -2409,17 +2447,16 @@ function openThemeEditor() {
 
     viewEditor.innerHTML = html;
 
-    // 2. A színválasztó (Pickr) komponensek aszinkron példányosítása
-    // Kis késleltetés (setTimeout) alkalmazása szükséges, hogy a DOM frissülhessen a generált HTML-lel
-    setTimeout(() => {
+    // 2. A színválasztó (Pickr) dinamikus betöltése és komponensek példányosítása
+    loadPickrAssets().then(() => {
         activePickrs = []; // A tároló ürítése az új példányosítás előtt
         
         for (const [varName, data] of Object.entries(THEME_VARS)) {
-            // Az aktuálisan érvényben lévő CSS változó értékének lekérése a dokumentum gyökeréről
-            const currentValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
             const containerId = `#picker-${varName.replace('--', '')}`;
+            if (!document.querySelector(containerId)) continue;
+
+            const currentValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
             
-            // Pickr komponens inicializálása az adott konténerre
             const pickr = Pickr.create({
                 el: containerId,
                 theme: 'nano',
@@ -2433,7 +2470,6 @@ function openThemeEditor() {
                 }
             });
 
-            // Eseménykezelő: Színváltozás esetén (Live Preview funkció)
             pickr.on('change', (color, source, instance) => {
                 const rgbaColor = color.toRGBA().toString();
                 document.documentElement.style.setProperty(varName, rgbaColor);
@@ -2444,13 +2480,12 @@ function openThemeEditor() {
                 }
             });
             
-            // Eseménykezelő: A színválasztó megnyitásakor fókuszálás a kapcsolódó térképi elemre
             pickr.on('show', () => focusOnElement(varName));
-            
-            // A sikeresen inicializált példány hozzáadása az aktív Pickr-ek listájához
             activePickrs.push(pickr);
         }
-    }, 50);
+    }).catch(err => {
+        console.error('Pickr betöltése sikertelen:', err);
+    });
 }
 
 /**
@@ -3320,11 +3355,19 @@ async function loadOsmData() {
     try {
         if (!loadedFromCache) document.getElementById('loader-status').innerText = "Térkép lekérése a szerverről...";
         
-        // Fájl lekérése a 'data' könyvtárból az épület azonosítója alapján
-        const res = await fetch(`./data/${buildingKey.toLowerCase()}_epulet.json`);
-        if (!res.ok) throw new Error("Statikus fájl nem található (HTTP " + res.status + ")");
-        
-        const newData = await res.json();
+        // Fájl lekérése a 'data' könyvtárból az épület azonosítója alapján (párhuzamos előtöltés kihasználása)
+        let newData = null;
+        if (_initialBuildingFetchPromise) {
+            try {
+                newData = await _initialBuildingFetchPromise;
+            } catch(e) {}
+            _initialBuildingFetchPromise = null;
+        }
+        if (!newData) {
+            const res = await fetch(`./data/${buildingKey.toLowerCase()}_epulet.json`);
+            if (!res.ok) throw new Error("Statikus fájl nem található (HTTP " + res.status + ")");
+            newData = await res.json();
+        }
         
         // Ellenőrizzük, hogy a hálózatról érkezett adat eltér-e a gyorsítótárazott állapottól
         const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(newData);
@@ -4628,11 +4671,14 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
 
     // A navigációs lépések (irányok, szintváltások) iterálása és HTML generálása
     itinerary.forEach(step => {
+        const safeText = escapeHTML(step.text);
+        const safeIcon = escapeHTML(step.icon);
+        const safeLevel = escapeHTML(step.level);
         html += `
-            <div class="itiner-step clickable-step" onclick="focusOnRouteSegment('${step.level}')">
-                <div class="itiner-icon"><span class="material-symbols-outlined">${step.icon}</span></div>
+            <div class="itiner-step clickable-step" onclick="focusOnRouteSegment(this.dataset.level)" data-level="${safeLevel}">
+                <div class="itiner-icon"><span class="material-symbols-outlined">${safeIcon}</span></div>
                 <div class="itiner-text">
-                    <div style="font-weight:bold; font-size:15px; color:var(--text-main);">${step.text}</div>
+                    <div style="font-weight:bold; font-size:15px; color:var(--text-main);">${safeText}</div>
                     <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">${clickToViewText}</div>
                 </div>
             </div>
@@ -5048,6 +5094,8 @@ function handleSearchKeyDown(e) {
  * beleértve a helyi térképelemeket és a más épületekre vonatkozó figyelmeztetéseket.
  * @param {KeyboardEvent|InputEvent} e - A keresőmező (input) által kiváltott DOM esemény.
  */
+let _searchDebounceTimer = null;
+
 function handleSearch(e) {
     if (_searchEnterHandled) {
         _searchEnterHandled = false;
@@ -5058,14 +5106,34 @@ function handleSearch(e) {
         return;
     }
 
+    // Az Enter billentyű leütése azonnal lefut késleltetés nélkül
+    if (e && e.key === 'Enter') {
+        if (_searchDebounceTimer) {
+            clearTimeout(_searchDebounceTimer);
+            _searchDebounceTimer = null;
+        }
+        _executeSearch(e);
+        return;
+    }
+
+    // Gépelés (autocomplete) esetén 180 ms debounce
+    if (_searchDebounceTimer) {
+        clearTimeout(_searchDebounceTimer);
+    }
+    _searchDebounceTimer = setTimeout(() => {
+        _executeSearch(e);
+    }, 180);
+}
+
+function _executeSearch(e) {
     // A keresett kifejezés kinyerése és a felesleges szóközök eltávolítása
-    const term = e.target.value.trim();
+    const term = (e && e.target && e.target.value !== undefined) ? e.target.value.trim() : (document.getElementById('search-input')?.value || '').trim();
     const resultsDiv = document.getElementById('search-results');
     
     // ==========================================
     // 1. RÉSZ: ENTER BILLENTYŰ LEÜTÉSÉNEK KEZELÉSE
     // ==========================================
-    if (e.key === 'Enter') {
+    if (e && e.key === 'Enter') {
         
         // --- 1. Prioritás: Generikus kategóriák (POI) kiemelése ---
         const lowerTerm = term.toLowerCase();
@@ -5616,8 +5684,8 @@ function buildRoutingGraph() {
      * @param {string} type - A kapcsolat típusa ('walk', 'stairs_inter', 'elevator').
      */
     const addEdge = (node1, node2, type) => {
-        // Valós földrajzi távolság kiszámítása a két pont között méterben
-        let dist = turf.distance(turf.point([node1.lon, node1.lat]), turf.point([node2.lon, node2.lat])) * 1000;
+        // Valós földrajzi távolság kiszámítása a két pont között méterben (gyors, síkbeli)
+        let dist = fastDistMeters(node1.lat, node1.lon, node2.lat, node2.lon);
         
         // Költségmódosítás a kapcsolat típusa alapján
         if (type === 'stairs_inter') {
@@ -5722,7 +5790,7 @@ function buildRoutingGraph() {
 
         const lvl = getLevelsFromFeature(f)[0] || "0";
         const coords = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
-        let score = turf.distance(turf.point([coords[1], coords[0]]), turf.point([currentBuilding.center[1], currentBuilding.center[0]]));
+        let score = fastDistMeters(coords[0], coords[1], currentBuilding.center[0], currentBuilding.center[1]);
         
         // Főbejáratoknak nagy előnyt adunk
         if (p.entrance === 'main') score -= 10000;
@@ -5741,7 +5809,7 @@ function buildRoutingGraph() {
             const p = f.properties;
             const lvl = getLevelsFromFeature(f)[0] || "0";
             const coords = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
-            let score = turf.distance(turf.point([coords[1], coords[0]]), turf.point([currentBuilding.center[1], currentBuilding.center[0]]));
+            let score = fastDistMeters(coords[0], coords[1], currentBuilding.center[0], currentBuilding.center[1]);
             
             if (p.entrance === 'main') score -= 10000;
             else if (p.entrance === 'yes') score -= 5000;
@@ -5855,7 +5923,7 @@ function connectVerticalShaftToCorridor(shaftFeature, levels, lat, lon, boarding
             const corrLon = bestPoint.geometry.coordinates[0];
             
             // Valós távolság kiszámítása az akna középpontja és a folyosói csatlakozópont között
-            let dist = turf.distance(turf.point([lon, lat]), turf.point([corrLon, corrLat])) * 1000;
+            let dist = fastDistMeters(lat, lon, corrLat, corrLon);
             
             // Virtuális lépcsőházak esetén a belső távolságot minimalizáljuk.
             // Ezzel elkerülhető, hogy a nagy alapterületű lépcsőházak geometriai középpontja 
@@ -6015,8 +6083,8 @@ function injectNodeIntoGraph(targetLat, targetLon, targetLevel, maxDistanceMeter
             const k2 = toKey(p2.lat, p2.lon, p2.level);
             
             // Távolságok kiszámítása az új pont és az eredeti végpontok között.
-            let d1 = turf.distance(turf.point([newLon, newLat]), turf.point([p1.lon, p1.lat])) * 1000;
-            let d2 = turf.distance(turf.point([newLon, newLat]), turf.point([p2.lon, p2.lat])) * 1000;
+            let d1 = fastDistMeters(newLat, newLon, p1.lat, p1.lon);
+            let d2 = fastDistMeters(newLat, newLon, p2.lat, p2.lon);
             
             // Biztosítjuk, hogy ne jöjjön létre zérus hosszúságú él (minimum 10 cm).
             d1 = Math.max(d1, 0.1); 
@@ -6074,8 +6142,8 @@ function findNearestNodeInGraph(targetLat, targetLon, targetLevel, toleranceMete
         // Szint alapú szűrés: csak az azonos emeleten lévő pontokat vizsgáljuk
         if (lvl !== searchLevel) continue;
         
-        // A geometriai távolság kiszámítása a keresett koordináta és a csomópont között (kilométerről méterre váltva)
-        const d = turf.distance(turf.point([targetLon, targetLat]), turf.point([lon, lat])) * 1000;
+        // A geometriai távolság kiszámítása a keresett koordináta és a csomópont között
+        const d = fastDistMeters(targetLat, targetLon, lat, lon);
         
         // Legjobb találat frissítése, ha a távolság a tűréshatáron belül van és kisebb az eddigi minimumnál
         if (d < toleranceMeters && d < minDist) { 
@@ -6531,10 +6599,8 @@ function calculateRouteStats(pathKeys) {
         
         if (prev) {
             // --- 1. TÁVOLSÁG KISZÁMÍTÁSA ---
-            // A vízszintes (légvonalbeli) távolság kiszámítása a Turf.js segítségével (méterben).
-            // Szintváltás esetén a vertikális elmozdulás vízszintes vetülete minimális, 
-            // de a matematikai pontosság érdekében a függvény ezt is feldolgozza.
-            const d = turf.distance([prev.lon, prev.lat], [current.lon, current.lat]) * 1000;
+            // A vízszintes (légvonalbeli) távolság kiszámítása (méterben).
+            const d = fastDistMeters(prev.lat, prev.lon, current.lat, current.lon);
             totalDist += d;
             
             // --- 2. IDŐSZÜKSÉGLET KISZÁMÍTÁSA ---
@@ -6547,7 +6613,7 @@ function calculateRouteStats(pathKeys) {
                 // Detektáljuk, hogy a szintváltás lifttel vagy lépcsővel történik-e.
                 // Heurisztika: Mivel a liftakna geometriailag egy pontban helyezkedik el a térképen,
                 // a minimális vízszintes elmozdulás lifthasználatra utal.
-                const hDist = turf.distance([prev.lon, prev.lat], [current.lon, current.lat]) * 1000;
+                const hDist = d;
                 
                 if (hDist < 5.0) { 
                     // Lift (vagy csigalépcső) detektálása
@@ -6749,33 +6815,112 @@ function generateItinerary(pathKeys) {
  * és a teljes távolságot/költséget (distance). Ha nincs elérhető útvonal, null értékkel tér vissza.
  * @throws {Error} Hibát dob, ha az iterációk száma meghaladja a biztonsági korlátot.
  */
+/**
+ * Hatékony bináris Min-Heap prioritási sor az útvonalkereséshez.
+ * O(log N) beszúrást és kivételt biztosít a lassú Array.prototype.sort() helyett.
+ */
+class MinHeap {
+    constructor() {
+        this.heap = [];
+    }
+
+    get size() {
+        return this.heap.length;
+    }
+
+    push(item) {
+        this.heap.push(item);
+        this._siftUp(this.heap.length - 1);
+    }
+
+    pop() {
+        if (this.heap.length === 0) return null;
+        if (this.heap.length === 1) return this.heap.pop();
+        const top = this.heap[0];
+        this.heap[0] = this.heap.pop();
+        this._siftDown(0);
+        return top;
+    }
+
+    _siftUp(index) {
+        let curr = index;
+        while (curr > 0) {
+            const parent = (curr - 1) >> 1;
+            if (this.heap[curr].dist < this.heap[parent].dist) {
+                const temp = this.heap[curr];
+                this.heap[curr] = this.heap[parent];
+                this.heap[parent] = temp;
+                curr = parent;
+            } else {
+                break;
+            }
+        }
+    }
+
+    _siftDown(index) {
+        let curr = index;
+        const len = this.heap.length;
+        const half = len >> 1;
+        while (curr < half) {
+            let left = (curr << 1) + 1;
+            let right = left + 1;
+            let smallest = curr;
+
+            if (left < len && this.heap[left].dist < this.heap[smallest].dist) {
+                smallest = left;
+            }
+            if (right < len && this.heap[right].dist < this.heap[smallest].dist) {
+                smallest = right;
+            }
+
+            if (smallest !== curr) {
+                const temp = this.heap[curr];
+                this.heap[curr] = this.heap[smallest];
+                this.heap[smallest] = temp;
+                curr = smallest;
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+/**
+ * Futtatja a Dijkstra útvonalkereső algoritmust két tetszőleges gráfcsomópont között.
+ *
+ * @param {string} startKey - A kiindulópont egyedi azonosítója (kulcsa).
+ * @param {string} endKey - A célcsomópont egyedi azonosítója (kulcsa).
+ * @returns {Object|null} Egy objektum, amely tartalmazza a kiszámított útvonalat (path)
+ * és a teljes távolságot/költséget (distance). Ha nincs elérhető útvonal, null értékkel tér vissza.
+ * @throws {Error} Hibát dob, ha az iterációk száma meghaladja a biztonsági korlátot.
+ */
 function runDijkstra(startKey, endKey) {
     // Az algoritmushoz szükséges alapvető adatszerkezetek inicializálása
     const distances = new Map(); // A csomópontokhoz vezető eddigi legrövidebb távolságok
     const prev = new Map();      // A legrövidebb útvonal fája (az előző csomópontok tárolására)
-    const queue = [];            // Prioritási sorként funkcionáló tömb a feldolgozandó pontokhoz
+    const heap = new MinHeap();  // Gyors bináris min-heap prioritási sor
     
     // A kezdőpont beállítása nulla távolsággal a sorba
     distances.set(startKey, 0); 
-    queue.push({ key: startKey, dist: 0 });
+    heap.push({ key: startKey, dist: 0 });
     
     // A már véglegesített (feldolgozott) csomópontok halmaza
     const visited = new Set();
     
     // Végtelen ciklus elleni védelem inicializálása
     let loopCounter = 0; 
-    const SAFETY_LIMIT = 15000; 
+    const SAFETY_LIMIT = 50000; 
 
-    // Fő iterációs ciklus, amíg van feldolgozatlan csomópont a sorban
-    while (queue.length > 0) {
+    // Fő iterációs ciklus, amíg van feldolgozatlan csomópont a prioritási sorban
+    while (heap.size > 0) {
         // Biztonsági ellenőrzés a túlcsordulás vagy elakadás elkerülésére
         loopCounter++; 
         if (loopCounter > SAFETY_LIMIT) throw new Error("Végtelen ciklus!");
         
-        // A sor rendezése távolság szerint (egyszerű prioritási sor implementáció)
-        // A legkisebb távolságú (legközelebbi) csomópont kiválasztása
-        queue.sort((a, b) => a.dist - b.dist);
-        const { key: u, dist } = queue.shift();
+        // A legkisebb távolságú csomópont kivétele O(log N) időben
+        const node = heap.pop();
+        if (!node) break;
+        const { key: u, dist } = node;
         
         // Ha elértük a célcsomópontot, visszafejtjük az útvonalat
         if (u === endKey) {
@@ -6824,7 +6969,7 @@ function runDijkstra(startKey, endKey) {
             if (alt < currentDist) { 
                 distances.set(n.key, alt); 
                 prev.set(n.key, u); 
-                queue.push({ key: n.key, dist: alt }); 
+                heap.push({ key: n.key, dist: alt }); 
             }
         }
     }
@@ -7828,6 +7973,9 @@ function _onSheetDragStart(clientY, source) {
     }
 }
 
+let _sheetRafId = null;
+let _pendingSheetHeight = null;
+
 /**
  * Események: A panel húzása közben (touchmove / mousemove).
  * Kezeli a scroll↔drag koordinációt.
@@ -7881,9 +8029,17 @@ function _onSheetDragMove(clientY, event) {
     const snaps = _getSnapPoints();
     const newHeight = _dragStartHeight + deltaY;
     
-    // Lágy határok: alulról peek * 0.75, felülről a képernyő teteje
+    // Lágy határok: alulról peek * 0.75, felülről a képernyő teteje (RAF frissítéssel a 60/120 fps élményért)
     if (newHeight >= snaps.peek * 0.75 && newHeight <= snaps.full) {
-        sheet.style.height = `${newHeight}px`;
+        _pendingSheetHeight = newHeight;
+        if (!_sheetRafId) {
+            _sheetRafId = requestAnimationFrame(() => {
+                if (_pendingSheetHeight !== null) {
+                    sheet.style.height = `${_pendingSheetHeight}px`;
+                }
+                _sheetRafId = null;
+            });
+        }
     }
 }
 
@@ -7892,6 +8048,11 @@ function _onSheetDragMove(clientY, event) {
  * Snap logika: a panel a legközelebbi snap pontra ugrik, velocity és zónák alapján.
  */
 function _onSheetDragEnd() {
+    if (_sheetRafId) {
+        cancelAnimationFrame(_sheetRafId);
+        _sheetRafId = null;
+    }
+    _pendingSheetHeight = null;
     _potentialScrollDrag = false;
     
     if (!_isDraggingSheet) return;
@@ -9040,7 +9201,6 @@ window.handleEmbedNavClick = handleEmbedNavClick;
 window.openEmbedInfo = openEmbedInfo;
 window.closeEmbedInfo = closeEmbedInfo;
 window.copyEmbedCode = copyEmbedCode;
-window.toggleDevMode = toggleDevMode;
 window.startNavigationToHere = startNavigationToHere;
 
 // ==========================================================================
