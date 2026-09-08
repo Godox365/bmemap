@@ -39,14 +39,14 @@ function fastDistMeters(lat1, lon1, lat2, lon2) {
  * Kezdő épület adatainak azonnali, párhuzamos lekérése az oldal betöltésekor.
  */
 let _initialBuildingFetchPromise = null;
+let _initialBuildingKey = 'K';
 try {
-    let _initB = 'K';
     if (typeof window !== 'undefined' && window.location) {
         const _params = new URLSearchParams(window.location.search);
         const _b = _params.get('b');
-        if (_b) _initB = _b.toUpperCase();
+        if (_b) _initialBuildingKey = _b.toUpperCase();
     }
-    _initialBuildingFetchPromise = fetch(`./data/${_initB.toLowerCase()}_epulet.json`)
+    _initialBuildingFetchPromise = fetch(`./data/${_initialBuildingKey.toLowerCase()}_epulet.json`)
         .then(r => r.ok ? r.json() : null)
         .catch(() => null);
 } catch(e) {}
@@ -940,8 +940,7 @@ const APP_SETTINGS = {
     toiletAccessible: localStorage.getItem('pref_toilet_acc') === 'true',
     themeMode: localStorage.getItem('pref_theme') || 'dark', 
     activeColorTheme: localStorage.getItem('pref_color_theme') || 'default',
-    language: localStorage.getItem('pref_language') || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu'),
-    cacheEnabled: localStorage.getItem('pref_cache_enabled') !== 'false'
+    language: localStorage.getItem('pref_language') || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu')
 };
 
 // MAP STYLES (OpenFreeMap vector styles - no API key, unlimited)
@@ -972,200 +971,108 @@ const TYPE_DICT = {
     'shop': 'Bolt'
 };
 
-// === CACHE SYSTEM (F-015) ===
-const CACHE_PREFIX = "bmemap_data_";
-
-/**
- * Be- vagy kikapcsolja az alkalmazás gyorsítótárazási (cache) funkcióját.
- * Frissíti a futásidejű beállításokat és elmenti a preferenciát a helyi tárolóba (localStorage),
- * majd vizuális visszajelzést ad a felhasználónak a művelet eredményéről.
- * * @param {boolean} isEnabled - A gyorsítótárazás kívánt állapota (true = bekapcsolva, false = kikapcsolva).
- */
-function toggleCacheMode(isEnabled) {
-    // Állapot frissítése a memóriában és a perzisztens tárolóban
-    APP_SETTINGS.cacheEnabled = isEnabled;
-    localStorage.setItem('pref_cache_enabled', isEnabled);
-    
-    if (!isEnabled) {
-        // Kikapcsolt állapot: A meglévő adatokat nem töröljük automatikusan a felhasználó 
-        // esetleges adatvesztésének elkerülése végett, csupán a jövőbeni mentéseket tiltjuk le.
-        // A manuális törlésre külön gomb szolgál a felületen.
-        showToast(typeof t === 'function' ? t('toasts.cache_disabled') : "Cache kikapcsolva. Nem mentünk új adatot.");
-    } else {
-        // Bekapcsolt állapot: Visszajelzés a sikeres aktiválásról
-        showToast(typeof t === 'function' ? t('toasts.cache_enabled') : "Cache bekapcsolva. 💾");
-    }
-}
-
-/**
- * Kiszámítja és visszaadja a helyi tárolóban (localStorage) felhalmozott,
- * az alkalmazáshoz tartozó gyorsítótár (cache) becsült méretét.
- * * @returns {number} A cachelemek összesített mérete bájtokban.
- */
-function getCacheSize() {
-    let totalBytes = 0;
-    
-    // Végigiterálunk a localStorage összes kulcsán
-    for (let key in localStorage) {
-        // Csak azokat a kulcsokat vizsgáljuk, amelyek a mi cache előtagunkkal kezdődnek
-        if (key.startsWith(CACHE_PREFIX)) {
-            const item = localStorage.getItem(key);
-            if (item) {
-                // A JavaScript UTF-16 kódolást használ, így karakterenként hozzávetőlegesen 2 bájttal számolunk
-                totalBytes += item.length * 2; 
+// === EGYSZERI MIGRÁCIÓ: localStorage épületadatok kitörlése (v39) ===
+// A korábbi verziók a nagy GeoJSON épületfájlokat a localStorage-ban tárolták,
+// ami 5 MB-os limites és szinkron módon blokkolta a UI szálat.
+// Mostantól a Service Worker Cache Storage végzi ezt aszinkron módon.
+(function _cleanupLegacyLocalStorageCache() {
+    try {
+        const prefix = "bmemap_data_";
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(prefix)) {
+                keysToRemove.push(key);
             }
         }
-    }
-    return totalBytes;
-}
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        localStorage.removeItem('pref_cache_enabled');
+    } catch(e) {}
+})();
 
 /**
- * Egy nyers, bájtokban megadott számértéket alakít át ember számára
- * könnyen olvasható, megfelelő mértékegységgel ellátott formátumra (B, KB, MB).
- * * @param {number} bytes - A formázandó adatmennyiség bájtokban.
- * @returns {string} A kerekített és mértékegységgel ellátott méret (pl. "1.25 MB").
+ * Formáz egy bájtokban megadott adatmennyiséget olvasható formátumba (B, KB, MB).
+ * @param {number} bytes - A méret bájtokban.
+ * @returns {string} Pl. "1.2 MB"
  */
 function formatBytes(bytes) {
-    // Alapeset kezelése: ha a méret 0, azonnal visszatérünk
-    if (bytes === 0) return '0 B';
-    
-    // A váltószám (1024) és az elérhető mértékegységek definiálása
+    if (!bytes || bytes <= 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB'];
-    
-    // A megfelelő mértékegység indexének kiszámítása logaritmus segítségével
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    // Az érték elosztása a megfelelő hatvánnyal, majd formázás legfeljebb 2 tizedesjegyre
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 /**
- * Frissíti a gyorsítótár (cache) méretét megjelenítő felhasználói felületi (UI) elemet.
- * Lekéri a jelenlegi méretet, formázza azt ember számára olvasható formátumba,
- * majd beállítja a megfelelő HTML elem belső szövegét.
+ * Lekéri a Service Worker Cache Storage becsült méretét bájtokban.
+ * Elsődlegesen a modern navigator.storage.estimate API-t használja.
+ * @returns {Promise<number>}
  */
-function updateCacheSizeDisplay() {
-    const el = document.getElementById('cache-size-display');
-    if (el) {
-        const size = getCacheSize();
-        el.innerText = `A gyorsítótár jelenlegi mérete: ${formatBytes(size)}`;
-    }
-}
-
-/**
- * Törli az összes alkalmazáshoz tartozó gyorsítótár (cache) bejegyzést a helyi tárolóból (localStorage).
- * A művelet végrehajtása előtt megerősítést kér a felhasználótól.
- * Sikeres törlés esetén frissíti a méretet megjelenítő UI elemet és értesítést (toast) jelenít meg.
- */
-function clearAllCache() {
-    if(!confirm(typeof t === 'function' ? (t('alerts.confirm_clear_cache') || "Biztosan törlöd a mentett térképeket?") : "Biztosan törlöd a mentett térképeket?")) return;
-    
-    const keysToRemove = [];
-    for (let key in localStorage) {
-        if (key.startsWith(CACHE_PREFIX)) {
-            keysToRemove.push(key);
-        }
-    }
-    
-    keysToRemove.forEach(k => localStorage.removeItem(k));
-    updateCacheSizeDisplay();
-    showToast(typeof t === 'function' ? t('toasts.cache_cleared') : "Sikeres nagytakarítás! 🧹");
-}
-
-/**
- * Elmenti az adott épülethez tartozó térképadatokat a helyi gyorsítótárba (localStorage),
- * ellátva azt egy időbélyeggel (timestamp) az érvényességi idő későbbi ellenőrzéséhez.
- * Ha a globális beállításokban a gyorsítótárazás le van tiltva, a függvény nem végez mentést.
- * Tárhelyhiány (QuotaExceededError) vagy egyéb mentési hiba esetén megkísérli 
- * a régi bejegyzések törlését, majd újra megpróbálja a mentést.
- * * @param {string} buildingKey - Az épület azonosítója (pl. 'K', 'Q'), amely a gyorsítótár kulcsának részét képezi.
- * @param {Object} data - A menteni kívánt adat (jellemzően az épület GeoJSON objektuma).
- */
-function saveToCache(buildingKey, data) {
-    // HA KI VAN KAPCSOLVA, AKKOR NE MENTSÜNK SEMMIT!
-    if (!APP_SETTINGS.cacheEnabled) return;
-
-    try {
-        const cacheItem = {
-            timestamp: Date.now(),
-            data: data
-        };
-        localStorage.setItem(CACHE_PREFIX + buildingKey, JSON.stringify(cacheItem));
-        updateCacheSizeDisplay(); // UI frissítése mentés után
-    } catch (e) {
-        console.warn("Cache full or error. Clearing old entries...", e);
-        cleanupCache();
+async function getCacheSize() {
+    if (navigator.storage && navigator.storage.estimate) {
         try {
-            localStorage.setItem(CACHE_PREFIX + buildingKey, JSON.stringify({ timestamp: Date.now(), data: data }));
-        } catch (retryErr) {
-            console.error("Cache write failed completely.");
-        }
-    }
-}
-
-/**
- * Betölti az adott épülethez tartozó térképadatokat a helyi gyorsítótárból (localStorage).
- * Ellenőrzi, hogy a gyorsítótárazás globálisan engedélyezve van-e, illetve
- * megvizsgálja a tárolt adatok érvényességi idejét (lejáratát).
- * * @param {string} buildingKey - Az épület azonosítója (pl. 'K', 'Q'), amelyhez az adatokat keressük.
- * @returns {Object|null} A gyorsítótárazott adat objektum (jellemzően GeoJSON), vagy null, 
- * ha az adat nem található, lejárt, vagy a funkció ki van kapcsolva.
- */
-function loadFromCache(buildingKey) {
-    if (!APP_SETTINGS.cacheEnabled) {
-        return null;
-    }
-
-    const raw = localStorage.getItem(CACHE_PREFIX + buildingKey);
-    if (!raw) return null;
-
-    try {
-        const item = JSON.parse(raw);
-        
-        // KIVETTÜK A LEJÁRATI IDŐ (EXPIRE) ELLENŐRZÉST!
-        // Ha a felhasználó offline van (PWA), a régi adat ezerszer jobb, mint az üres képernyő.
-        // A frissítést amúgy is elintézi a háttérben a loadOsmData, ha van net.
-        
-        return item.data;
-    } catch (e) {
-        return null;
-    }
-}
-
-/**
- * Felszabadítja a helyi tároló (localStorage) kapacitását a legrégebbi 
- * gyorsítótár-bejegyzések automatikus törlésével. Jellemzően tárhelyhiány 
- * (QuotaExceededError) esetén hívódik meg. A meglévő elemek felét távolítja el, 
- * az időbélyeg (timestamp) alapján a legrégebbiekkel kezdve.
- */
-function cleanupCache() {
-    // Ideiglenes tömb a gyorsítótárazott elemek metaadatainak tárolására
-    const items = [];
-    
-    // Iterálás a localStorage összes kulcsán
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        
-        // Csak azokat a kulcsokat dolgozzuk fel, amelyek az alkalmazáshoz tartoznak
-        if (key.startsWith(CACHE_PREFIX)) {
-            try {
-                // Az időbélyeg kinyerése a kulcshoz tartozó adatból
-                const item = JSON.parse(localStorage.getItem(key));
-                items.push({ key: key, ts: item.timestamp });
-            } catch(e) {
-                // Csendes hibakezelés sérült elemek esetén
+            const estimate = await navigator.storage.estimate();
+            if (estimate && typeof estimate.usage === 'number' && estimate.usage > 0) {
+                return estimate.usage;
             }
-        }
+        } catch (e) {}
     }
+    if ('caches' in window) {
+        try {
+            const keys = await caches.keys();
+            let total = 0;
+            for (const key of keys) {
+                const cache = await caches.open(key);
+                const reqs = await cache.keys();
+                for (const req of reqs) {
+                    const res = await cache.match(req);
+                    if (res) {
+                        const blob = await res.blob();
+                        total += blob.size;
+                    }
+                }
+            }
+            return total;
+        } catch (e) {}
+    }
+    return 0;
+}
+
+/**
+ * Frissíti a gyorsítótár méretének kijelzését a Beállítások felületen.
+ */
+async function updateCacheSizeDisplay() {
+    const el = document.getElementById('cache-size-display');
+    if (!el) return;
+    try {
+        const bytes = await getCacheSize();
+        if (bytes > 0) {
+            el.innerText = `(${formatBytes(bytes)})`;
+        } else {
+            el.innerText = '(0 B)';
+        }
+    } catch (e) {
+        el.innerText = '';
+    }
+}
+
+/**
+ * Törli az összes alkalmazáshoz tartozó gyorsítótárat (Service Worker Cache Storage).
+ * A művelet végrehajtása előtt megerősítést kér a felhasználótól.
+ */
+async function clearAllCache() {
+    if (!confirm(typeof t === 'function' ? (t('alerts.confirm_clear_cache') || "Biztosan törlöd a mentett térképeket?") : "Biztosan törlöd a mentett térképeket?")) return;
     
-    // Az elemek időrendi sorba rendezése növekvő sorrendben (legrégebbi elem az első)
-    items.sort((a, b) => a.ts - b.ts);
-    
-    // A legrégebbi bejegyzések törlése (az összes elem pontosan felét távolítja el)
-    items.slice(0, Math.ceil(items.length / 2)).forEach(item => {
-        localStorage.removeItem(item.key);
-    });
+    try {
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+    } catch (e) {
+        console.warn("Hiba a gyorsítótár törlésekor:", e);
+    }
+    await updateCacheSizeDisplay();
+    showToast(typeof t === 'function' ? t('toasts.cache_cleared') : "Sikeres nagytakarítás! 🧹");
 }
 
 /**
@@ -2222,13 +2129,8 @@ function updateSettingsUI() {
         elHint.innerText = getElevatorHint(APP_SETTINGS.elevatorMode);
     }
 
-    // --- F-016: Gyorsítótár (Cache) UI frissítése ---
-    // A cache engedélyezését szabályozó kapcsoló és a méretkijelző aktualizálása
-    const cacheSwitch = document.getElementById('cache-switch');
-    if (cacheSwitch) {
-        cacheSwitch.checked = APP_SETTINGS.cacheEnabled;
-        updateCacheSizeDisplay(); // A lefoglalt tárhely méretének újraszámítása és kiírása
-    }
+    // Gyorsítótár méretének aszinkron kiszámítása és megjelenítése
+    updateCacheSizeDisplay();
 }
 
 /**
@@ -3288,138 +3190,66 @@ function processOsmData(osmData, isUpdate = false) {
 
 /**
  * Aszinkron függvény a kiválasztott épület térképadatainak betöltésére.
- * Háromszintű betöltési logikát alkalmaz a maximális teljesítmény és megbízhatóság érdekében:
- * 1. Gyorsítótár (Cache): Azonnali megjelenítés a helyi tárolóból, ha rendelkezésre áll.
- * 2. Statikus adatfájl: Elsődleges hálózati forrás (előre generált, optimalizált JSON fájl).
- * 3. Élő Overpass API (Fallback): Tartalék megoldás a statikus fájl elérhetetlensége esetén.
+ * A Service Worker Stale-While-Revalidate gyorsítótárán keresztül kéri le
+ * az előkészített GeoJSON fájlt, biztosítva az azonnali és offline működést.
  */
 async function loadOsmData() {
     const loader = document.getElementById('loader');
     const buildingKey = currentBuildingKey;
-    
-    // 1. GYORSÍTÓTÁR (CACHE) KEZELÉSE
-    // Megkíséreljük betölteni az adatokat a helyi tárolóból a várakozás nélküli megjelenítéshez.
-    const cachedData = loadFromCache(buildingKey);
-    
-    // Jelzőváltozó, amely mutatja, hogy történt-e sikeres betöltés a gyorsítótárból
-    let loadedFromCache = false;
 
-    if (cachedData) {
-        try {
-            
-            // Adatok feldolgozása és térkép renderelése a gyorsítótárazott adatok alapján
-            processOsmData(cachedData, false);
-            loader.style.display = 'none';
-            loadedFromCache = true;
-            
-            // Függőben lévő célterem vagy keresés végrehajtása kis késleltetéssel (pl. automatikus épületváltás után)
-            if (pendingTargetId || pendingSearchTerm) {
-                setTimeout(() => {
-                    if (pendingTargetId && geoJsonData && geoJsonData.features) {
-                        const target = geoJsonData.features.find(f => f.id === pendingTargetId);
-                        if (target) {
-                            openSheet(target);
-                            const lvls = getLevelsFromFeature(target);
-                            if (lvls.length > 0) switchLevel(lvls[0]);
-                            const tVal = target.properties.name || target.properties.ref || pendingSearchTerm || "";
-                            document.getElementById('search-input').value = tVal;
-                            updateRightButtonState();
-                            pendingTargetId = null;
-                            pendingSearchTerm = null;
-                            return;
-                        }
-                    }
-                    if (pendingSearchTerm) {
-                        document.getElementById('search-input').value = pendingSearchTerm;
-                        handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
-                        pendingSearchTerm = null;
-                    }
-                }, 120);
-            }
-            
-            // URL paraméterek (pl. Deep Link megosztás) feldolgozása a betöltés befejezésekor
-            processUrlParams();
-        } catch (e) {
-            // Hibakezelés: Sérült vagy feldolgozhatatlan gyorsítótár-bejegyzés törlése
-            console.error("Cache render failed:", e);
-            localStorage.removeItem(CACHE_PREFIX + buildingKey);
-        }
-    } else {
-        // Ha nincs gyorsítótárazott adat, megjelenítjük a betöltést jelző felületet
-        loader.style.display = 'block';
-        document.getElementById('loader-status').innerText = "Betöltés...";
-    }
+    loader.style.display = 'block';
+    document.getElementById('loader-status').innerText = "Betöltés...";
 
-    // 2. ELSŐDLEGES ADATFORRÁS: STATIKUS FÁJL LETÖLTÉSE
-    // Megpróbáljuk letölteni a szerveren tárolt, előkészített adatfájlt.
     try {
-        if (!loadedFromCache) document.getElementById('loader-status').innerText = "Térkép lekérése a szerverről...";
-        
-        // Fájl lekérése a 'data' könyvtárból az épület azonosítója alapján (párhuzamos előtöltés kihasználása)
-        let newData = null;
-        if (_initialBuildingFetchPromise) {
+        let data = null;
+        if (_initialBuildingFetchPromise && buildingKey === _initialBuildingKey) {
             try {
-                newData = await _initialBuildingFetchPromise;
+                data = await _initialBuildingFetchPromise;
             } catch(e) {}
-            _initialBuildingFetchPromise = null;
         }
-        if (!newData) {
+        _initialBuildingFetchPromise = null;
+
+        if (!data) {
             const res = await fetch(`./data/${buildingKey.toLowerCase()}_epulet.json`);
             if (!res.ok) throw new Error("Statikus fájl nem található (HTTP " + res.status + ")");
-            newData = await res.json();
-        }
-        
-        // Ellenőrizzük, hogy a hálózatról érkezett adat eltér-e a gyorsítótárazott állapottól
-        const isDataNew = !cachedData || JSON.stringify(cachedData) !== JSON.stringify(newData);
-
-        if (isDataNew) {
-            // Új adatok esetén frissítjük a térképet és felülírjuk a gyorsítótárat
-            processOsmData(newData, loadedFromCache);
-            saveToCache(buildingKey, newData);
-        } else {
+            data = await res.json();
         }
 
-        // Ha eddig a pontig csak a betöltőképernyő volt látható, most elrejtjük és futtatjuk a kiegészítő funkciókat
-        if (!loadedFromCache) {
-            loader.style.display = 'none';
-            if (pendingTargetId || pendingSearchTerm) {
-                setTimeout(() => {
-                    if (pendingTargetId && geoJsonData && geoJsonData.features) {
-                        const target = geoJsonData.features.find(f => f.id === pendingTargetId);
-                        if (target) {
-                            openSheet(target);
-                            const lvls = getLevelsFromFeature(target);
-                            if (lvls.length > 0) switchLevel(lvls[0]);
-                            const tVal = target.properties.name || target.properties.ref || pendingSearchTerm || "";
-                            document.getElementById('search-input').value = tVal;
-                            updateRightButtonState();
-                            pendingTargetId = null;
-                            pendingSearchTerm = null;
-                            return;
-                        }
-                    }
-                    if (pendingSearchTerm) {
-                        document.getElementById('search-input').value = pendingSearchTerm;
-                        handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
+        processOsmData(data, false);
+        loader.style.display = 'none';
+
+        // Függőben lévő célterem vagy keresés végrehajtása kis késleltetéssel (pl. automatikus épületváltás után)
+        if (pendingTargetId || pendingSearchTerm) {
+            setTimeout(() => {
+                if (pendingTargetId && geoJsonData && geoJsonData.features) {
+                    const target = geoJsonData.features.find(f => f.id === pendingTargetId);
+                    if (target) {
+                        openSheet(target);
+                        const lvls = getLevelsFromFeature(target);
+                        if (lvls.length > 0) switchLevel(lvls[0]);
+                        const tVal = target.properties.name || target.properties.ref || pendingSearchTerm || "";
+                        document.getElementById('search-input').value = tVal;
+                        updateRightButtonState();
+                        pendingTargetId = null;
                         pendingSearchTerm = null;
+                        return;
                     }
-                }, 120);
-            }
-            processUrlParams();
+                }
+                if (pendingSearchTerm) {
+                    document.getElementById('search-input').value = pendingSearchTerm;
+                    handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
+                    pendingSearchTerm = null;
+                }
+            }, 120);
         }
-        
+
+        // URL paraméterek (pl. Deep Link megosztás) feldolgozása a betöltés befejezésekor
+        processUrlParams();
+
     } catch (localError) {
-        // Hibakezelés: Ha a statikus térképfájl letöltése sikertelen
         console.warn("⚠️ Hiba a térképadatok betöltésekor:", localError);
-        
-        if (!loadedFromCache) {
-            // Teljes adatkimaradás esetén vizuális hibaüzenet a felhasználónak
-            document.getElementById('loader-status').innerText = "FAILED.";
-            alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: A térképfájl nem érhető el.\n(Ellenőrizd az internetkapcsolatot!)");
-        } else {
-            // Ha van gyorsítótárazott változat, tájékoztatjuk a felhasználót az offline üzemmódról
-            showToast(typeof t === 'function' ? t('toasts.offline_fallback') : "Offline mód: Nem sikerült frissíteni a szerverről.");
-        }
+        document.getElementById('loader-status').innerText = "FAILED.";
+        alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: A térképfájl nem érhető el.\n(Ellenőrizd az internetkapcsolatot!)");
     }
 }
 
@@ -9127,12 +8957,18 @@ window.addEventListener('resize', () => {
 
 // === PWA & SERVICE WORKER REGISZTRÁCIÓ ===
 
-// 1. Service Worker regisztrálása (Offline működéshez és megbízható automatikus frissítéshez)
 if ('serviceWorker' in navigator && !IS_EMBED_MODE) {
-    // Amikor egy új Service Worker aktiválódik (skipWaiting + clients.claim után),
-    // újratöltjük az ablakot, hogy azonnal érvénybe lépjen a legfrissebb kód
     let isRefreshing = false;
+    // Ha null, ez a legelső látogatás (még sosem volt korábban aktív SW ezen a böngészőn)
+    let hadPreviousController = !!navigator.serviceWorker.controller;
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // Első telepítéskor a SW most vette át a klienst először: NE töltsünk újra!
+        if (!hadPreviousController) {
+            hadPreviousController = true;
+            return;
+        }
+        // Valódi verziófrissítéskor (pl. v38 -> v39) viszont újratöltünk, hogy a legfrissebb kód fusson
         if (!isRefreshing) {
             isRefreshing = true;
             window.location.reload();

@@ -1594,57 +1594,18 @@
             }
         }
 
-        /* --- M3 SWITCH & CACHE UI --- */
-        .switch-container {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 0;
-            margin-bottom: 15px;
+        /* --- CACHE UI --- */
+        .cache-row {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            padding: 4px 0;
         }
-        .cache-info {
-            font-size: 13px; color: var(--text-sub); margin-bottom: 10px;
-            display: flex; align-items: center; gap: 5px;
-        }
-        
-        /* The Switch - the box around the slider */
-        .m3-switch {
-            position: relative; display: inline-block; width: 52px; height: 32px; flex-shrink: 0;
-        }
-        /* Hide default HTML checkbox */
-        .m3-switch input { opacity: 0; width: 0; height: 0; }
-
-        /* The slider */
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: var(--bg-surface); 
-            border: 2px solid var(--icon-color); /* Inactive border */
-            transition: .4s; border-radius: 32px;
-        }
-        .slider:before {
-            position: absolute; content: "";
-            height: 16px; width: 16px; left: 6px; bottom: 6px;
-            background-color: var(--icon-color); /* Inactive icon */
-            transition: .4s; border-radius: 50%;
-        }
-
-        /* Checked state */
-        input:checked + .slider {
-            background-color: var(--color-ui-active); /* Téma aktív színe */
-            border-color: var(--color-ui-active);
-        }
-        input:checked + .slider:before {
-            transform: translateX(20px);
-            background-color: var(--color-ui-active-text); /* Téma aktív szövegszíne */
-            width: 24px; height: 24px; 
-            bottom: 2px; left: 2px;
-        }
-        
-        /* Cache törlés gomb */
         .btn-cache-clear {
-            width: 100%; padding: 10px; border-radius: 12px;
-            background: rgba(255, 255, 255, 0.05); color: var(--text-main);
+            width: auto; padding: 6px 12px; border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05); color: var(--text-sub);
             border: 1px solid var(--border-color); cursor: pointer;
-            font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: background 0.2s;
+            font-size: 12px; font-weight: 500; display: inline-flex;
+            align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap;
+            transition: all 0.2s;
         }
         .btn-cache-clear:hover { background: rgba(211, 47, 47, 0.15); color: #ef5350; border-color: #ef5350; } 
 

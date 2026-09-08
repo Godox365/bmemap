@@ -45,7 +45,7 @@
     "install_hint": "Fullscreen, faster, offline mode.",
     "cache": "Cache",
     "cache_title": "Map Caching",
-    "cache_hint": "Download for fast loading (updates in the background).",
+    "cache_hint": "Offline map storage.",
     "cache_calculating": "Calculating...",
     "cache_clear": "Clear Cache",
     "bug_report": "Report a Bug",
