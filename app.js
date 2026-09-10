@@ -1841,65 +1841,47 @@ function _initMapEventListeners() {
     if (_mapEventsInitialized) return;
     _mapEventsInitialized = true;
 
-    // 10. MAP HOVER & CLICK LISTENERS
-    const FEATURE_LAYERS = ['room-fill', 'corridor-fill', 'toilet-fill', 'stairs-fill', 'elevator-fill', 'door-circle'];
+    const FEATURE_LAYERS = ['door-circle', 'elevator-fill', 'stairs-fill', 'toilet-fill', 'room-fill', 'corridor-fill'];
 
     FEATURE_LAYERS.forEach(layerId => {
         map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
-
-        map.on('click', layerId, (e) => {
-            if (window.isMapInteractionLocked) return;
-            if (!e.features || e.features.length === 0) return;
-
-            if (e.originalEvent) {
-                e.originalEvent._featureHandled = true;
-            }
-
-            const targetFeature = e.features[0];
-            let fullFeature = null;
-
-            if (geoJsonData && geoJsonData.features) {
-                const idx = targetFeature.properties ? targetFeature.properties._featureIndex : undefined;
-                if (idx !== undefined && geoJsonData.features[idx]) {
-                    fullFeature = geoJsonData.features[idx];
-                } else if (targetFeature.id !== undefined && geoJsonData.features[targetFeature.id]) {
-                    fullFeature = geoJsonData.features[targetFeature.id];
-                } else {
-                    const props = targetFeature.properties || {};
-                    fullFeature = geoJsonData.features.find(f => f.properties && f.properties.name === props.name && f.properties.ref === props.ref && f.properties.indoor === props.indoor);
-                }
-            }
-
-            const featToOpen = fullFeature || targetFeature;
-
-            if (window.clickTimeout) {
-                clearTimeout(window.clickTimeout);
-                window.clickTimeout = null;
-            }
-
-            // Panel megnyitása
-            openSheet(featToOpen);
-        });
-    });
-
-    map.on('click', 'floor-fill', (e) => {
-        if (window.isMapInteractionLocked) return;
-        if (e.originalEvent && e.originalEvent._featureHandled) return;
-        const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS });
-        if (!features || features.length === 0) {
-            closeSheet();
-        }
     });
 
     map.on('click', (e) => {
         if (window.isMapInteractionLocked) return;
-        if (e.originalEvent && e.originalEvent._featureHandled) return;
-        const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS.concat(['floor-fill']) });
+
+        const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS });
         if (!features || features.length === 0) {
-            if (activeRouteData) return; // Ne zárjuk be a sheet-et, ha aktív navigáció fut!
-            closeSheet();
+            if (!activeRouteData) {
+                closeSheet();
+            }
+            return;
         }
+
+        const targetFeature = features[0];
+        let fullFeature = null;
+
+        if (geoJsonData && geoJsonData.features) {
+            const idx = targetFeature.properties ? targetFeature.properties._featureIndex : undefined;
+            if (idx !== undefined && geoJsonData.features[idx]) {
+                fullFeature = geoJsonData.features[idx];
+            } else if (targetFeature.id !== undefined && geoJsonData.features[targetFeature.id]) {
+                fullFeature = geoJsonData.features[targetFeature.id];
+            } else {
+                const props = targetFeature.properties || {};
+                fullFeature = geoJsonData.features.find(f => f.properties && f.properties.name === props.name && f.properties.ref === props.ref && f.properties.indoor === props.indoor);
+            }
+        }
+
+        const featToOpen = fullFeature || targetFeature;
+
+        if (window.clickTimeout) {
+            clearTimeout(window.clickTimeout);
+            window.clickTimeout = null;
+        }
+
+        openSheet(featToOpen);
     });
 }
 
@@ -3093,17 +3075,21 @@ function alignMapToBuildingCenter() {
 function getFeatureWeight(f) {
     const p = f.properties;
     
-    // 1. SZINT (Legalul): Szerkezeti alapelemek (Padló, Fal, Épület körvonal)
-    if (p.indoor === 'level' || p['building:part'] || p.indoor === 'wall' || p.building) return 1;
-    
-    // 2. SZINT: Folyosók. Biztosítja, hogy az ezekből nyíló szobák vizuálisan kiemelkedjenek.
-    if (p.indoor === 'corridor' || p.highway === 'corridor') return 2;
-    
-    // 4. SZINT (Legfelül): Ajtók és bejáratok
-    // mindig jól láthatóak és interakcióba léphetők maradjanak.
+    // 4. szint: Ajtók és bejáratok
     if (p.entrance || p.door) return 4;
 
-    // 3. SZINT (Alapértelmezett): Szobák, mosdók, lépcsők, liftek és egyéb névvel rendelkező helyiségek.
+    // 2. szint: Folyosók
+    if (p.indoor === 'corridor' || p.highway === 'corridor') return 2;
+
+    // 1. szint: Szerkezeti padló és fal
+    if (p.indoor === 'level' || p.indoor === 'wall') return 1;
+
+    // 3. szint: Szobák és területek
+    if (p.indoor === 'area' || p.indoor === 'room') return 3;
+
+    // 1. szint: Épület és épületrész körvonalak
+    if (p['building:part'] || p.building) return 1;
+
     return 3; 
 }
 
