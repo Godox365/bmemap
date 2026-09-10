@@ -937,10 +937,26 @@ const APP_SETTINGS = {
     elevatorMode: localStorage.getItem('pref_elevator') || 'balanced',
     toiletMode: localStorage.getItem('pref_toilet') || 'all',
     toiletAccessible: localStorage.getItem('pref_toilet_acc') === 'true',
-    themeMode: localStorage.getItem('pref_theme') || 'dark', 
+    themeMode: localStorage.getItem('pref_theme') || 'system', 
     activeColorTheme: localStorage.getItem('pref_color_theme') || 'default',
     language: localStorage.getItem('pref_language') || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu')
 };
+
+/**
+ * Visszaadja az aktuálisan érvényesülő témamódot ('dark' vagy 'light').
+ * Ha a beállítás 'system' (vagy 'auto'), lekérdezi az operációs rendszer / böngésző preferenciáját.
+ * @returns {'dark' | 'light'}
+ */
+function getEffectiveThemeMode() {
+    const mode = APP_SETTINGS.themeMode;
+    if (mode === 'system' || !mode || mode === 'auto') {
+        if (typeof window !== 'undefined' && window.matchMedia) {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return 'dark'; // Fallback
+    }
+    return mode === 'light' ? 'light' : 'dark';
+}
 
 // MAP STYLES (OpenFreeMap vector styles - no API key, unlimited)
 const MAP_STYLES = {
@@ -1470,7 +1486,7 @@ const PRECISION = 6;
  */
 const map = new maplibregl.Map({
     container: 'map',
-    style: MAP_STYLES[APP_SETTINGS.themeMode] || MAP_STYLES.dark,
+    style: MAP_STYLES[getEffectiveThemeMode()] || MAP_STYLES.dark,
     center: [currentBuilding.center[1], currentBuilding.center[0]], // MapLibre: [lon, lat]!
     zoom: currentBuilding.zoom,
     attributionControl: false,
@@ -1596,7 +1612,7 @@ function updateDynamicVisibility() {
 
 let _mapLayersInitialized = false;
 let _mapEventsInitialized = false;
-let _currentMapStyleMode = APP_SETTINGS.themeMode || 'dark';
+let _currentMapStyleMode = getEffectiveThemeMode();
 
 // Globális tárolók a MapLibre Marker objektumoknak
 let _routeMarkers = [];
@@ -1913,7 +1929,7 @@ function _applyThemeToMapLayers() {
 
     // Sötét módban a szaggatott OSM footpath / folyosó réteg elrejtése
     if (map.getLayer('highway_path')) {
-        if (APP_SETTINGS.themeMode === 'dark') {
+        if (getEffectiveThemeMode() === 'dark') {
             map.setLayoutProperty('highway_path', 'visibility', 'none');
         } else {
             map.setLayoutProperty('highway_path', 'visibility', 'visible');
@@ -1988,7 +2004,7 @@ function toggleSettings() {
  */
 function applyTheme() {
     const root = document.documentElement;
-    const mode = APP_SETTINGS.themeMode; // 'dark' vagy 'light'
+    const mode = getEffectiveThemeMode(); // 'dark' vagy 'light' (feloldva a rendszerből, ha 'system')
     const themeKey = APP_SETTINGS.activeColorTheme;
     
     // 1. Alapértelmezett téma (Preset) betöltése
@@ -2014,9 +2030,17 @@ function applyTheme() {
 
     // 3. UI Osztályok és Alaptérkép stílus
     if (mode === 'light') {
-        document.body.classList.add('light-mode');
+        root.classList.add('light-mode');
+        if (document.body) document.body.classList.add('light-mode');
     } else {
-        document.body.classList.remove('light-mode');
+        root.classList.remove('light-mode');
+        if (document.body) document.body.classList.remove('light-mode');
+    }
+
+    // Mobil böngésző fejlécsáv (meta theme-color) szinkronizálása
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', mode === 'light' ? '#ffffff' : '#1e1e1e');
     }
 
     const targetStyleUrl = (mode === 'light') ? MAP_STYLES.light : MAP_STYLES.dark;
@@ -2117,6 +2141,22 @@ function setThemeMode(mode) {
     renderThemeSelector();
 }
 
+// Operációs rendszer és böngésző színséma-váltásának valós idejű figyelése (Auto / System mód)
+if (typeof window !== 'undefined' && window.matchMedia) {
+    const _systemSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const _onSystemSchemeChange = () => {
+        if (APP_SETTINGS.themeMode === 'system' || APP_SETTINGS.themeMode === 'auto' || !APP_SETTINGS.themeMode) {
+            applyTheme();
+            renderThemeSelector();
+        }
+    };
+    if (_systemSchemeQuery.addEventListener) {
+        _systemSchemeQuery.addEventListener('change', _onSystemSchemeChange);
+    } else if (_systemSchemeQuery.addListener) {
+        _systemSchemeQuery.addListener(_onSystemSchemeChange);
+    }
+}
+
 /**
  * Dinamikusan kiszámítja egy színtéma 3 reprezentatív színmintáját (dot) 
  * az aktuális témamód (dark/light) és az egyedi felülírások alapján.
@@ -2124,7 +2164,7 @@ function setThemeMode(mode) {
  * @returns {Array<string>} 3 CSS színkód tömbje.
  */
 function getThemeSampleColors(themeKey) {
-    const mode = APP_SETTINGS.themeMode || 'dark';
+    const mode = getEffectiveThemeMode();
     const theme = COLOR_THEMES[themeKey];
     if (!theme) return ['#8A2432', '#00897b', '#000000'];
 
@@ -2266,7 +2306,7 @@ function openThemeEditor() {
         modal.classList.add('visible');
     }
 
-    const mode = APP_SETTINGS.themeMode;
+    const mode = getEffectiveThemeMode();
     const themeKey = APP_SETTINGS.activeColorTheme;
     const fallbackName = (COLOR_THEMES[themeKey] || COLOR_THEMES['default']).name;
     const themeName = getThemeName(themeKey, fallbackName);
@@ -2410,7 +2450,7 @@ function closeThemeEditor(saved = false) {
  * majd perzisztensen rögzíti azokat a helyi tárolóban (localStorage).
  */
 function saveThemeOverrides() {
-    const mode = APP_SETTINGS.themeMode;
+    const mode = getEffectiveThemeMode();
     const themeKey = APP_SETTINGS.activeColorTheme;
     
     // Az adatszerkezet inicializálása az adott témához és módhoz, amennyiben még nem létezik.
@@ -2440,7 +2480,7 @@ function saveThemeOverrides() {
  * A különbségekből egy formázott JavaScript objektum-részletet generál.
  */
 function copyThemeCode() {
-    const mode = APP_SETTINGS.themeMode; // 'dark' vagy 'light'
+    const mode = getEffectiveThemeMode(); // 'dark' vagy 'light'
     const fallbackThemeName = (COLOR_THEMES[APP_SETTINGS.activeColorTheme] || {}).name || "Custom";
     const themeName = getThemeName(APP_SETTINGS.activeColorTheme, fallbackThemeName);
     
@@ -2492,7 +2532,7 @@ function copyThemeCode() {
 function resetThemeOverrides() {
     if (!confirm('Biztos visszaállítod az eredeti színeket ennél a témánál?')) return;
     
-    const mode = APP_SETTINGS.themeMode;
+    const mode = getEffectiveThemeMode();
     const themeKey = APP_SETTINGS.activeColorTheme;
 
     // A specifikus felülírások törlése a globális objektumból és a perzisztens tárolóból
@@ -8736,7 +8776,7 @@ map.on('load', async () => {
     _initMapLayers();
     _initMapEventListeners();
     _mapLayersInitialized = true;
-    _currentMapStyleMode = APP_SETTINGS.themeMode || 'dark';
+    _currentMapStyleMode = getEffectiveThemeMode();
 
     enableOneFingerZoom(map);
 

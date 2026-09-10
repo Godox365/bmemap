@@ -82,9 +82,17 @@
             border-width: 0;
         }
 
-        /* --- LIGHT MODE --- */
-        body.light-mode {
-            /* A témák színeit a JS (applyTheme / THEME_VARS) vezérli. */
+        /* --- LIGHT MODE (Alap változók Anti-FOUC-hoz, amit a THEME_VARS finomhangol) --- */
+        html.light-mode, body.light-mode {
+            --bg-body: #ffffff;
+            --bg-surface: #ffffff;
+            --bg-element: #e0e0e0;
+            --bg-button-glass: rgba(0,0,0,0.05);
+            --text-main: #1c1c1e;
+            --text-sub: #666666;
+            --border-color: #d1d1d1;
+            --icon-color: #666666;
+            --icon-color-active: #000000;
         }
         
         /* Címek színe (Fix) */

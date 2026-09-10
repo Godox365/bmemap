@@ -8,6 +8,16 @@
             base.href = '/';
             document.head.appendChild(base);
         }
+        // Anti-FOUC téma inicializálás (Flash of Unstyled Theme megelőzése)
+        (function() {
+            try {
+                var pref = localStorage.getItem('pref_theme') || 'system';
+                var isDark = pref === 'dark' || ((pref === 'system' || pref === 'auto') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (!isDark) {
+                    document.documentElement.classList.add('light-mode');
+                }
+            } catch (e) {}
+        })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
@@ -165,11 +175,14 @@
                     <label data-i18n="settings.appearance">Megjelenés</label>
                     
                     <div class="segmented-control" id="seg-theme" style="margin-bottom: 15px;">
-                        <button class="seg-btn" data-val="dark" onclick="setThemeMode('dark')">
-                            <span class="material-symbols-outlined">dark_mode</span>
+                        <button class="seg-btn" data-val="system" onclick="setThemeMode('system')" data-i18n-title="settings.theme_system" title="Rendszer (Auto)">
+                            <span class="material-symbols-outlined">brightness_auto</span>
                         </button>
-                        <button class="seg-btn" data-val="light" onclick="setThemeMode('light')">
+                        <button class="seg-btn" data-val="light" onclick="setThemeMode('light')" data-i18n-title="settings.theme_light" title="Világos">
                             <span class="material-symbols-outlined">light_mode</span>
+                        </button>
+                        <button class="seg-btn" data-val="dark" onclick="setThemeMode('dark')" data-i18n-title="settings.theme_dark" title="Sötét">
+                            <span class="material-symbols-outlined">dark_mode</span>
                         </button>
                     </div>
                     
