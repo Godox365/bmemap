@@ -19,7 +19,7 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://bmemap.hu/" />
 
-    <!-- FAVICON & ICONS (Emoji as Favicon - Modern & Fast) -->
+    <!-- FAVICON & ICONS -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
     <meta name="theme-color" content="#1e1e1e">
@@ -37,7 +37,7 @@
     <meta property="og:url" content="https://bmemap.hu/">
     <meta property="og:title" content="BME Térkép - Teremkereső & Navigáció | Tekergők Térképe">
     <meta property="og:description" content="Keresd meg a termeket, mosdókat és a legközelebbi kávét a BME campusán. Interaktív térkép, útvonaltervek, megosztás.">
-    <!-- Ide majd kellene egy rendes preview kép, most placeholder -->
+    <!-- Open Graph előnézeti kép (og-preview.jpg feltöltése szükséges a megosztásokhoz) -->
     <meta property="og:image" content="https://bmemap.hu/og-preview.jpg"> 
 
     <!-- STRUCTURED DATA -->
@@ -76,7 +76,7 @@
 </head>
 <body>
 
-<!-- REJTETT FŐCÍM A ROBOTOKNAK -->
+<!-- REJTETT FŐCÍM (Akadálymentesség / SEO) -->
 <h1 class="sr-only" data-i18n="meta.sr_heading">BME Térkép - Tekergők Térképe: Egyetemi Teremkereső és Navigáció</h1>
 
 <div id="loader">
@@ -359,7 +359,7 @@
     <div id="sheet-scroll-content">
         <div id="room-data-container" style="display:none;">
             <div class="room-meta" style="display:none;"></div>
-            <!-- ÚJ: OSM Specifikus adatok (Büfék, POI-k) -->
+            <!-- OSM specifikus adatok (Büfék, POI-k) -->
             <div id="poi-details-container" style="display:none;">
                 <div class="poi-detail-row" id="poi-hours-row" style="display:none;">
                     <span class="material-symbols-outlined">schedule</span>
@@ -431,7 +431,7 @@
     </div>
 </div>
 
-<!-- FOOTER (Láthatatlan linkstruktúra a robotoknak) -->
+<!-- FOOTER (Navigációs linkek SEO-hoz) -->
 <footer class="sr-only">
     <nav>
         <ul>

@@ -13,8 +13,8 @@ const BUILDINGS = {
 
 // Overpass szerverlista prioritás sorrendben
 const OVERPASS_SERVERS = [
-    "https://overpass-api.de/api/interpreter", // Stabil német
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter", // Gyors orosz
+    "https://overpass-api.de/api/interpreter", // Elsődleges, stabil szerver (Németország)
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter", // Gyors válaszidejű tartalék szerver (Mail.ru)
     "https://overpass.private.coffee/api/interpreter"
 ];
 

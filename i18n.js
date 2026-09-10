@@ -1,6 +1,6 @@
 /**
  * BMEmap I18n Engine
- * Robusztus, fallback-biztos többnyelvűsítő motor Vanilla JavaScripthez.
+ * Többnyelvűsítő modul Vanilla JavaScripthez.
  */
 class I18nManager {
     constructor() {
@@ -14,7 +14,7 @@ class I18nManager {
     }
 
     /**
-     * Intelligens nyelvfelismerés prioritási lánc alapján:
+     * Nyelvfelismerés prioritási sorrendje:
      * 1. URL Path (/en, /hu, /en/, /hu/)
      * 2. URL Query (?lang=en, ?l=en)
      * 3. URL Hash (#/en, #/hu, #lang=en)
@@ -86,7 +86,7 @@ class I18nManager {
         this._initPromise = (async () => {
             const targetLang = this.detectLanguage();
 
-            // 1. Alapértelmezett (HU) szótár betöltése fallback gyanánt
+            // 1. Alapértelmezett (HU) szótár betöltése
             this.fallbackTranslations = await this._fetchDictionary(this.defaultLanguage);
 
             // 2. Kívánt nyelv beállítása

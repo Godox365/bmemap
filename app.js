@@ -1,7 +1,6 @@
 /**
- * Biztonsági ellenőrzés a külső adatbázis betöltésére.
- * Amennyiben a 'room_data.js' fájl nem töltődött be, vagy a ROOM_DATABASE
- * változó nem definiált, létrehoz egy üres objektumot a futásidejű hibák elkerülése végett.
+ * Ellenőrzi a szobaadatbázis (room_data.js) elérhetőségét.
+ * Ha hiányzik, üres objektummal inicializál a hibák elkerülésére.
  */
 if (typeof ROOM_DATABASE === 'undefined') {
     console.warn("room_data.js nem található vagy nem töltődött be!");
@@ -950,7 +949,7 @@ const MAP_STYLES = {
 };
 const TILE_LAYERS = MAP_STYLES; // Visszafelé kompatibilitási hivatkozás
 
-// === SZÓTÁR (Hogy ne angolul írja ki) ===
+// === KATEGÓRIA FORDÍTÁSI SZÓTÁR ===
 const TYPE_DICT = {
     'toilets': 'Mosdó', 'toilet': 'Mosdó', 'wc': 'WC', 'restroom': 'Mosdó',
     'steps': 'Lépcső', 'staircase': 'Lépcsőház', 'stairs': 'Lépcső',
@@ -971,10 +970,7 @@ const TYPE_DICT = {
     'shop': 'Bolt'
 };
 
-// === EGYSZERI MIGRÁCIÓ: localStorage épületadatok kitörlése (v39) ===
-// A korábbi verziók a nagy GeoJSON épületfájlokat a localStorage-ban tárolták,
-// ami 5 MB-os limites és szinkron módon blokkolta a UI szálat.
-// Mostantól a Service Worker Cache Storage végzi ezt aszinkron módon.
+// === MIGRÁCIÓ: Korábbi localStorage épületadatok kitakarítása ===
 (function _cleanupLegacyLocalStorageCache() {
     try {
         const prefix = "bmemap_data_";
@@ -1107,7 +1103,6 @@ function isFavorite(feature) {
  * majd frissíti a helyi tárolót, a felhasználói felületet (UI), és újrarendereli az érintett szintet.
  */
 function toggleFavoriteCurrent() {
-    // Biztonsági ellenőrzés: ha nincs aktívan kiválasztott elem, megszakítjuk a folyamatot.
     if (!selectedFeature) return;
     
     const id = selectedFeature.id; 
@@ -1166,7 +1161,6 @@ function getPoiName(key) {
 function updateFavoriteUI() {
     const btn = document.getElementById('btn-favorite');
     
-    // Biztonsági ellenőrzés: ha nincs aktívan kiválasztott elem, megszakítjuk a folyamatot.
     if (!selectedFeature) return;
     
     if (isFavorite(selectedFeature)) {
@@ -1346,14 +1340,14 @@ let activeRouteData = null; // { start: feature/null, end: feature }
 /** A kiszámolt útvonalat alkotó pontok (gráf csomópontok) nyers kulcsainak tömbje. */
 let currentRoutePath = []; 
 
-/** Az aktuális navigáció tényleges, megerősített kiindulópontja (feature objektum). */
+/** Az aktuális navigáció kiindulópontja (feature objektum). */
 let activeNavSource = null;
-/** Az aktuális navigáció tényleges, megerősített célpontja (feature objektum). */
+/** Az aktuális navigáció célpontja (feature objektum). */
 let activeNavTarget = null;
 
 
 
-// --- ÚJ POI RENDSZER GLOBÁLISAI ---
+// --- POI RENDSZER GLOBÁLIS VÁLTOZÓI ---
 let poiMarkersGroup; // Ebben tároljuk majd a térképen lévő aktív ikonokat
 
 let activePoiCategory = null; // Tárolja, hogy épp milyen POI-kat jelenítünk meg a térképen
@@ -1455,7 +1449,7 @@ function focusOnEndpoint(type) {
             switchLevel(levels[0]);
         }
         
-        // 2. Intelligens kameramozgatás: a térkép az elem koordinátáira navigál
+        // 2. Kameramozgatás: a térkép az elem koordinátáira navigál
         smartFlyTo(target);
 
         // 3. Vizuális kiemelés (Highlight) kezelése
@@ -1503,7 +1497,7 @@ let _isBearingSnapping = false;
 });
 
 map.on('rotateend', () => {
-    // Ha ez egy programozott snap befejezése, ne indítsunk újat (rekurzió elkerülése)
+    // Ha folyamatban lévő snap animáció fejeződik be, nem indítunk újat
     if (_isBearingSnapping) { _isBearingSnapping = false; return; }
     
     // Debounce: rövid várakozás, hogy az ujjak elengedésével járó mikro-forgatások lecsengjenek
@@ -1552,8 +1546,7 @@ map.on('zoomend', function() {
 });
 
 /**
- * Dinamikusan frissíti a térkép DOM elemeinek CSS változóit a jelenlegi 
- * nagyítási szint (zoom) alapján. Sima, képkockasebességű (60fps) átmenetet biztosít.
+ * Frissíti a térkép DOM elemeinek CSS változóit az aktuális nagyítási szint (zoom) alapján.
  */
 function updateDynamicVisibility() {
     const zoom = map.getZoom();
@@ -1885,7 +1878,7 @@ function _initMapEventListeners() {
                 window.clickTimeout = null;
             }
 
-            // Azonnali, zökkenőmentes megnyitás 200ms felesleges késleltetés nélkül
+            // Panel megnyitása
             openSheet(featToOpen);
         });
     });
@@ -1945,7 +1938,7 @@ function _applyThemeToMapLayers() {
         }
     }
 
-    // OpenFreeMap egyirányú utcanyilak elrejtése (a hibás 90 fokos elfordulás és a letisztultabb gyalogos megjelenés érdekében)
+    // OpenFreeMap egyirányú utcanyilak elrejtése
     if (map.getLayer('road_oneway')) {
         map.setLayoutProperty('road_oneway', 'visibility', 'none');
     }
@@ -2287,7 +2280,6 @@ function openThemeEditor() {
     viewMain.style.display = 'none';
     viewEditor.style.display = 'flex'; 
     
-    // Biztonsági ellenőrzés: ha a modális ablak rejtett állapotban volt, megjelenítjük
     if (!modal.classList.contains('visible')) {
         modal.classList.add('visible');
     }
@@ -2500,7 +2492,7 @@ function copyThemeCode() {
     output += changes.join(',\n');
     output += `\n}`;
 
-    // 3. A generált kód vágólapra másolása és hibakezelése fallback megoldással
+    // 3. Kód vágólapra másolása
     navigator.clipboard.writeText(output).then(() => {
         alert(typeof t === 'function' ? t('alerts.theme_copied') : "Téma kód (csak a változtatások) másolva! 📋");
     }).catch(err => {
@@ -2534,14 +2526,10 @@ function resetThemeOverrides() {
 }
 
 /**
- * Intelligens fókusz és zoom funkció a témaszerkesztőhöz.
- * A kiválasztott stílusváltozó (CSS változó) neve alapján megkeresi a térképen 
- * a hozzá leginkább illő térképelemet (például egy mosdót, ha a mosdó színét szerkesztjük),
- * majd a kamerát arra a pontra irányítja az élő előnézet (live preview) biztosítása érdekében.
- * * @param {string} varName - A módosított téma-változó neve (pl. '--color-toilet' vagy '--color-room').
+ * Kameramozgatás és zoom a témaszerkesztőhöz a kiválasztott stílusváltozó alapján.
+ * @param {string} varName - A szerkesztett CSS változó neve.
  */
 function focusOnElement(varName) {
-    // Biztonsági ellenőrzés: ha nincsenek betöltve térképadatok, megszakítjuk a futást
     if (!geoJsonData || !geoJsonData.features) return;
 
     // 1. A szűrőfüggvény meghatározása a változónév alapján
@@ -2607,7 +2595,7 @@ function focusOnElement(varName) {
 
     // Ha sikeresen találtunk egy megfelelő referenciapontot
     if (target) {
-        // 3. Intelligens kameramozgatás: a térképet úgy pozicionálja, 
+        // 3. Kameramozgatás: a térkép pozicionálása 
         // hogy a kiválasztott elem látható legyen, és a szerkesztőablak ne takarja ki
         smartFlyTo(target);
 
@@ -3012,7 +3000,7 @@ function getLevelsFromFeature(feature) {
             const min = parseInt(rangeMatch[1]);
             const max = parseInt(rangeMatch[2]);
             
-            // Biztonsági korlát: Csak akkor fogadjuk el, ha valid számok, és a távolságuk nem irreális (max 30 emelet).
+            // Érvényes számok ellenőrzése és maximális emeletkülönbség korlátozása (max 30)
             // Ezzel elkerülhető a hibás adatokból (pl. dátumok beírása) származó végtelen ciklus vagy hibás generálás.
             if (!isNaN(min) && !isNaN(max) && Math.abs(max - min) < 30) {
                 // Iteráció a minimum és maximum érték között, beleértve a határokat is
@@ -3021,7 +3009,7 @@ function getLevelsFromFeature(feature) {
                 }
             }
         } else {
-            // 2. EGYSZERŰ ÉRTÉK DETEKTÁLÁS (Szigorúan csak egész számok)
+            // 2. Egész számú szint detektálás
             const num = Number(part);
             
             // Ez a feltétel kiszűri a tört számokat (pl. "-0.5") és a nem numerikus, szöveges szemetet
@@ -3111,7 +3099,7 @@ function getFeatureWeight(f) {
     // 2. SZINT: Folyosók. Biztosítja, hogy az ezekből nyíló szobák vizuálisan kiemelkedjenek.
     if (p.indoor === 'corridor' || p.highway === 'corridor') return 2;
     
-    // 4. SZINT (Legfelül): Ajtók és bejáratok. Garantálja, hogy ezek az apróbb elemek
+    // 4. SZINT (Legfelül): Ajtók és bejáratok
     // mindig jól láthatóak és interakcióba léphetők maradjanak.
     if (p.entrance || p.door) return 4;
 
@@ -3120,20 +3108,15 @@ function getFeatureWeight(f) {
 }
 
 /**
- * Feldolgozza a betöltött OpenStreetMap (OSM) adatokat és inicializálja a térképi modellt.
- * Intelligens adatkonverziót végez: ha az adat már kész GeoJSON formátumú, közvetlenül felhasználja,
- * ha nyers OSM formátumú, elvégzi a szükséges konverziót. Emellett sorba rendezi a rétegeket,
- * felépíti a logikai gráfot, megőrzi az aktuális szinti nézetet, majd frissíti a felhasználói felületet.
- * @param {Object} osmData - A letöltött térképadat (nyers OSM JSON vagy GeoJSON FeatureCollection).
- * @param {boolean} [isUpdate=false] - Jelzi, hogy a folyamat egy meglévő térkép frissítése-e 
- * (ha igaz, elkerüli a kamera zavaró, automatikus középre igazítását).
+ * Feldolgozza a GeoJSON adatokat és beállítja a térkép szintjeit és rétegeit.
+ * @param {Object} geojsonData - Az épület GeoJSON adathalmaza.
  */
 function processOsmData(osmData, isUpdate = false) {
     // 1. Aktuális állapot (szint/emelet) mentése a vizuális ugrálások elkerülése végett (B-010 Fix)
     const savedLevel = currentLevel;
 
 
-    // Intelligens adatkonverzió vizsgálata
+    // Szintadatok feldolgozása
     if (osmData && osmData.type === 'FeatureCollection') {
         // Statikus, előkészített GeoJSON fájl (pl. GitHub Actions által generálva) feldolgozása
         geoJsonData = osmData;
@@ -3282,11 +3265,8 @@ function collectDoors() {
 }
 
 /**
- * Kirajzolja a szobákhoz és helyiségekhez tartozó szöveges címkéket (feliratokat) a térképre.
- * A funkció teljesítményoptimalizálási és vizuális okokból csak megfelelő nagyítási szint (zoom) 
- * felett fut le, kiszűri a technikai helyiségeket, és garantálja, hogy a felirat 
- * a szoba geometriájának belsejébe kerüljön.
- * @param {string} level - Az aktuálisan megjelenített szint (emelet) azonosítója.
+ * Kirajzolja a helyiségek szöveges feliratait a térképre.
+ * @param {string} level - Az aktuálisan megjelenített szint azonosítója.
  */
 function _drawRoomIcons(level) {
     _clearRoomIconMarkers();
@@ -3447,7 +3427,7 @@ function triggerBlueprintAnimation() {
     if (!mapContainer) return;
     
     mapContainer.classList.remove('blueprint-animating');
-    void mapContainer.offsetWidth; // Reflow kikényszerítése
+    void mapContainer.offsetWidth; 
     mapContainer.classList.add('blueprint-animating');
 }
 
@@ -3514,19 +3494,9 @@ function _drawFavoriteIcons(level) {
 }
 
 /**
- * Agresszív szobakereső algoritmus külső adatbázis illesztéshez.
- * Célja, hogy egy OpenStreetMap-ből származó név (name) vagy referencia (ref) alapján
- * megtalálja a legmegfelelőbb egyezést a külső szoba-adatbázisban (ROOM_DATABASE),
- * leküzdve a formátumbeli eltéréseket, elírásokat, vagy a hiányzó épület/szárny azonosítókat.
- * Szigorított szobakereső algoritmus külső adatbázis illesztéshez.
- * Célja, hogy egy OpenStreetMap-ből származó név vagy referencia alapján
- * megtalálja a pontos egyezést, de kizárja a fals pozitívokat (pl. K150 ne találja meg a K2150-et,
- * vagy az I épületes B007 ne találja meg az E007-et).
- * @param {string} osmName - Az OSM-ből származó 'name' tag értéke.
- * @param {string} osmRef - Az OSM-ből származó 'ref' tag értéke.
- * @param {string} osmLevel - Az OSM-ből származó szint adat (lehet többértékű is, pontosvesszővel elválasztva).
- * @param {string} buildingKey - Az aktuális épület azonosítója (pl. 'K', 'Q').
- * @returns {Object|null} A megtalált adatbázis rekord, vagy null, ha nincs találat.
+ * Szobakereső algoritmus külső adatbázis illesztéséhez.
+ * @param {Object} feature - A térképi elem.
+ * @returns {Object|null} A szoba adatbázis bejegyzése vagy null.
  */
 function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
     if (!osmName && !osmRef && !osmAltName) return null;
@@ -3597,7 +3567,6 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
     }
     
     // --- 2. KÖR: SZIGORÚ RÉSZLEGES EGYEZÉS (Fuzzy) ---
-    // Megszünteti a veszélyes includes(cand) logikát, ami miatt k37 megtalálta a k371-et, vagy k1 a k134-et.
     for (const cand of candidates) {
         if (cand.length < 2) continue; 
         
@@ -3991,11 +3960,7 @@ function setupGalleryCarousel(imageCount) {
 
 /**
  * Megnyitja az alsó információs panelt (Bottom Sheet) a kiválasztott térképelemhez.
- * Ez a funkció felelős az elem adatainak (név, típus, szint, férőhely, képek) 
- * megjelenítéséért, a külső adatbázissal való szinkronizációért, valamint
- * az intelligens magasságállítós panelvezérlésért. Továbbá kezeli az útvonaltervezésből 
- * való kilépést új elem kiválasztása esetén.
- * @param {Object} feature - A felhasználó által kiválasztott GeoJSON térképelem.
+ * @param {Object} feature - A megjelenítendő GeoJSON feature.
  */
 function openSheet(feature) {
     // DOM elrendezés szinkronizálása a kijelzőméretnek megfelelően
@@ -4018,7 +3983,7 @@ function openSheet(feature) {
         const isEnd = activeNavTarget && activeNavTarget.id === feature.id;
 
         // Ha a felhasználó egy teljesen új (harmadik) helyre kattint, megszakítjuk az aktív navigációt,
-        // de NEM csukjuk be a panelt (nem hívunk closeSheet-et), így az zökkenőmentesen vált át az új teremre!
+        // A panel nyitva tartása a kijelölés váltásakor
         if (!isStart && !isEnd) {
             clearRouteDataOnly(); 
         }
@@ -4071,7 +4036,7 @@ function openSheet(feature) {
         displayName = p.name || p.ref;
     }
 
-    // Intelligens névszűrés: Ha nincs neve, vagy a neve csak egy hosszú OSM azonosító szám
+    // Névszűrés: azonosító vagy hiányzó név kezelése
     if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
         let matchedPoiName = null;
         // Megvizsgáljuk, hogy az elem illeszkedik-e valamelyik POI konfigurációra
@@ -4105,7 +4070,7 @@ function openSheet(feature) {
     // --- DOM (HTML) ELEMEK FRISSÍTÉSE ---
     document.getElementById('sheet-title').innerText = displayName;
     
-    // Alcím logika: Intelligens információ-megjelenítés OSM specifikus tagekkel
+    // Alcím generálása OSM tagek alapján
     let extraInfo = "";
     if (p.amenity === 'vending_machine' && p.vending) {
         // Szótár a fordításhoz
@@ -4121,7 +4086,7 @@ function openSheet(feature) {
             }
             return vDict[raw] || raw;
         });
-        // Összefűzzük őket egy szép, vesszővel elválasztott listává
+        // Elemek összefűzése vesszővel elválasztott listává
         extraInfo = translated.join(', ');
     } else if (p.operator) {
         // Operátor megjelenítése (pl. ATM esetében a bank neve)
@@ -4140,7 +4105,7 @@ function openSheet(feature) {
     // --- 4. KÜLSŐ ADATBÁZIS (ROOM_DATABASE) LEKÉRDEZÉSE ---
     // Kinyerjük a legelső szintet a kereséshez
     const rawLevel = getLevelsFromFeature(feature)[0] || "0";
-    // Agresszív (Wingman támogatott) keresés indítása a részletesebb metaadatokért
+    // Szobakeresés futtatása a részletesebb metaadatokért
     const roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey, p.alt_name);
     
     const dataContainer = document.getElementById('room-data-container');
@@ -4158,7 +4123,7 @@ function openSheet(feature) {
     if (p.website || p['contact:website']) {
         const url = p.website || p['contact:website'];
         webLink.href = url.startsWith('http') ? url : 'https://' + url;
-        webLink.innerText = url.replace('https://', '').replace('http://', '').split('/')[0]; // Csak a domaint írjuk ki szépen
+        webLink.innerText = url.replace('https://', '').replace('http://', '').split('/')[0]; // Domain név kiírása
         webRow.style.display = 'flex';
         hasPoiData = true;
     } else {
@@ -4192,7 +4157,7 @@ function openSheet(feature) {
                 }
                 formattedHours = formattedHours.replace(new RegExp(dayKey, 'g'), transDay);
             }
-            // Sortörések berakása a pontosvesszőknél a szép listáért
+            // Sortörések beillesztése a pontosvesszőknél
             formattedHours = formattedHours.split(';').map(s => s.trim()).join('<br>');
 
             // EGYSZERŰ NYITVA TARTÁS ELLENŐRZŐ (Hétköznapi formátumokra)
@@ -4320,7 +4285,7 @@ function openSheet(feature) {
         }
     }
 
-    // --- 5. INTELLIGENS MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
+    // --- 5. MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
     // Azonnal kiszámítjuk a végleges célmagasságot a betöltött tartalom alapján (késleltetés nélkül)
     const autoH = getAutoHeight();
     const targetHeight = (roomData || hasPoiData) ? autoH : (getPeekHeight() + 20);
@@ -4329,7 +4294,7 @@ function openSheet(feature) {
     const sheet = document.getElementById('bottom-sheet');
     const wasAlreadyOpen = sheet && sheet.classList.contains('open');
 
-    // Ha a panel már nyitva van, finom magasság-animációt és elegáns tartalomváltást alkalmazunk
+    // Nyitott panel esetén magasság- és tartalomváltó átmenet indítása
     if (wasAlreadyOpen) {
         sheet.style.transition = 'height 0.35s cubic-bezier(0.2, 0, 0, 1)';
         const scrollContent = document.getElementById('sheet-scroll-content');
@@ -4363,7 +4328,7 @@ function openSheet(feature) {
     // A kiválasztott elem vizuális kiemelése (sárga keret) a térképen
     drawSelectedHighlight(feature);
     
-    // A kamera intelligens mozgatása a végleges célmagasság (targetHeight) ismeretében
+    // Kamera mozgatása a célmagasság (targetHeight) alapján
     smartFlyTo(feature, targetHeight);
 }
 
@@ -4399,7 +4364,7 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         let name = "";
         let isPoi = false;
 
-        // Okos Név + Ref kombináció az itinerben is
+        // Név és ref kombinálása az itinerben
         if (p.name && p.ref) {
             const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
             const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
@@ -4444,7 +4409,6 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
 
     // A cél- és kiindulópont megjelenítési nevének meghatározása
     const targetName = formatName(targetFeature);
-    // Biztonsági ellenőrzés a kiindulópontra (null check)
     const sourceName = sourceFeature ? formatName(sourceFeature) : (typeof t === 'function' ? (t('nav.selected_point') || "Kijelölt pont") : "Kijelölt pont");
 
     // --- 2. FEJLÉC (Header) TARTALMÁNAK FRISSÍTÉSE ---
@@ -4534,7 +4498,7 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
     const gallery = document.getElementById('room-gallery');
     if (gallery) gallery.style.display = 'none';
 
-    // A lábléc (footer) elrejtése a letisztult navigációs nézet érdekében
+    // Lábléc (footer) elrejtése navigációs nézetben
     const footer = document.querySelector('.sheet-footer');
     if (footer) footer.style.display = 'none';
     
@@ -4544,12 +4508,8 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
 }
 
 /**
- * Intelligens kameramozgatás és fókuszálás egy adott útvonalszakaszra navigáció közben.
- * Átvált a megfelelő szintre, összegyűjti az oda tartozó útvonalpontokat, majd 
- * kiszámítja azok befoglaló téglalapját (bounds). A térkép nézetét dinamikus 
- * margókkal (padding) állítja be, garantálva, hogy a lebegő felhasználói felületi 
- * elemek (például a felső keresősáv vagy az alsó információs panel) ne takarják ki a szakaszt.
- * @param {string} level - A megtekinteni kívánt szint (emelet) azonosítója.
+ * Kameramozgatás és fókuszálás az adott útvonalszakaszra navigáció közben.
+ * @param {number} segmentIndex - A fókuszálandó útvonalszakasz indexe.
  */
 function focusOnRouteSegment(level) {
     if (!currentRoutePath || currentRoutePath.length === 0) return;
@@ -4914,13 +4874,8 @@ function handleSearchKeyDown(e) {
 }
 
 /**
- * Központi eseménykezelő a felhasználói keresések feldolgozására.
- * Két fő funkciót lát el:
- * 1. Enter billentyű leütése: Azonnali fókuszálás a legjobb találatra, kategória kiemelés,
- * vagy intelligens javaslat a megfelelő épületre való átváltásra.
- * 2. Gépelés (Autocomplete): Valós idejű javaslatok listázása a beírt karakterek alapján,
- * beleértve a helyi térképelemeket és a más épületekre vonatkozó figyelmeztetéseket.
- * @param {KeyboardEvent|InputEvent} e - A keresőmező (input) által kiváltott DOM esemény.
+ * Eseménykezelő a felhasználói keresések feldolgozására.
+ * Kezeli az Enter billentyűt és az élő keresési szűrést.
  */
 let _searchDebounceTimer = null;
 
@@ -5203,7 +5158,7 @@ function handleRightAction(e) {
     if (input.value.length > 0) {
         // --- TÖRLÉS MÓD ---
         
-        // Az alapértelmezett viselkedés megakadályozása garantálja, hogy a gomb
+        // Alapértelmezett böngésző-esemény megakadályozása
         // ne vegye el a fókuszt az input mezőtől. Így a billentyűzet nyitva marad.
         e.preventDefault(); 
         
@@ -5274,9 +5229,8 @@ function getPoiPositions(typeKey) {
 }
 
 /**
- * A POI keresés fő belépési pontja. Megvizsgálja, hogy van-e találat az aktuális 
- * emeleten. Ha nincs, intelligensen átvált arra az emeletre, ahol a legközelebbi található.
- * @param {string} typeKey - A POI kategória kulcsa (pl. 'coffee')
+ * POI keresés indítása az aktuális vagy a többi szinten.
+ * @param {string} typeKey - A keresett POI kategória kulcsa.
  */
 function showPoiCategory(typeKey) {
     activePoiCategory = typeKey; // Eltároljuk az aktív keresési állapotot
@@ -5356,9 +5310,8 @@ function showPoiCategory(typeKey) {
 }
 
 /**
- * Kirajzolja a térképre az aktív kategóriába tartozó POI markereket,
- * de Szigorúan csak azokat, amelyek a megadott szinten találhatóak.
- * @param {string} level - Az aktuálisan megjelenített szint
+ * Kirajzolja a térképre az aktív kategóriába és adott szinthez tartozó POI markereket.
+ * @param {string} typeKey - A POI kategória azonosítója.
  */
 function renderActivePoiCategory(level) {
     if (!activePoiCategory) return;
@@ -5384,9 +5337,8 @@ function renderActivePoiCategory(level) {
 }
 
 /**
- * Létrehozza a térképi markert a HTML/CSS formázással,
- * ráakasztja a kattintás eseményeket és bedobja a térképre.
- * @param {Object} poi - A getPoiPositions által visszaadott objektum (coords, feature, config)
+ * Létrehozza a térképi markert és regisztrálja a kattintás eseményt.
+ * @param {Object} poiItem - A megjelenítendő POI elem adatai.
  */
 function renderPoiMarker(poi) {
     const { coords, feature, config } = poi;
@@ -5788,7 +5740,6 @@ function connectVerticalShaftToCorridor(shaftFeature, levels, lat, lon, boarding
  * Hiba vagy találat hiánya esetén üres tömbbel tér vissza.
  */
 function getDoorsForRoom(roomFeature) {
-    // Biztonsági ellenőrzés: ha az elem érvénytelen, vagy pont típusú (tehát nem szoba alapterület), megszakítjuk a futást
     if (!roomFeature || roomFeature.geometry.type === 'Point') return [];
     
     // A szoba geometriájának (poligon) és szintadatainak inicializálása a Turf.js segítségével
@@ -6066,8 +6017,9 @@ function resetNearbyMenu() {
 }
 
 /**
- * Univerzális kereső algoritmus: Megkeresi a legközelebbi adott típusú POI-t.
- * @param {string} typeKey - A keresett POI típusa (pl. 'toilet', 'coffee')
+ * Megkeresi a legközelebbi adott típusú POI-t a megadott pozícióhoz.
+ * @param {string} typeKey - A POI típusa.
+ * @param {string} fromKey - A kiinduló csomópont kulcsa.
  */
 function findNearestPOI(typeKey) {
     if (!selectedFeature) { 
@@ -6167,7 +6119,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     if (fromFeature) {
         // A) PREFERÁLT SZINT KIVÁLASZTÁSA (Start)
         const fLevels = getLevelsFromFeature(fromFeature);
-        // Intelligens szintválasztás: Ha az elem elérhető az aktuális térképnézeten,
+        // Szintválasztás: ha az elem az aktuális szinten van, nem váltunk emeletet
         // azt a szintet kényszerítjük. Egyéb esetben az elem első elérhető szintjét használjuk.
         const preferredStartLevel = fLevels.includes(currentLevel) ? currentLevel : fLevels[0];
 
@@ -6210,7 +6162,6 @@ function startNavigation(targetFeature = null, fromFeature = null) {
         }
     }
 
-    // Biztonsági megszakítás, ha egyáltalán nem sikerült kezdőpontot generálni
     if (startNodes.length === 0) { 
         alert(typeof t === 'function' ? t('alerts.no_start_point') : "Nem található start útvonalpont!"); 
         return; 
@@ -6247,7 +6198,7 @@ function startNavigation(targetFeature = null, fromFeature = null) {
         });
     }
     
-    // Fallback megoldások, ha nem sikerült ajtót találni a célponthoz
+    // Alternatív célpont-meghatározás ajtó hiányában
     if (endNodes.length === 0) {
         let tLat, tLon;
         
@@ -6272,7 +6223,6 @@ function startNavigation(targetFeature = null, fromFeature = null) {
         }
     }
 
-    // Biztonsági megszakítás, ha nem sikerült érvényes célpontot generálni
     if (endNodes.length === 0) { 
         alert(typeof t === 'function' ? t('alerts.no_target_point') : "Nem található cél útvonalpont!"); 
         return; 
@@ -6471,17 +6421,12 @@ function calculateRouteStats(pathKeys) {
 }
 
 /**
- * Generál egy lépésről lépésre követhető útvonaltervet (itinert) a navigációs útvonal alapján.
- * Célja, hogy emberi fogyasztásra alkalmas formában jelenítse meg a szintváltásokat,
- * intelligensen felismerve, hogy az adott váltás lifttel vagy lépcsővel történik-e,
- * és a folyamatos váltásokat (pl. fel a lépcsőn a földszintről a 2. emeletre) 
- * egyetlen logikai lépéssé vonja össze.
- * * @param {Array<string>} pathKeys - Az útvonalat alkotó csomópontok azonosítóinak (kulcsainak) tömbje.
- * @returns {Array<Object>} Az itiner lépéseit tartalmazó objektumok tömbje.
+ * Útvonaltervet (itinert) generál a kiszámított navigációs útvonal alapján.
+ * @param {Array<string>} pathKeys - Az útvonal csomópontjainak kulcsai.
+ * @returns {Array<Object>} Az itiner lépéseinek tömbje.
  */
 function generateItinerary(pathKeys) {
     const steps = [];
-    // Biztonsági ellenőrzés: üres útvonal esetén üres tömböt adunk vissza
     if (!pathKeys || pathKeys.length === 0) return steps;
 
     // Az indulási szint inicializálása az első csomópont adatai alapján
@@ -6585,7 +6530,7 @@ function generateItinerary(pathKeys) {
                 icon = 'stairs'; 
             }
 
-            // --- INTELLIGENS ÖSSZEVONÁS (Smart Aggregation) ---
+            // --- SZAKASZOK ÖSSZEVONÁSA ---
             // Ha a felhasználó folyamatosan több szintet megy fel/le ugyanazon a lépcsőn/liften,
             // ezeket nem külön lépésekként ("Fel az 1-re", "Fel a 2-re"), hanem egyetlen végső
             // instrukcióként jelenítjük meg ("Fel a 2. szintre").
@@ -6644,8 +6589,7 @@ function generateItinerary(pathKeys) {
  * @throws {Error} Hibát dob, ha az iterációk száma meghaladja a biztonsági korlátot.
  */
 /**
- * Hatékony bináris Min-Heap prioritási sor az útvonalkereséshez.
- * O(log N) beszúrást és kivételt biztosít a lassú Array.prototype.sort() helyett.
+ * Prioritási sor (Min-Heap) az útvonalkereséshez.
  */
 class MinHeap {
     constructor() {
@@ -6809,17 +6753,12 @@ function runDijkstra(startKey, endKey) {
 // === ÚTVONAL ELEMZŐ (Lépcső/Lift Ikonokhoz) ===
 
 /**
- * Elemzi a navigációs útvonalat, és azonosítja azokat a pontokat (markereket),
- * ahol szintváltás történik. Intelligensen meghatározza, hogy a szintváltás
- * lifttel vagy lépcsővel valósul-e meg, és a folyamatos (többemeletes) 
- * haladást egyetlen vizuális markerbe vonja össze.
- *
- * @param {Array<Object>} path - Az útvonal csomópontjait tartalmazó tömb (minden elem: {lat, lon, level}).
- * @returns {Array<Object>} A térképi markerek adatait tartalmazó tömb (koordináta, típus, célszint, ikon).
+ * Azonosítja az útvonal szintváltási pontjait (lépcső, lift).
+ * @param {Array<string>} pathKeys - Az útvonal csomópontjainak kulcsai.
+ * @returns {Array<Object>} A szintváltó markerek tömbje.
  */
 function getVerticalMarkers(path) {
     const markers = [];
-    // Biztonsági ellenőrzés: ha az útvonal hiányzik, vagy túl rövid a szintváltáshoz
     if (!path || path.length < 2) return markers;
 
     /**
@@ -6837,7 +6776,7 @@ function getVerticalMarkers(path) {
         // az ennél nagyobb elmozdulás jellemzően a lépcső geometriájából adódik.
         let type = (hDist < 2.0) ? 'elevator' : 'stairs';
 
-        // 2. STRATÉGIA: Adatbázis/GeoJSON alapú megerősítés és pontosítás
+        // 2. STRATÉGIA: GeoJSON adatok alapján történő típusmeghatározás
         // Ellenőrizzük a térképadatokat a pont környezetében
         if (typeof geoJsonData !== 'undefined' && geoJsonData.features) {
             const pt = turf.point([pStart.lon, pStart.lat]);
@@ -6971,7 +6910,7 @@ function getVerticalMarkers(path) {
  */
 function drawDirectionArrows(pathKeys) {
     _clearArrowMarkers();
-    // A nyilakat most már natív MapLibre 'symbol' réteg (route-arrows) kezeli!
+    // Irányjelző nyilak MapLibre 'symbol' rétegen (route-arrows)
 }
 
 /**
@@ -7119,7 +7058,7 @@ function drawRoute(pathKeys, sourceFeature = null, targetFeature = null) {
 
     drawDirectionArrows(pathKeys);
 
-    // 4. Intelligens fitBounds a teljes útvonal és a kezdő/érkezési objektumok kiterjedésére
+    // 4. fitBounds a teljes útvonal befoglalására
     const validPoints = boundsPoints.filter(p => Array.isArray(p) && p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]));
     if (validPoints.length > 0) {
         const lons = validPoints.map(p => p[0]);
@@ -7253,7 +7192,6 @@ function processLevels() {
     // A globális alias szótár ürítése az újratöltés előtt
     levelAliases = {}; 
     
-    // Biztonsági ellenőrzés a térképadatok meglétére
     if (!geoJsonData) return;
     
     geoJsonData.features.forEach(feature => { 
@@ -7389,7 +7327,7 @@ function switchLevel(level) {
     // A szintváltás tényének és paramétereinek naplózása hibakeresési célból
 }
 
-// === INTELLIGENS KAMERAMOZGATÁS (ADAPTÍV ZOOM ÉS OFFSET LOGIKA) ===
+// === KAMERAMOZGATÁS (ADAPTÍV ZOOM ÉS OFFSET) ===
 
 // Debounce állapot a redundáns, egymás után közvetlenül lefutó repülések kiszűrésére
 let _lastFlyToTime = 0;
@@ -7432,26 +7370,8 @@ function getSheetTargetHeight(explicitHeight) {
 }
 
 /**
- * Pozícionálja a térkép kameráját a megadott térképelemre (feature),
- * intelligens, adaptív zoom-méretezéssel és UI-kitakarás kompenzációval.
- *
- * Működési elv:
- * 1. Bounding box (kiterjedés) alapú számítás:
- *    - Poligon esetén a terem fizikai befoglaló mérete (turf.bbox) alapján számítja ki
- *      az optimális zoomot a MapLibre cameraForBounds függvényével.
- *    - Pont (POI, lift, automata) esetén a kényelmes, áttekinthető maximális zoomot használja.
- * 2. UI kitakarások precíz kezelése:
- *    - Alul: Pontosan figyelembe veszi az alsó lap (#bottom-sheet) célzott végleges magasságát
- *      (nem az éppen animálódó köztes magasságot!).
- *    - Felül: Figyelembe veszi a keresősávot (#top-bar), mobilon a kétsoros elrendezést.
- *    - Jobbra: Figyelembe veszi a jobb oldali szintválasztót (.level-control).
- *    - Kontextus margó: +25-40px extra térköz a terem körül, hogy a folyosó és szomszédos termek is látsszanak.
- * 3. Kényelmes zoom határok:
- *    - Plafon: 19.35 (a korábbi merev 20 helyett, amely túlságosan ránagyított és elvette a kontextust).
- *    - Nagy előadók/csarnokok esetén automatikusan tágabb zoom (pl. 18.7 - 18.9), hogy az egész terem beleférjen.
- *
- * @param {Object} feature - A fókuszba helyezendő GeoJSON térképelem.
- * @param {number} [explicitBottomHeight] - Opcionális előre ismert alsó panel célmagasság.
+ * A térkép kameráját a megadott térképelemre mozgatja adaptív zoom-méretezéssel.
+ * @param {Object} feature - A cél térképi elem.
  */
 function smartFlyTo(feature, explicitBottomHeight) {
     if (!feature || !feature.geometry) return;
@@ -7467,7 +7387,7 @@ function smartFlyTo(feature, explicitBottomHeight) {
         lat = c.geometry.coordinates[1];
     }
 
-    // 2. Debounce védelem: azonos helyre 250ms-on belüli redundáns hívások elkerülése
+    // 2. Időzített híváskorlátozás (debounce) azonos koordináták esetén
     const now = Date.now();
     if (_lastFlyToCoords && (now - _lastFlyToTime < 250)) {
         const dLon = Math.abs(_lastFlyToCoords[0] - lon);
@@ -7531,7 +7451,7 @@ function smartFlyTo(feature, explicitBottomHeight) {
             finalBottomHeight = getSheetTargetHeight(explicitBottomHeight);
         }
 
-        // Biztonsági korlát: a képernyőmagasság max. 50%-át tekintjük kitakartnak
+        // Kitakart terület maximális korlátja a képernyőmagasság 50%-ában
         const maxAllowedBottom = window.innerHeight * 0.5;
         finalBottomHeight = Math.min(Math.max(160, finalBottomHeight), maxAllowedBottom);
         bottomPad = finalBottomHeight + 20;
@@ -7857,7 +7777,7 @@ function _onSheetDragMove(clientY, event) {
     const snaps = _getSnapPoints();
     const newHeight = _dragStartHeight + deltaY;
     
-    // Lágy határok: alulról peek * 0.75, felülről a képernyő teteje (RAF frissítéssel a 60/120 fps élményért)
+    // Húzási határok: alulról peek * 0.75, felülről a képernyő teteje
     if (newHeight >= snaps.peek * 0.75 && newHeight <= snaps.full) {
         _pendingSheetHeight = newHeight;
         if (!_sheetRafId) {
@@ -7908,7 +7828,7 @@ function _onSheetDragEnd() {
         }
     } else {
         // 2. Távolság / Pozíció alapú felezőpontos snap zónák:
-        // Garantálja, hogy MINDEN pozícióból a megfelelő snap pontra ugrik,
+        // A legközelebbi snap magassági pozíció beállítása
         // soha semmilyen körülmények között nem maradhat a kettő között!
         const midPeekAuto = (snaps.peek + snaps.auto) / 2;
         const midAutoFull = (snaps.auto + snaps.full) / 2;
@@ -8128,7 +8048,7 @@ function showToast(message) {
     const t = document.getElementById('toast-notification');
     if (!t) return;
 
-    // FIX: Ha a toast véletlenül a Bottom Sheet-ben van, áthelyezzük a body-ba,
+    // Toast elem áthelyezése a body-ba a helyes pozicionáláshoz
     // hogy zárt sheet esetén is mindig a képernyőn (látható) maradjon!
     if (t.parentNode.id === 'bottom-sheet') {
         document.body.appendChild(t);
@@ -8142,12 +8062,12 @@ function showToast(message) {
     // A láthatóságot vezérlő CSS osztály hozzáadása
     t.classList.add('visible');
     
-    // FIX: Ha már fut egy eltüntető időzítő, töröljük, hogy a friss üzenet biztosan kint maradjon 3 másodpercig
+    // Korábbi időzítő törlése új értesítéskor
     if (window.toastTimeout) {
         clearTimeout(window.toastTimeout);
     }
     
-    // Az értesítés automatikus elrejtése 3000 ezredmásodperc (3 másodperc) eltelte után
+    // Értesítés elrejtése 3 másodperc után
     window.toastTimeout = setTimeout(() => {
         t.classList.remove('visible');
     }, 3000);
@@ -8290,19 +8210,19 @@ async function processUrlParams() {
             if (!desc) return null;
             
             // A) ID ALAPÚ KERESÉS (Legmagasabb prioritás)
-            // Közvetlen egyezés vizsgálata az OSM azonosító alapján, amely garantálja a pontosságot.
+            // Egyezés vizsgálata az OSM azonosító alapján
             if (desc.type === 'id') {
                 return geoJsonData.features.find(f => f.id === desc.val);
             }
 
-            // B) KOORDINÁTA ALAPÚ KERESÉS (Fenntartott hely későbbi implementációnak)
+            // B) KOORDINÁTA ALAPÚ KERESÉS
             if (desc.type === 'coord') {
                 // Megjegyzés: Jelenleg nincs implementálva (pl. turf.nearestPoint használható lenne), 
                 // mivel az elsődleges ID alapú azonosítás lefedi a használati esetek többségét.
                 return null; 
             }
             
-            // C) NÉV VAGY REFERENCIA ALAPÚ KERESÉS (Okos szűrés)
+            // C) NÉV VAGY REFERENCIA ALAPÚ KERESÉS
             // A smartFilter algoritmus használata a találatok listázására
             const hits = smartFilter(desc.val);
             if (hits.length > 0 && desc.lvl) {
@@ -9363,7 +9283,7 @@ function _onViewerTouchEnd(e) {
                 // Koppintás a háttérre -> bezárás
                 closeImageViewer();
             } else {
-                // Nem érte el a swipe küszöböt, finoman visszaugrik 0-ra
+                // Küszöbérték alatt visszatérés az alaphelyzetbe
                 _resetViewerTransform(true);
             }
         }

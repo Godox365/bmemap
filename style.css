@@ -69,7 +69,7 @@
             --color-warning-text: #ffeb3b; 
         }
 
-        /* --- (Rejtett, de a robotok látják) --- */
+        /* Vizuálisan rejtett akadálymentes/SEO tartalom */
         .sr-only {
             position: absolute;
             width: 1px;
@@ -84,9 +84,7 @@
 
         /* --- LIGHT MODE --- */
         body.light-mode {
-            /* FONTOS: INNEN MINDEN VÁLTOZÓT TÖRÖLTÜNK! */
-            /* A színeket mostantól kizárólag a JS (applyTheme / THEME_VARS) kezeli. */
-            /* Így a Color Picker azonnal hatással lesz rájuk. */
+            /* A témák színeit a JS (applyTheme / THEME_VARS) vezérli. */
         }
         
         /* Címek színe (Fix) */
@@ -148,7 +146,7 @@
             color: var(--text-main);    /* Változó használata */
             overflow: hidden; 
             font-family: 'Roboto', sans-serif;
-            /* MOBIL FIX: dvh (dynamic viewport height) használata 100vh fallbackkel */
+            /* dvh (dynamic viewport height) használata 100vh fallbackkel */
             height: 100vh;
             height: 100dvh; 
             width: 100vw;
@@ -176,14 +174,13 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
             display: flex; flex-direction: column; gap: 6px; 
             
-            /* SCROLL FIX */
             max-height: 50vh; 
             overflow-y: auto;
             scrollbar-width: none;
             touch-action: pan-y; 
             pointer-events: auto; 
         }
-        /* MAPLIBRE MARKER POINTER EVENTS FIX */
+        /* MapLibre marker pointer-events kezelése */
         .maplibregl-marker {
             pointer-events: none;
         }
@@ -202,14 +199,13 @@
 
         /* ATTRIBUTION POZICIONÁLÁS */
         .maplibregl-ctrl-attrib {
-            /* Vissza az alapokhoz, csak pici margó */
             margin-right: 5px !important;
             margin-bottom: 5px !important; 
             background: rgba(0,0,0,0.6) !important; /* Kicsit sötétebb háttér a olvashatóságért */
             color: #999 !important;
             border-radius: 4px;
             font-size: 11px;
-            pointer-events: auto; /* Hogy kattintható legyen a link */
+            pointer-events: auto; 
         }
         .maplibregl-ctrl-attrib a { color: #ccc !important; }
 
@@ -222,8 +218,7 @@
             align-items: center;
         }
 
-        /* Desktop nézetben (min-width: 768px) a top-bar-t calc()-al centráljuk,
-           hogy a pozíciója (left) és a jobbra csúszás animációja zökkenőmentesen, ugrás nélkül működjön. */
+        /* Desktop nézetben (min-width: 768px) a top-bar-t calc()-al centráljuk az animációhoz. */
         @media (min-width: 768px) {
             #top-bar {
                 left: calc(50% - 300px);
@@ -255,7 +250,7 @@
             cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
             font-weight: bold; font-size: 14px;
         }
-        /* ÉPÜLET VÁLASZTÓ IKON (Most már a Téma Aktív színét használja!) */
+        /* ÉPÜLET VÁLASZTÓ IKON (Aktív témaszín) */
         .select-trigger .icon { 
             color: var(--color-ui-active) !important; 
         }
@@ -292,21 +287,20 @@
         }
         #search-input { 
             width: 100%; height: 50px; 
-            padding: 0 50px 0 48px; /* Jobb padding növelve a gombnak! */
+            padding: 0 50px 0 48px; 
             border: none; border-radius: 30px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             font-size: 16px; background: var(--bg-surface); color: var(--text-main); outline: none; box-sizing: border-box; 
         }
         #search-results { 
-            /* POZICIONÁLÁS JAVÍTÁSA */
+            /* POZICIONÁLÁS */
             position: absolute; 
             top: 55px; /* A keresősáv magassága (50px) + kis hézag */
             left: 0; 
             right: 0; /* Teljes szélesség */
             z-index: 2500; 
             
-            /* STÍLUS (Maradt a régi) */
-            margin-top: 0; /* Margin már nem kell, a top intézi */
+            margin-top: 0; 
             background: var(--bg-surface); 
             border-radius: 16px; 
             overflow: hidden; 
@@ -877,13 +871,13 @@
             background: var(--bg-surface);
             flex-shrink: 0;
             z-index: 20;
-            width: 100%; /* Biztos ami biztos */
-            box-sizing: border-box; /* Hogy a padding ne nyomja szét */
+            width: 100%; 
+            box-sizing: border-box; 
         }
         
         .action-buttons { 
             display: flex; /* Grid helyett Flex */
-            gap: 12px;     /* Kicsit szellősebb köz */
+            gap: 12px;     
             width: 100%;
             align-items: center; /* Függőleges középre igazítás */
         }
@@ -900,7 +894,6 @@
             gap: 8px; 
             cursor: pointer; 
             transition: transform 0.1s; 
-            /* A grid-column sorokat töröltük, mert itt nem kellenek */
         }
 
         .btn-action:active { transform: scale(0.95); }
@@ -971,7 +964,7 @@
             word-break: break-word;
         }
         
-        /* ÚJ: POI Részletek (Nyitvatartás, Weboldal) */
+        /* POI Részletek (Nyitvatartás, Weboldal) */
         #poi-details-container { margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
         .poi-detail-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.4; }
         .poi-detail-row .material-symbols-outlined { font-size: 18px; color: var(--icon-color); margin-top: 2px; }
@@ -1145,11 +1138,11 @@
         .nav-arrow { font-size: 16px; font-weight: bold; }
 
         /* NAVIGÁCIÓS IRÁNYJELZŐK (Kis nyilak a vonalon) */
-        /* ÚJ SVG NYÍL STÍLUS */
+        /* SVG NYÍL STÍLUS */
         .arrow-svg-icon {
             background: transparent;
             border: none;
-            pointer-events: none; /* Hogy át lehessen kattintani rajta */
+            pointer-events: none; 
         }
         
         /* Opcionális: Pici fehér kontúr (drop-shadow), hogy jobban elváljon a piros vonaltól
@@ -1181,7 +1174,7 @@
             font-weight: bold;
             text-align: center;
             text-shadow: 0 0 2px rgba(0,0,0,0.8); /* Kontraszt sötétben */
-            pointer-events: none; /* Átkattintható! */
+            pointer-events: none; 
             
             /* Flexbox a középre igazításhoz */
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1214,17 +1207,17 @@
             word-break: break-word;
         }
 
-        /* Light Mode javítás */
+        /* Light Mode feliratok */
         body.light-mode .room-label {
             text-shadow: 0 0 2px rgba(255,255,255,1); /* Fehér glória világosban */
-            font-weight: 800; /* Kicsit vastagabb, hogy jobban látsszon */
+            font-weight: 800; 
         }
 
-        /* --- DINAMIKUS IKONOK ÉS AJTÓK (JAVÍTOTT) --- */
+        /* --- DINAMIKUS IKONOK ÉS AJTÓK --- */
         
-        /* 1. IKONOK (A belső SPAN-t méretezzük, nem a wrapper div-et!) */
+        /* 1. IKONOK: Belső SPAN méretezése */
         .map-icon {
-            background: transparent !important; /* Biztos ami biztos */
+            background: transparent !important; 
             border: none !important;
         }
         
@@ -1272,9 +1265,9 @@
         .poi-bg-circle span {
             font-size: 14px;
             color: #ffffff;
-            transform: none !important; /* Ne skálázódjon duplán! */
+            transform: none !important; 
         }
-        /* KIEMELŐ SÁRGA KARIKA (HIGHLIGHT RING) DOM MARKEREKRE - FINOM, ELEGÁNS KÖRVONAL */
+        /* KIEMELŐ SÁRGA KARIKA (HIGHLIGHT RING) DOM MARKEREKRE */
         .poi-bg-circle.selected-poi,
         .map-icon.selected-poi .poi-bg-circle,
         .poi-marker-container:has(.selected-poi) .poi-bg-circle {
@@ -1326,13 +1319,12 @@
             display: flex; 
             flex-direction: column;
             
-            /* PADDING VISSZAÁLLÍTVA (hogy ne legyen ugrás a belső tartalomban sem) */
             padding: 0 !important; 
             
             z-index: 9999;
             transform: translateY(0);
             
-            /* KIS ANIMÁCIÓ: Hogy szépen csússzon be, ne csak "ott teremjen" */
+            /* Becsúszó animáció */
             animation: slideUp 0.3s cubic-bezier(0.2, 0, 0, 1);
         }
 
@@ -1358,23 +1350,21 @@
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--border-color); 
             
-            /* JAVÍTÁS: Visszaadjuk a paddingot */
             padding: 15px 16px;
             margin-bottom: 0;
         }
         .editor-header h3 {
             margin: 0; 
             font-size: 18px;
-            /* Hogy ne csússzon rá a gombokra, ha hosszú a név */
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;
         }
         
-        /* ÚJ: FELSŐ AKCIÓ GOMBOK KONTÉNERE */
+        /* FELSŐ AKCIÓ GOMBOK KONTÉNERE */
         .editor-header-actions {
             display: flex; gap: 5px;
         }
 
-        /* ÚJ: FELSŐ IKON GOMBOK */
+        /* FELSŐ IKON GOMBOK */
         .btn-header-icon {
             background: transparent; border: none;
             color: var(--icon-color);
@@ -1386,11 +1376,9 @@
             background: var(--bg-element);
             color: var(--text-main);
         }
-        /* Reset gomb kicsit pirosas hoverkor */
         .btn-header-icon.danger:hover {
             color: #d32f2f; background: rgba(211, 47, 47, 0.1);
         }
-        /* Copy gomb a téma színét veszi fel hoverkor */
         .btn-header-icon.primary:hover {
             color: var(--color-ui-active); background: var(--bg-element);
         }
@@ -1414,18 +1402,16 @@
             z-index: 10;
             
             /* Belső térközök */
-            padding: 10px 16px; /* Oldalt is legyen hely */
+            padding: 10px 16px; 
             
-            /* JAVÍTÁS: Ez tolja fel a gombokat a nav bar fölé */
             /* Ha nincs safe-area (Android), akkor fix 20px */
             padding-bottom: calc(20px + env(safe-area-inset-bottom, 20px)); 
         }
 
-        /* EDITOR SOROK (JAVÍTOTT PADDING) */
+        /* EDITOR SOROK */
         .editor-row {
             display: flex; justify-content: space-between; align-items: center;
             
-            /* JAVÍTÁS: 16px oldalsó padding, hogy vonalban legyen a headerrel/footerrel */
             padding: 12px 16px; 
             
             border-bottom: 1px solid var(--border-color);
@@ -1452,7 +1438,6 @@
             border: 1px solid var(--border-color); padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; 
         }
         
-        /* A btn-link, btn-reset-link, btn-export-link törölve lettek, mert már nem kellenek */
 
         .btn-theme-edit {
             width: 100%; margin-top: 15px; padding: 12px;
@@ -1475,7 +1460,7 @@
             background: var(--bg-surface);
         }
 
-        /* --- ÚJ NAVIGÁCIÓS CUCCOK --- */
+        /* --- NAVIGÁCIÓS ELEMEK --- */
         /* NAVIGÁCIÓS ITINER */
         #nav-itinerary {
             padding-top: 14px;
@@ -1550,7 +1535,7 @@
             line-height: 1.3;
         }
 
-        /* Navigációban felesleges gombok rejtése */
+        /* Gombok elrejtése navigációs módban */
         .sheet-header.nav-mode #btn-favorite,
         .sheet-header.nav-mode #btn-embed-code {
             display: none !important;
@@ -1565,7 +1550,7 @@
             align-self: center;
         }
 
-        /* Desktopon a bezárás gombot visszahozzuk a normál flex sorba a Megosztás mellé */
+        /* Desktopon a bezárás gomb a megosztás mellé kerül */
         #bottom-sheet .sheet-header.nav-mode .btn-close {
             position: static !important;
             top: auto !important;
@@ -1637,7 +1622,7 @@
 
 
 /* =========================================
-   ÚJ POI MARKEREK (TEARDROP SHAPE)
+   POI MARKEREK (TEARDROP SHAPE)
 ========================================= */
 
 .poi-marker {
@@ -1774,7 +1759,7 @@
 }
 
 .pill-btn.active {
-    background: rgba(33, 150, 243, 0.15); /* Halvány kék háttér a kért dizájn alapján */
+    background: rgba(33, 150, 243, 0.15); /* Kék kiemelő háttér */
     color: #2196F3; /* Kék szöveg és ikon */
     border-color: #2196F3;
 }
@@ -1951,7 +1936,7 @@ body.embed-mode .embed-info-bar.visible {
     flex-shrink: 0;
 }
 
-/* Elegáns kör alakú gombok */
+/* Kör alakú akciógombok */
 .embed-btn {
     display: inline-flex;
     align-items: center;
