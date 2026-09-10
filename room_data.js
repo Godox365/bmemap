@@ -2302,5 +2302,18 @@ const ROOM_DATABASE = {
             "hu": "Beszélgetésre és kikapcsolódásra is alkalmas közösségi tér.",
             "en": "Community space suitable for discussion and relaxation."
         }
+    },
+    "Központi kölcsönző": {
+        "name": "Központi kölcsönző",
+        "tags": [
+            "kölcsönzés",
+            "olvasójegy",
+            "info",
+            "print"
+        ],
+        "note": {
+            "hu": "Könyvek kölcsönzése, visszavétele és előjegyzése, olvasójegy kiállítása, valamint nyomtatás indítása.",
+            "en": "Book checkout, returns, and reservations, library card issuance, and print release."
+        }
     }
 };
