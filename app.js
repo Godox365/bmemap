@@ -8931,7 +8931,7 @@ if ('serviceWorker' in navigator && !IS_EMBED_MODE) {
             hadPreviousController = true;
             return;
         }
-        // Valódi verziófrissítéskor (pl. v39 -> v40) viszont újratöltünk, hogy a legfrissebb kód fusson
+        // Valódi verziófrissítéskor (pl. v40 -> v41) viszont újratöltünk, hogy a legfrissebb kód fusson
         if (!isRefreshing) {
             isRefreshing = true;
             window.location.reload();
