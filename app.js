@@ -313,6 +313,11 @@ function smartFilter(term) {
 
         // Aliasok (kombinációk) dinamikus generálása
         const aliases = new Set();
+        const canonRef = getCanonicalRoomCode(p, currentBuildingKey);
+        const cleanCanon = normalizeRoomId(canonRef);
+        if (cleanCanon) {
+            aliases.add(cleanCanon);
+        }
         if (ref) {
             aliases.add(ref);
             aliases.add(bKey + ref);
@@ -334,7 +339,7 @@ function smartFilter(term) {
         let bestScore = 0;
 
         // 1. Prioritás: Pontos egyezés (Exact Match)
-        if (ref && (cleanTerm === ref || cleanTerm === bKey + ref)) {
+        if ((ref && (cleanTerm === ref || cleanTerm === bKey + ref)) || (cleanCanon && cleanTerm === cleanCanon)) {
             bestScore = Math.max(bestScore, 1100);
         } else if (altName && (cleanTerm === altName || cleanTerm === bKey + altName)) {
             bestScore = Math.max(bestScore, 1050);
@@ -346,7 +351,9 @@ function smartFilter(term) {
 
         // 2. Prioritás: Prefixes egyezés (Prefix Match)
         if (bestScore < 1000) {
-            if (ref && (bKey + ref).startsWith(cleanTerm)) {
+            if (cleanCanon && cleanCanon.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 860 - (cleanCanon.length - cleanTerm.length) * 5);
+            } else if (ref && (bKey + ref).startsWith(cleanTerm)) {
                 bestScore = Math.max(bestScore, 850 - ((bKey + ref).length - cleanTerm.length) * 5);
             } else if (ref && ref.startsWith(cleanTerm)) {
                 bestScore = Math.max(bestScore, 800 - (ref.length - cleanTerm.length) * 5);
@@ -461,6 +468,11 @@ function searchOtherBuildings(term) {
         const lvlChars = getLevelChars(item.b, rawLvl);
 
         const aliases = new Set();
+        const canonRef = getCanonicalRoomCode(item, item.b);
+        const cleanCanon = normalizeRoomId(canonRef);
+        if (cleanCanon) {
+            aliases.add(cleanCanon);
+        }
         if (ref) {
             aliases.add(ref);
             aliases.add(bKey + ref);
@@ -482,7 +494,7 @@ function searchOtherBuildings(term) {
         let bestScore = 0;
 
         // 1. Prioritás: Pontos egyezés (Exact Match)
-        if (ref && (cleanTerm === ref || cleanTerm === bKey + ref)) {
+        if ((ref && (cleanTerm === ref || cleanTerm === bKey + ref)) || (cleanCanon && cleanTerm === cleanCanon)) {
             bestScore = Math.max(bestScore, 1100);
         } else if (altName && (cleanTerm === altName || cleanTerm === bKey + altName)) {
             bestScore = Math.max(bestScore, 1050);
@@ -494,7 +506,9 @@ function searchOtherBuildings(term) {
 
         // 2. Prioritás: Prefixes egyezés (Prefix Match)
         if (bestScore < 1000) {
-            if (ref && (bKey + ref).startsWith(cleanTerm)) {
+            if (cleanCanon && cleanCanon.startsWith(cleanTerm)) {
+                bestScore = Math.max(bestScore, 860 - (cleanCanon.length - cleanTerm.length) * 5);
+            } else if (ref && (bKey + ref).startsWith(cleanTerm)) {
                 bestScore = Math.max(bestScore, 850 - ((bKey + ref).length - cleanTerm.length) * 5);
             } else if (ref && ref.startsWith(cleanTerm)) {
                 bestScore = Math.max(bestScore, 800 - (ref.length - cleanTerm.length) * 5);
@@ -605,6 +619,132 @@ function mergeSearchResults(localHits, otherHits) {
 function normalizeRoomId(str) {
     if(!str) return "";
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\s.\-_/()]/g, '').toLowerCase();
+}
+
+/**
+ * Generálja a terem hivatalos, kánonikus szobakódját (pl. KMF50, KF51, K150, K234, IB028, QBF08, E407, R117, KT026).
+ * Ha a kód hiányos az OSM-ben (pl. csak "50" vagy "407"), az épület és szint séma alapján kiegészíti azt.
+ * @param {Object} p - A térképelem properties objektuma (vagy maga a feature).
+ * @param {string} [buildingKey] - Az épület azonosítója (pl. 'K', 'I', 'Q', 'E', 'R', 'KT').
+ * @returns {string} A kánonikus szobakód.
+ */
+function getCanonicalRoomCode(p, buildingKey) {
+    if (!p) return "";
+    const props = p.properties ? p.properties : p;
+    if (!props.ref) return "";
+
+    const b = (buildingKey || p._buildingKey || (p.properties && p.properties._buildingKey) || currentBuildingKey || "").trim().toUpperCase();
+    const clean = String(props.ref).trim();
+    const norm = clean.toLowerCase().replace(/[\s.\-_/()]/g, "");
+    const rawLvl = String(props.level !== undefined ? props.level : (props.lvl !== undefined ? props.lvl : "0")).split(";")[0].trim();
+    const lref = (props['level:ref'] || props.lref || "").trim().toUpperCase();
+
+    if (b === "K") {
+        if (norm.startsWith("kmf")) return "KMF" + clean.replace(/^k[.\-_/]?mf[.\-_/]?/i, "").toUpperCase();
+        if (norm.startsWith("kf")) return "KF" + clean.replace(/^k[.\-_/]?f[.\-_/]?/i, "").toUpperCase();
+        if (norm.startsWith("k")) return "K" + clean.replace(/^k[.\-_/]?/i, "").toUpperCase();
+
+        if (rawLvl === "0" || lref === "0") {
+            if (norm.startsWith("mf")) return "K" + clean.toUpperCase();
+            if (norm.startsWith("f")) return "K" + clean.toUpperCase();
+            return "KF" + clean.toUpperCase();
+        }
+        if (rawLvl === "1" || lref === "MF") {
+            if (norm.startsWith("mf")) return "K" + clean.toUpperCase();
+            return "KMF" + clean.toUpperCase();
+        }
+        if (rawLvl === "2" || lref === "1") {
+            if (clean.startsWith("1")) return "K" + clean.toUpperCase();
+            return "K1" + clean.toUpperCase();
+        }
+        if (rawLvl === "3" || lref === "2") {
+            if (clean.startsWith("2")) return "K" + clean.toUpperCase();
+            return "K2" + clean.toUpperCase();
+        }
+        if (rawLvl === "4" || lref === "3") {
+            if (clean.startsWith("3")) return "K" + clean.toUpperCase();
+            return "K3" + clean.toUpperCase();
+        }
+        if (rawLvl === "-1" || lref === "-1") {
+            if (clean.toUpperCase().startsWith("A")) return "K" + clean.toUpperCase();
+            return "KA" + clean.toUpperCase();
+        }
+        return "K" + clean.toUpperCase();
+    }
+
+    if (b === "I") {
+        if (/^i[a-z0-9]/i.test(norm)) {
+            return "I" + clean.replace(/^i[.\-_/]?/i, "").toUpperCase();
+        }
+        return "I" + clean.toUpperCase();
+    }
+
+    if (b === "Q") {
+        if (norm.startsWith("q")) {
+            return "Q" + clean.replace(/^q[.\-_/]?/i, "").toUpperCase();
+        }
+        return "Q" + clean.toUpperCase();
+    }
+
+    if (b === "E") {
+        if (norm.startsWith("e")) {
+            return "E" + clean.replace(/^e[.\-_/]?/i, "").toUpperCase();
+        }
+        return "E" + clean.toUpperCase();
+    }
+
+    if (b === "R") {
+        if (norm.startsWith("r")) {
+            return "R" + clean.replace(/^r[.\-_/]?/i, "").toUpperCase();
+        }
+        return "R" + clean.toUpperCase();
+    }
+
+    if (b === "KT") {
+        if (norm.startsWith("kt")) {
+            return "KT" + clean.replace(/^kt[.\-_/]?/i, "").toUpperCase();
+        }
+        return "KT" + clean.toUpperCase();
+    }
+
+    if (b && !norm.startsWith(b.toLowerCase())) {
+        return b + clean.toUpperCase();
+    }
+    return clean.toUpperCase();
+}
+
+/**
+ * Visszaadja a térképelem egységes, formázott megjelenítési nevét.
+ * A kánonikus szobakód előre kerül, és a terem neve utána zárójelek nélkül (pl. "E407 Tanterem", "KMF50 Gazdaság- és Társadalomtudományi Olvasó").
+ * @param {Object} p - A térképelem properties objektuma (vagy maga a feature).
+ * @param {string} [buildingKey] - Az épület azonosítója (ha hiányzik, automatikusan detektálja).
+ * @returns {string} A formázott név.
+ */
+function formatFeatureName(p, buildingKey) {
+    if (!p) return "";
+    const props = p.properties ? p.properties : p;
+    const bKey = buildingKey || p._buildingKey || (p.properties && p.properties._buildingKey) || currentBuildingKey;
+    const canonRef = getCanonicalRoomCode(props, bKey);
+    const name = (props.name || "").trim();
+
+    if (canonRef && name) {
+        const cleanName = normalizeRoomId(name);
+        const cleanCanon = normalizeRoomId(canonRef);
+        const cleanOrigRef = normalizeRoomId(props.ref);
+
+        // Ha a név megegyezik a kóddal vagy a kánonikus kóddal (pl. ref "76", name "Kf-76", canon "KF76")
+        if (cleanName === cleanCanon || cleanName === cleanOrigRef) {
+            return canonRef;
+        }
+        // Ha a név már tartalmazza a kánonikus kódot (pl. "K150 Tanterem")
+        if (cleanName.includes(cleanCanon)) {
+            return name;
+        }
+        // Egyébként: "<KánonikusKód> <Név>"
+        return `${canonRef} ${name}`;
+    }
+
+    return canonRef || name || "";
 }
 
 // === ÉPÜLET KONFIGURÁCIÓ ===
@@ -1108,8 +1248,10 @@ function saveFavorites() {
  * @returns {boolean} Igaz (true) értékkel tér vissza, ha a megadott elem a kedvencek között van, ellenkező esetben hamis (false).
  */
 function isFavorite(feature) {
-    if (!feature || !feature.id) return false;
-    return userFavorites.some(fav => fav.id === feature.id);
+    if (!feature) return false;
+    const featId = feature.id;
+    const origId = feature._originalId || (feature.properties && (feature.properties.id || feature.properties.osm_id));
+    return userFavorites.some(fav => fav.id === featId || (origId && (fav.id === origId || String(fav.id) === String(origId))));
 }
 
 /**
@@ -1121,11 +1263,12 @@ function isFavorite(feature) {
 function toggleFavoriteCurrent() {
     if (!selectedFeature) return;
     
-    const id = selectedFeature.id; 
+    const origId = selectedFeature._originalId || (selectedFeature.properties && (selectedFeature.properties.id || selectedFeature.properties.osm_id));
+    const id = origId || selectedFeature.id; 
     const p = selectedFeature.properties;
     
-    // Név meghatározása: elsődlegesen a 'name' vagy 'ref' tulajdonság alapján.
-    let name = p.name || p.ref;
+    // Név meghatározása: elsődlegesen a kánonikus név alapján (pl. "E407 Tanterem").
+    let name = formatFeatureName(p, currentBuildingKey);
     
     // Ha nem rendelkezik saját névvel, a típusát (pl. "Mosdó") használjuk megnevezésként.
     if (!name) {
@@ -1138,7 +1281,7 @@ function toggleFavoriteCurrent() {
 
     if (isFavorite(selectedFeature)) {
         // Eltávolítás a kedvencek listájából az azonosító (id) alapján.
-        userFavorites = userFavorites.filter(fav => fav.id !== id);
+        userFavorites = userFavorites.filter(fav => fav.id !== id && fav.id !== selectedFeature.id && (!origId || fav.id !== origId));
         showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből! 🗑️");
     } else {
         // Új bejegyzés hozzáadása a kedvencekhez az összegyűjtött adatokkal.
@@ -1267,19 +1410,28 @@ function showFavoritesInSearch() {
             
             // Kattintás eseménykezelője az adott kedvenc kiválasztásához
             div.onclick = () => {
+                resultsDiv.style.display = 'none';
+                _searchSelectedIndex = -1;
+                _searchUserNavigated = false;
+
                 if (fav.building !== currentBuildingKey) {
-                    changeBuilding(fav.building);
-                }
-                
-                // Megkeressük az elemet
-                const target = geoJsonData.features.find(f => f.id === fav.id);
-                if (target) {
-                    openSheet(target);
-                    resultsDiv.style.display = 'none';
-                    document.getElementById('search-input').value = fav.name;
-                    updateRightButtonState();
+                    changeBuilding(fav.building, fav.name, fav.id);
                 } else {
-                    alert(typeof t === 'function' ? t('alerts.place_not_found') : "Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
+                    const target = geoJsonData && geoJsonData.features ? geoJsonData.features.find(f => 
+                        f.id === fav.id || 
+                        String(f.id) === String(fav.id) || 
+                        f._originalId === fav.id || 
+                        (f.properties && (f.properties.id === fav.id || f.properties.osm_id === fav.id))
+                    ) : null;
+                    if (target) {
+                        const lvls = getLevelsFromFeature(target);
+                        if (lvls.length > 0 && currentLevel !== lvls[0]) switchLevel(lvls[0]);
+                        openSheet(target);
+                        document.getElementById('search-input').value = fav.name;
+                        updateRightButtonState();
+                    } else {
+                        showToast(typeof t === 'function' ? t('alerts.place_not_found') : "Ez a hely ebben az épületben nem található (vagy még nem töltött be).");
+                    }
                 }
             };
             div.addEventListener('mouseenter', () => {
@@ -3157,9 +3309,13 @@ function processOsmData(osmData, isUpdate = false) {
             return getFeatureWeight(a) - getFeatureWeight(b);
         });
         geoJsonData.features.forEach((f, idx) => {
+            f._originalId = (f.properties && f.properties.id) ? f.properties.id : f.id;
             f.id = idx;
             if (!f.properties) f.properties = {};
             f.properties._featureIndex = idx;
+            if (!f.properties.osm_id && f._originalId) {
+                f.properties.osm_id = f._originalId;
+            }
         });
     }
 
@@ -3229,12 +3385,17 @@ async function loadOsmData() {
         if (pendingTargetId || pendingSearchTerm) {
             setTimeout(() => {
                 if (pendingTargetId && geoJsonData && geoJsonData.features) {
-                    const target = geoJsonData.features.find(f => f.id === pendingTargetId);
+                    const target = geoJsonData.features.find(f => 
+                        f.id === pendingTargetId || 
+                        String(f.id) === String(pendingTargetId) || 
+                        f._originalId === pendingTargetId || 
+                        (f.properties && (f.properties.id === pendingTargetId || f.properties.osm_id === pendingTargetId))
+                    );
                     if (target) {
-                        openSheet(target);
                         const lvls = getLevelsFromFeature(target);
-                        if (lvls.length > 0) switchLevel(lvls[0]);
-                        const tVal = target.properties.name || target.properties.ref || pendingSearchTerm || "";
+                        if (lvls.length > 0 && currentLevel !== lvls[0]) switchLevel(lvls[0]);
+                        openSheet(target);
+                        const tVal = formatFeatureName(target.properties, currentBuildingKey) || pendingSearchTerm || "";
                         document.getElementById('search-input').value = tVal;
                         updateRightButtonState();
                         pendingTargetId = null;
@@ -4062,24 +4223,7 @@ function openSheet(feature) {
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
     // --- 2. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
-    let displayName = "";
-
-    if (p.name && p.ref) {
-        // Ha van Név és Ref is, megnézzük, hogy a Ref benne van-e a Névben
-        const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
-        const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
-        
-        if (cleanName.includes(cleanRef)) {
-            // Ha a név már tartalmazza a kódot (pl. "QBF11 Labor"), elég csak a nevet kiírni
-            displayName = p.name;
-        } else {
-            // Ha teljesen más a kettő (pl. Ref: "IB028", Name: "Auditorium Maximum"), összekötjük őket
-            displayName = `${p.ref} - ${p.name}`;
-        }
-    } else {
-        // Ha csak az egyik van meg, azt használjuk
-        displayName = p.name || p.ref;
-    }
+    let displayName = formatFeatureName(feature, currentBuildingKey);
 
     // Névszűrés: azonosító vagy hiányzó név kezelése
     if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
@@ -4406,21 +4550,8 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
         if (!feat || !feat.properties) return "Ismeretlen hely";
         const p = feat.properties;
         
-        let name = "";
+        let name = formatFeatureName(feat, currentBuildingKey);
         let isPoi = false;
-
-        // Név és ref kombinálása az itinerben
-        if (p.name && p.ref) {
-            const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
-            const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
-            if (cleanName.includes(cleanRef)) {
-                name = p.name;
-            } else {
-                name = `${p.ref} - ${p.name}`;
-            }
-        } else {
-            name = p.name || p.ref;
-        }
 
         // Ha nincs neve, vagy csak egy értelmetlen OSM azonosító szám
         if (!name || (!isNaN(name) && name.toString().length > 5)) {
@@ -4995,15 +5126,17 @@ function _executeSearch(e) {
 
             if (topHit._isLocal) {
                 openSheet(topHit);
-                const val = topHit.properties.name || topHit.properties.ref || term;
+                const val = formatFeatureName(topHit.properties, topHit._buildingKey) || term;
                 document.getElementById('search-input').value = val;
                 updateRightButtonState();
                 return; 
             } else {
                 // Közvetlen épületváltás a célteremhez megerősítő kérdés nélkül!
-                document.getElementById('search-input').value = topHit.properties.name || topHit.properties.ref || term;
+                const val = formatFeatureName(topHit.properties, topHit._buildingKey) || term;
+                document.getElementById('search-input').value = val;
                 updateRightButtonState();
-                changeBuilding(topHit._buildingKey, topHit.properties.name || topHit.properties.ref, topHit.id);
+                const autoTerm = getCanonicalRoomCode(topHit.properties, topHit._buildingKey) || topHit.properties.ref || topHit.properties.name || term;
+                changeBuilding(topHit._buildingKey, autoTerm, topHit.id);
                 return;
             }
         }
@@ -5045,14 +5178,7 @@ function _executeSearch(e) {
                 const div = document.createElement('div');
                 div.className = 'result-item';
                 
-                let displayName = hit.properties.name || hit.properties.ref || "???";
-                if (hit.properties.name && hit.properties.ref && hit.properties.name !== hit.properties.ref) {
-                    const cleanN = normalizeRoomId(hit.properties.name);
-                    const cleanR = normalizeRoomId(hit.properties.ref);
-                    if (!cleanN.includes(cleanR)) {
-                        displayName = `${hit.properties.name} (${hit.properties.ref})`;
-                    }
-                }
+                let displayName = formatFeatureName(hit.properties, hit._buildingKey) || "???";
                 const rawLvl = getLevelsFromFeature(hit)[0] || hit.properties.level || "?";
                 const lvl = hit.properties['level:ref'] || (hit._isLocal && typeof levelAliases !== 'undefined' && levelAliases[rawLvl]) || rawLvl;
                 
@@ -5073,14 +5199,15 @@ function _executeSearch(e) {
                     resultsDiv.style.display = 'none'; 
                     _searchSelectedIndex = -1;
                     _searchUserNavigated = false;
-                    document.getElementById('search-input').value = hit.properties.name || hit.properties.ref || displayName; 
+                    document.getElementById('search-input').value = displayName; 
                     updateRightButtonState();
 
                     if (hit._isLocal) {
                         openSheet(hit); 
                     } else {
                         // Közvetlen épületváltás a célteremhez megerősítő kérdés nélkül!
-                        changeBuilding(hit._buildingKey, hit.properties.name || hit.properties.ref, hit.id);
+                        const autoTerm = getCanonicalRoomCode(hit.properties, hit._buildingKey) || hit.properties.ref || hit.properties.name || displayName;
+                        changeBuilding(hit._buildingKey, autoTerm, hit.id);
                     }
                 };
                 div.addEventListener('mouseenter', () => {
@@ -8255,9 +8382,14 @@ async function processUrlParams() {
             if (!desc) return null;
             
             // A) ID ALAPÚ KERESÉS (Legmagasabb prioritás)
-            // Egyezés vizsgálata az OSM azonosító alapján
+            // Egyezés vizsgálata az OSM azonosító vagy belső index alapján
             if (desc.type === 'id') {
-                return geoJsonData.features.find(f => f.id === desc.val);
+                return geoJsonData.features.find(f => 
+                    f.id === desc.val || 
+                    String(f.id) === String(desc.val) || 
+                    f._originalId === desc.val || 
+                    (f.properties && (f.properties.id === desc.val || f.properties.osm_id === desc.val))
+                );
             }
 
             // B) KOORDINÁTA ALAPÚ KERESÉS
@@ -8668,7 +8800,13 @@ function _selectEmbedFeature(roomParam, idParam, levelParam, autoNav = false) {
     // A) ID alapú keresés
     if (idParam) {
         const numId = parseInt(idParam, 10);
-        target = geoJsonData.features.find(f => f.id === numId || f.id === idParam || f.id === idParam.toString());
+        target = geoJsonData.features.find(f => 
+            f.id === numId || 
+            f.id === idParam || 
+            String(f.id) === String(idParam) || 
+            f._originalId === idParam || 
+            (f.properties && (f.properties.id === idParam || f.properties.osm_id === idParam))
+        );
     }
 
     // B) Teremnév / ref alapú keresés (ha szám, akkor ID-ként is teszteljük)
@@ -8676,7 +8814,13 @@ function _selectEmbedFeature(roomParam, idParam, levelParam, autoNav = false) {
         const cleanQuery = roomParam.trim();
         if (!isNaN(cleanQuery) && cleanQuery.length > 3) {
             const numId = parseInt(cleanQuery, 10);
-            target = geoJsonData.features.find(f => f.id === numId || f.id === cleanQuery);
+            target = geoJsonData.features.find(f => 
+                f.id === numId || 
+                f.id === cleanQuery || 
+                String(f.id) === String(cleanQuery) || 
+                f._originalId === cleanQuery || 
+                (f.properties && (f.properties.id === cleanQuery || f.properties.osm_id === cleanQuery))
+            );
         }
         // 1. Pontos ref egyezés
         if (!target) {
