@@ -1267,12 +1267,16 @@ function toggleFavoriteCurrent() {
     const id = origId || selectedFeature.id; 
     const p = selectedFeature.properties;
     
-    // Név meghatározása: elsődlegesen a kánonikus név alapján (pl. "E407 Tanterem").
-    let name = formatFeatureName(p, currentBuildingKey);
-    
-    // Ha nem rendelkezik saját névvel, a típusát (pl. "Mosdó") használjuk megnevezésként.
-    if (!name) {
-        name = (typeof getHungarianType === 'function') ? getHungarianType(p) : "Névtelen hely";
+    // Név meghatározása: mosdók esetén automatikus nemmel/szobaszámmal, egyébként kánonikus név alapján
+    const toiletInfo = getToiletInfo(selectedFeature);
+    let name = "";
+    if (toiletInfo) {
+        name = toiletInfo.ref ? `${toiletInfo.name} • ${toiletInfo.ref}` : toiletInfo.name;
+    } else {
+        name = formatFeatureName(p, currentBuildingKey);
+        if (!name) {
+            name = (typeof getHungarianType === 'function') ? getHungarianType(p) : "Névtelen hely";
+        }
     }
     
     // A helyiség típusának és szintjének meghatározása a mentéshez.
@@ -1464,6 +1468,107 @@ function getHungarianType(p) {
         if (trans && trans !== `types.${key}`) return trans;
     }
     return TYPE_DICT[key] || (key !== 'unknown' ? key : (typeof t === 'function' ? (t('types.place') || 'Hely') : 'Hely'));
+}
+
+/**
+ * Eldönti egy térképelemről vagy annak properties objektumáról, hogy mosdó-e.
+ * @param {Object} featureOrProps - A GeoJSON feature vagy properties objektum.
+ * @returns {boolean}
+ */
+function isToiletFeature(featureOrProps) {
+    if (!featureOrProps) return false;
+    const p = featureOrProps.properties ? featureOrProps.properties : featureOrProps;
+    const nameLower = (p.name || '').toLowerCase();
+    const roomLower = (p.room || '').toLowerCase();
+    const amenityLower = (p.amenity || '').toLowerCase();
+    const indoorLower = (p.indoor || '').toLowerCase();
+
+    return amenityLower === 'toilets' ||
+           amenityLower === 'toilet' ||
+           roomLower === 'toilets' ||
+           roomLower === 'toilet' ||
+           roomLower === 'wc' ||
+           p.toilets === 'yes' ||
+           indoorLower === 'toilets' ||
+           nameLower === 'wc' ||
+           nameLower === 'mosdó' ||
+           nameLower === 'toalett' ||
+           nameLower === 'vécé' ||
+           nameLower.includes('mosdó') ||
+           nameLower.includes('férfi wc') ||
+           nameLower.includes('női wc') ||
+           nameLower.includes('férfi mosdó') ||
+           nameLower.includes('női mosdó') ||
+           nameLower.includes('akadálymentes wc') ||
+           nameLower.includes('akadálymentes mosdó') ||
+           nameLower.startsWith('wc') ||
+           nameLower.endsWith('wc');
+}
+
+/**
+ * Automatikusan meghatározza egy mosdó típusát és megjelenítési nevét az OSM tagek alapján.
+ * Prioritás: 1. Akadálymentes (wheelchair=yes) -> 2. Női -> 3. Férfi -> 4. Mosdó.
+ * @param {Object} featureOrProps - A GeoJSON feature vagy properties objektum.
+ * @returns {Object|null} { type, name, ref } vagy null ha nem mosdó.
+ */
+function getToiletInfo(featureOrProps) {
+    if (!featureOrProps) return null;
+    const p = featureOrProps.properties ? featureOrProps.properties : featureOrProps;
+    if (!isToiletFeature(p)) return null;
+
+    const nameLower = (p.name || '').toLowerCase();
+    const isWheelchair = p.wheelchair === 'yes' || nameLower.includes('akadálymentes');
+
+    let type = 'default';
+    if (isWheelchair) {
+        type = 'accessible';
+    } else {
+        const isFemale = (p.female === 'yes' && p.male !== 'yes') || (p.female === 'yes' && p.male === 'no') || nameLower.includes('női');
+        const isMale = (p.male === 'yes' && p.female !== 'yes') || (p.male === 'yes' && p.female === 'no') || nameLower.includes('férfi');
+
+        if (isFemale) {
+            type = 'female';
+        } else if (isMale) {
+            type = 'male';
+        }
+    }
+
+    let name = '';
+    if (typeof t === 'function') {
+        name = t(`toilets.${type}`);
+        if (!name || name === `toilets.${type}`) {
+            const fallbacks = {
+                accessible: 'Akadálymentes mosdó',
+                female: 'Női mosdó',
+                male: 'Férfi mosdó',
+                default: 'Mosdó'
+            };
+            name = fallbacks[type] || 'Mosdó';
+        }
+    } else {
+        const fallbacks = {
+            accessible: 'Akadálymentes mosdó',
+            female: 'Női mosdó',
+            male: 'Férfi mosdó',
+            default: 'Mosdó'
+        };
+        name = fallbacks[type] || 'Mosdó';
+    }
+
+    // Tisztított szobaszám (ref) kinyerése, ha valós azonosító (nem generikus "WC" vagy "Mosdó")
+    let cleanRef = null;
+    if (p.ref) {
+        const rawRef = String(p.ref).trim();
+        if (!/^(wc|mosd[oó]|toilets?|v[eé]c[eé])$/i.test(rawRef)) {
+            cleanRef = rawRef;
+        }
+    }
+
+    return {
+        type,
+        name,
+        ref: cleanRef
+    };
 }
 
 /**
@@ -4215,18 +4320,19 @@ function openSheet(feature) {
     if (footer) footer.style.display = 'flex';
     
     const p = feature.properties;
+    const toiletInfo = getToiletInfo(feature);
     
     // --- 1. TÍPUS FORDÍTÁSA ÉS MAGYARÍTÁS ---
     // A helyiség típusának lekérése és lefordítása magyar nyelvre
-    let typeName = getHungarianType(p);
+    let typeName = toiletInfo ? toiletInfo.name : getHungarianType(p);
     // Formázás: Az első betű nagybetűsítése a szebb megjelenés érdekében (pl. "mosdó" -> "Mosdó")
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
     // --- 2. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
-    let displayName = formatFeatureName(feature, currentBuildingKey);
+    let displayName = toiletInfo ? toiletInfo.name : formatFeatureName(feature, currentBuildingKey);
 
     // Névszűrés: azonosító vagy hiányzó név kezelése
-    if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
+    if (!toiletInfo && (!displayName || (!isNaN(displayName) && displayName.toString().length > 5))) {
         let matchedPoiName = null;
         // Megvizsgáljuk, hogy az elem illeszkedik-e valamelyik POI konfigurációra
         if (typeof POI_TYPES !== 'undefined') {
@@ -4259,36 +4365,43 @@ function openSheet(feature) {
     // --- DOM (HTML) ELEMEK FRISSÍTÉSE ---
     document.getElementById('sheet-title').innerText = displayName;
     
-    // Alcím generálása OSM tagek alapján
-    let extraInfo = "";
-    if (p.amenity === 'vending_machine' && p.vending) {
-        // Szótár a fordításhoz
-        const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
-        // A pontosvesszővel elválasztott értékek szétdarabolása (pl. "coffee;drinks" -> ["coffee", "drinks"])
-        const types = p.vending.split(';');
-        // Lefordítjuk az elemeket, és ha nincs a szótárban, az eredetit hagyjuk meg
-        const translated = types.map(tKey => {
-            const raw = tKey.trim();
-            if (typeof t === 'function') {
-                const trans = t(`vending.${raw}`);
-                if (trans && trans !== `vending.${raw}`) return trans;
-            }
-            return vDict[raw] || raw;
-        });
-        // Elemek összefűzése vesszővel elválasztott listává
-        extraInfo = translated.join(', ');
-    } else if (p.operator) {
-        // Operátor megjelenítése (pl. ATM esetében a bank neve)
-        extraInfo = p.operator; 
-    }
-
     const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
-    if (extraInfo) {
-        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${extraInfo}`;
-    } else if (displayName === typeName) {
-        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}`;
+
+    if (toiletInfo) {
+        // Mosdók esetén: ha van szobaszám, elválasztó ponttal írjuk ki utána (pl. "Szint: 0 • BF21"), nincs felesleges utótag
+        const refPart = toiletInfo.ref ? ` • ${toiletInfo.ref}` : '';
+        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}${refPart}`;
     } else {
-        document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
+        // Alcím generálása OSM tagek alapján egyéb helyiségekhez
+        let extraInfo = "";
+        if (p.amenity === 'vending_machine' && p.vending) {
+            // Szótár a fordításhoz
+            const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
+            // A pontosvesszővel elválasztott értékek szétdarabolása (pl. "coffee;drinks" -> ["coffee", "drinks"])
+            const types = p.vending.split(';');
+            // Lefordítjuk az elemeket, és ha nincs a szótárban, az eredetit hagyjuk meg
+            const translated = types.map(tKey => {
+                const raw = tKey.trim();
+                if (typeof t === 'function') {
+                    const trans = t(`vending.${raw}`);
+                    if (trans && trans !== `vending.${raw}`) return trans;
+                }
+                return vDict[raw] || raw;
+            });
+            // Elemek összefűzése vesszővel elválasztott listává
+            extraInfo = translated.join(', ');
+        } else if (p.operator) {
+            // Operátor megjelenítése (pl. ATM esetében a bank neve)
+            extraInfo = p.operator; 
+        }
+
+        if (extraInfo) {
+            document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${extraInfo}`;
+        } else if (displayName === typeName) {
+            document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}`;
+        } else {
+            document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
+        }
     }
     
     // --- 4. KÜLSŐ ADATBÁZIS (ROOM_DATABASE) LEKÉRDEZÉSE ---
@@ -4549,6 +4662,11 @@ function updateSheetForNavigation(targetFeature, stats, itinerary, sourceFeature
     const formatName = (feat) => {
         if (!feat || !feat.properties) return "Ismeretlen hely";
         const p = feat.properties;
+        
+        const toiletInfo = getToiletInfo(feat);
+        if (toiletInfo) {
+            return toiletInfo.ref ? `${toiletInfo.name} • ${toiletInfo.ref}` : toiletInfo.name;
+        }
         
         let name = formatFeatureName(feat, currentBuildingKey);
         let isPoi = false;
@@ -8436,13 +8554,16 @@ async function processUrlParams() {
                 // A panel fejlécének dinamikus kitöltése a célpont adataival, 
                 // hogy a betekintő (peek) nézet azonnal releváns információt mutasson.
                 const p = endFeature.properties;
-                let typeName = getHungarianType(p);
+                const toiletInfo = getToiletInfo(endFeature);
+                let typeName = toiletInfo ? toiletInfo.name : getHungarianType(p);
                 typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
                 
                 // A megjelenítendő név (displayName) prioritásos meghatározása
-                let displayName = p.name || p.ref;
-                if (!displayName) {
-                    displayName = typeName;
+                let displayName = "";
+                if (toiletInfo) {
+                    displayName = toiletInfo.name;
+                } else {
+                    displayName = p.name || p.ref || typeName;
                 }
         
                 // A szint (emelet) megjelenítési formátumának összeállítása
@@ -8457,10 +8578,14 @@ async function processUrlParams() {
         
                 // Az értékek DOM-ba történő beillesztése
                 document.getElementById('sheet-title').innerText = displayName;
-                if (displayName === typeName) {
-                    document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString}`;
+                const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
+                if (toiletInfo) {
+                    const refPart = toiletInfo.ref ? ` • ${toiletInfo.ref}` : '';
+                    document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}${refPart}`;
+                } else if (displayName === typeName) {
+                    document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}`;
                 } else {
-                    document.getElementById('sheet-sub').innerText = `Szint: ${displayLevelString} | ${typeName}`;
+                    document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
                 }
 
                 // A navigációs motor elindítása a paraméterekből kinyert pontokkal
@@ -8496,14 +8621,17 @@ function openEmbedInfo(feature) {
     drawSelectedHighlight(feature);
 
     const p = feature.properties || {};
+    const toiletInfo = getToiletInfo(feature);
 
     // 1. Típus meghatározása
-    let typeName = getHungarianType(p);
+    let typeName = toiletInfo ? toiletInfo.name : getHungarianType(p);
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
     // 2. Megjelenítendő név (displayName)
     let displayName = "";
-    if (p.name && p.ref) {
+    if (toiletInfo) {
+        displayName = toiletInfo.name;
+    } else if (p.name && p.ref) {
         const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
         const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
         displayName = cleanName.includes(cleanRef) ? p.name : `${p.ref} - ${p.name}`;
@@ -8511,7 +8639,7 @@ function openEmbedInfo(feature) {
         displayName = p.name || p.ref;
     }
 
-    if (!displayName || (!isNaN(displayName) && displayName.toString().length > 5)) {
+    if (!toiletInfo && (!displayName || (!isNaN(displayName) && displayName.toString().length > 5))) {
         let matchedPoiName = null;
         if (typeof POI_TYPES !== 'undefined') {
             for (const key in POI_TYPES) {
@@ -8534,23 +8662,6 @@ function openEmbedInfo(feature) {
         displayLevelString = mappedLevels.join(', ');
     }
 
-    let extraInfo = "";
-    if (p.amenity === 'vending_machine' && p.vending) {
-        const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
-        const types = p.vending.split(';');
-        const translated = types.map(tKey => {
-            const raw = tKey.trim();
-            if (typeof t === 'function') {
-                const trans = t(`vending.${raw}`);
-                if (trans && trans !== `vending.${raw}`) return trans;
-            }
-            return vDict[raw] || raw;
-        });
-        extraInfo = translated.join(', ');
-    } else if (p.operator) {
-        extraInfo = p.operator;
-    }
-
     let lvlPrefix = "Szint";
     if (typeof t === 'function') {
         const trans = t('sheet.level_prefix');
@@ -8561,12 +8672,34 @@ function openEmbedInfo(feature) {
         }
     }
     let subText = "";
-    if (extraInfo) {
-        subText = `${lvlPrefix}: ${displayLevelString} | ${extraInfo}`;
-    } else if (displayName === typeName) {
-        subText = `${lvlPrefix}: ${displayLevelString}`;
+    if (toiletInfo) {
+        const refPart = toiletInfo.ref ? ` • ${toiletInfo.ref}` : '';
+        subText = `${lvlPrefix}: ${displayLevelString}${refPart}`;
     } else {
-        subText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
+        let extraInfo = "";
+        if (p.amenity === 'vending_machine' && p.vending) {
+            const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
+            const types = p.vending.split(';');
+            const translated = types.map(tKey => {
+                const raw = tKey.trim();
+                if (typeof t === 'function') {
+                    const trans = t(`vending.${raw}`);
+                    if (trans && trans !== `vending.${raw}`) return trans;
+                }
+                return vDict[raw] || raw;
+            });
+            extraInfo = translated.join(', ');
+        } else if (p.operator) {
+            extraInfo = p.operator;
+        }
+
+        if (extraInfo) {
+            subText = `${lvlPrefix}: ${displayLevelString} | ${extraInfo}`;
+        } else if (displayName === typeName) {
+            subText = `${lvlPrefix}: ${displayLevelString}`;
+        } else {
+            subText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
+        }
     }
 
     // DOM elemek frissítése

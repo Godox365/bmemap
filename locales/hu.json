@@ -136,6 +136,12 @@
     "stairs": "Lépcső",
     "elevator": "Lift"
   },
+  "toilets": {
+    "female": "Női mosdó",
+    "male": "Férfi mosdó",
+    "accessible": "Akadálymentes mosdó",
+    "default": "Mosdó"
+  },
   "types": {
     "toilets": "Mosdó",
     "toilet": "Mosdó",

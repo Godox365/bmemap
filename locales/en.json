@@ -136,6 +136,12 @@
     "stairs": "Stairs",
     "elevator": "Elevator"
   },
+  "toilets": {
+    "female": "Women's Restroom",
+    "male": "Men's Restroom",
+    "accessible": "Accessible Restroom",
+    "default": "Restroom"
+  },
   "types": {
     "toilets": "Restroom",
     "toilet": "Restroom",
