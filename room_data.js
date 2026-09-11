@@ -1,5 +1,6 @@
 const ROOM_DATABASE = {
     "ch201": {
+        "building": "CH",
         "name": "CH201",
         "capacity": "78",
         "tags": [
@@ -17,6 +18,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch301": {
+        "building": "CH",
         "name": "CH301",
         "capacity": "32",
         "tags": [
@@ -31,6 +33,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch302": {
+        "building": "CH",
         "name": "CH302",
         "capacity": "32",
         "tags": [
@@ -46,6 +49,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch304": {
+        "building": "CH",
         "name": "CH304",
         "capacity": "30",
         "tags": [
@@ -60,6 +64,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch305": {
+        "building": "CH",
         "name": "CH305",
         "capacity": "24",
         "tags": [
@@ -75,6 +80,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch306": {
+        "building": "CH",
         "name": "CH306",
         "capacity": "18",
         "tags": [
@@ -89,6 +95,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch307": {
+        "building": "CH",
         "name": "CH307",
         "capacity": "30",
         "tags": [
@@ -104,6 +111,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ch308": {
+        "building": "CH",
         "name": "CH308",
         "capacity": "60",
         "tags": [
@@ -119,6 +127,7 @@ const ROOM_DATABASE = {
         ]
     },
     "cha10": {
+        "building": "CH",
         "name": "CHA10",
         "capacity": "80",
         "tags": [
@@ -134,6 +143,7 @@ const ROOM_DATABASE = {
         ]
     },
     "cha11": {
+        "building": "CH",
         "name": "CHA11",
         "capacity": "45",
         "tags": [
@@ -152,6 +162,7 @@ const ROOM_DATABASE = {
         ]
     },
     "chc14": {
+        "building": "CH",
         "name": "CHC14",
         "capacity": "300",
         "tags": [
@@ -167,6 +178,7 @@ const ROOM_DATABASE = {
         ]
     },
     "chfmax": {
+        "building": "CH",
         "name": "CHFMAX",
         "capacity": "540",
         "tags": [],
@@ -177,6 +189,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e1a": {
+        "building": "E",
         "name": "E1A",
         "capacity": "221",
         "tags": [
@@ -196,6 +209,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e1b": {
+        "building": "E",
         "name": "E1B",
         "capacity": "408",
         "tags": [
@@ -208,6 +222,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e1c": {
+        "building": "E",
         "name": "E1C",
         "capacity": "221",
         "tags": [
@@ -220,6 +235,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e201": {
+        "building": "E",
         "name": "E201",
         "capacity": "48",
         "tags": [],
@@ -233,6 +249,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e202": {
+        "building": "E",
         "name": "E202",
         "capacity": "72",
         "tags": [],
@@ -246,6 +263,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e203": {
+        "building": "E",
         "name": "E203",
         "capacity": "30",
         "tags": [],
@@ -259,6 +277,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e204": {
+        "building": "E",
         "name": "E204",
         "capacity": "72",
         "tags": [],
@@ -272,6 +291,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e205": {
+        "building": "E",
         "name": "E205",
         "capacity": "90",
         "tags": [],
@@ -285,6 +305,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e301": {
+        "building": "E",
         "name": "E301",
         "capacity": "30",
         "tags": [],
@@ -298,6 +319,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e302": {
+        "building": "E",
         "name": "E302",
         "capacity": "48",
         "tags": [],
@@ -311,6 +333,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e303": {
+        "building": "E",
         "name": "E303",
         "capacity": "30",
         "tags": [],
@@ -324,6 +347,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e304": {
+        "building": "E",
         "name": "E304",
         "capacity": "30",
         "tags": [],
@@ -337,6 +361,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e305ab": {
+        "building": "E",
         "name": "E305ab",
         "capacity": "30",
         "tags": [
@@ -354,6 +379,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e305c": {
+        "building": "E",
         "name": "E305c",
         "capacity": "30",
         "tags": [
@@ -367,6 +393,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e306ab": {
+        "building": "E",
         "name": "E306ab",
         "capacity": "30",
         "tags": [
@@ -380,6 +407,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e306cd": {
+        "building": "E",
         "name": "E306cd",
         "capacity": "48",
         "tags": [
@@ -397,6 +425,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e401": {
+        "building": "E",
         "name": "E401",
         "capacity": "30",
         "tags": [
@@ -414,6 +443,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e402": {
+        "building": "E",
         "name": "E402",
         "capacity": "30",
         "tags": [
@@ -427,6 +457,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e403": {
+        "building": "E",
         "name": "E403",
         "capacity": "30",
         "tags": [
@@ -440,6 +471,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "e404": {
+        "building": "E",
         "name": "E404",
         "capacity": "48",
         "tags": [
@@ -458,6 +490,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e405": {
+        "building": "E",
         "name": "E405",
         "capacity": "48",
         "tags": [
@@ -475,6 +508,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e406": {
+        "building": "E",
         "name": "E406",
         "capacity": "48",
         "tags": [
@@ -492,6 +526,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e407": {
+        "building": "E",
         "name": "E407",
         "capacity": "48",
         "tags": [
@@ -509,6 +544,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e501": {
+        "building": "E",
         "name": "E501",
         "capacity": "48",
         "tags": [],
@@ -522,6 +558,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e502": {
+        "building": "E",
         "name": "E502",
         "capacity": "48",
         "tags": [],
@@ -535,6 +572,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e503": {
+        "building": "E",
         "name": "E503",
         "capacity": "48",
         "tags": [],
@@ -548,6 +586,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e504": {
+        "building": "E",
         "name": "E504",
         "capacity": "48",
         "tags": [],
@@ -560,6 +599,7 @@ const ROOM_DATABASE = {
         ]
     },
     "e505": {
+        "building": "E",
         "name": "E505",
         "capacity": "110",
         "tags": [],
@@ -573,6 +613,7 @@ const ROOM_DATABASE = {
         ]
     },
     "f29": {
+        "building": "F",
         "name": "F29",
         "capacity": "372",
         "tags": [
@@ -590,6 +631,7 @@ const ROOM_DATABASE = {
         ]
     },
     "f2e": {
+        "building": "F",
         "name": "F2E",
         "capacity": "244",
         "tags": [
@@ -606,6 +648,7 @@ const ROOM_DATABASE = {
         ]
     },
     "f3213": {
+        "building": "F",
         "name": "F3213",
         "capacity": "60",
         "tags": [
@@ -622,6 +665,7 @@ const ROOM_DATABASE = {
         ]
     },
     "f3m01": {
+        "building": "F",
         "name": "F3M01",
         "capacity": "20",
         "tags": [
@@ -639,6 +683,7 @@ const ROOM_DATABASE = {
         ]
     },
     "f31sem": {
+        "building": "F",
         "name": "F31SEM",
         "capacity": "36",
         "tags": [
@@ -657,6 +702,7 @@ const ROOM_DATABASE = {
         ]
     },
     "fasem": {
+        "building": "F",
         "name": "FASEM",
         "capacity": "8",
         "tags": [
@@ -674,6 +720,7 @@ const ROOM_DATABASE = {
         ]
     },
     "h207": {
+        "building": "H",
         "name": "H207",
         "capacity": "28",
         "tags": [
@@ -689,6 +736,7 @@ const ROOM_DATABASE = {
         ]
     },
     "2emeletielőtér": {
+        "building": "H",
         "name": "2. emeleti előtér",
         "capacity": "14",
         "tags": [],
@@ -702,6 +750,7 @@ const ROOM_DATABASE = {
         ]
     },
     "h306": {
+        "building": "H",
         "name": "H306",
         "capacity": "20",
         "tags": [
@@ -719,6 +768,7 @@ const ROOM_DATABASE = {
         ]
     },
     "3emeletielőtér": {
+        "building": "H",
         "name": "3. emeleti előtér",
         "capacity": "14",
         "tags": [],
@@ -729,6 +779,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "h405a": {
+        "building": "H",
         "name": "H405A",
         "capacity": "35",
         "tags": [
@@ -748,6 +799,7 @@ const ROOM_DATABASE = {
         ]
     },
     "h406": {
+        "building": "H",
         "name": "H406",
         "capacity": "48",
         "tags": [
@@ -768,6 +820,7 @@ const ROOM_DATABASE = {
         ]
     },
     "4emeletielőtér": {
+        "building": "H",
         "name": "4. emeleti előtér",
         "capacity": "14",
         "tags": [],
@@ -781,6 +834,7 @@ const ROOM_DATABASE = {
         ]
     },
     "h507": {
+        "building": "H",
         "name": "H507",
         "capacity": "24",
         "tags": [
@@ -796,6 +850,7 @@ const ROOM_DATABASE = {
         ]
     },
     "5emeletielőtér": {
+        "building": "H",
         "name": "5. emeleti előtér",
         "capacity": "14",
         "tags": [],
@@ -809,6 +864,7 @@ const ROOM_DATABASE = {
         ]
     },
     "h601": {
+        "building": "H",
         "name": "H601",
         "capacity": "30",
         "tags": [
@@ -824,6 +880,7 @@ const ROOM_DATABASE = {
         ]
     },
     "h607": {
+        "building": "H",
         "name": "H607",
         "capacity": "60",
         "tags": [
@@ -842,6 +899,7 @@ const ROOM_DATABASE = {
         ]
     },
     "6emeletielőtér": {
+        "building": "H",
         "name": "6. emeleti előtér",
         "capacity": "16",
         "tags": [],
@@ -855,6 +913,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ib025": {
+        "building": "I",
         "name": "IB025",
         "capacity": "200",
         "tags": [
@@ -867,6 +926,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "ib026": {
+        "building": "I",
         "name": "IB026",
         "capacity": "200",
         "tags": [
@@ -879,6 +939,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "ib027": {
+        "building": "I",
         "name": "IB027",
         "capacity": "200",
         "tags": [
@@ -898,6 +959,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ib028": {
+        "building": "I",
         "name": "IB028",
         "capacity": "400",
         "tags": [
@@ -915,6 +977,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ie007": {
+        "building": "I",
         "name": "IE007",
         "capacity": "200",
         "tags": [
@@ -932,6 +995,7 @@ const ROOM_DATABASE = {
         ]
     },
     "ie219": {
+        "building": "I",
         "name": "IE219",
         "capacity": "25",
         "tags": [],
@@ -945,6 +1009,7 @@ const ROOM_DATABASE = {
         ]
     },
     "j102": {
+        "building": "J",
         "name": "J102",
         "capacity": "65",
         "tags": [
@@ -963,6 +1028,7 @@ const ROOM_DATABASE = {
         ]
     },
     "j202": {
+        "building": "J",
         "name": "J202",
         "capacity": "60",
         "tags": [
@@ -980,6 +1046,7 @@ const ROOM_DATABASE = {
         ]
     },
     "j207": {
+        "building": "J",
         "name": "J207",
         "capacity": "54",
         "tags": [
@@ -993,6 +1060,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "j208": {
+        "building": "J",
         "name": "J208",
         "capacity": "56",
         "tags": [
@@ -1006,6 +1074,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "j209": {
+        "building": "J",
         "name": "J209",
         "capacity": "27",
         "tags": [
@@ -1025,6 +1094,7 @@ const ROOM_DATABASE = {
         ]
     },
     "j210": {
+        "building": "J",
         "name": "J210",
         "capacity": "56",
         "tags": [
@@ -1042,6 +1112,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k134": {
+        "building": "K",
         "name": "K134",
         "capacity": "196",
         "tags": [
@@ -1055,6 +1126,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k150": {
+        "building": "K",
         "name": "K150",
         "capacity": "178",
         "tags": [
@@ -1071,6 +1143,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k155": {
+        "building": "K",
         "name": "K155",
         "capacity": "218",
         "tags": [
@@ -1084,6 +1157,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k174": {
+        "building": "K",
         "name": "K174",
         "capacity": "224",
         "tags": [
@@ -1101,6 +1175,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k210": {
+        "building": "K",
         "name": "K210",
         "capacity": "100",
         "tags": [
@@ -1113,6 +1188,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k221": {
+        "building": "K",
         "name": "K221",
         "capacity": "56",
         "tags": [
@@ -1126,6 +1202,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k222": {
+        "building": "K",
         "name": "K222",
         "capacity": "35",
         "tags": [],
@@ -1140,6 +1217,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k234": {
+        "building": "K",
         "name": "K234",
         "capacity": "540",
         "tags": [],
@@ -1150,6 +1228,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k250": {
+        "building": "K",
         "name": "K250",
         "capacity": "221",
         "tags": [
@@ -1167,6 +1246,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k255": {
+        "building": "K",
         "name": "K255",
         "capacity": "208",
         "tags": [
@@ -1179,6 +1259,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k275": {
+        "building": "K",
         "name": "K275",
         "capacity": "252",
         "tags": [],
@@ -1192,6 +1273,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k285": {
+        "building": "K",
         "name": "K285",
         "capacity": "64",
         "tags": [],
@@ -1207,6 +1289,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k342": {
+        "building": "K",
         "name": "K342",
         "capacity": "34",
         "tags": [],
@@ -1217,6 +1300,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k343": {
+        "building": "K",
         "name": "K343",
         "capacity": "24",
         "tags": [],
@@ -1227,6 +1311,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k344": {
+        "building": "K",
         "name": "K344",
         "capacity": "42",
         "tags": [],
@@ -1237,6 +1322,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k345": {
+        "building": "K",
         "name": "K345",
         "capacity": "35",
         "tags": [],
@@ -1247,6 +1333,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k350": {
+        "building": "K",
         "name": "K350",
         "capacity": "99",
         "tags": [],
@@ -1261,6 +1348,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k351": {
+        "building": "K",
         "name": "K351",
         "capacity": "35",
         "tags": [],
@@ -1271,6 +1359,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k352": {
+        "building": "K",
         "name": "K352",
         "capacity": "30",
         "tags": [],
@@ -1281,6 +1370,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k353": {
+        "building": "K",
         "name": "K353",
         "capacity": "30",
         "tags": [],
@@ -1291,6 +1381,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k363": {
+        "building": "K",
         "name": "K363",
         "capacity": "25",
         "tags": [],
@@ -1304,6 +1395,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k371": {
+        "building": "K",
         "name": "K371",
         "capacity": "32",
         "tags": [],
@@ -1318,6 +1410,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k372": {
+        "building": "K",
         "name": "K372",
         "capacity": "32",
         "tags": [],
@@ -1332,6 +1425,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k373": {
+        "building": "K",
         "name": "K373",
         "capacity": "32",
         "tags": [],
@@ -1346,6 +1440,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k374": {
+        "building": "K",
         "name": "K374",
         "capacity": "32",
         "tags": [],
@@ -1360,6 +1455,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k375": {
+        "building": "K",
         "name": "K375",
         "capacity": "32",
         "tags": [],
@@ -1374,6 +1470,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k376": {
+        "building": "K",
         "name": "K376",
         "capacity": "25",
         "tags": [],
@@ -1388,6 +1485,7 @@ const ROOM_DATABASE = {
         ]
     },
     "k391": {
+        "building": "K",
         "name": "K391",
         "capacity": "32",
         "tags": [],
@@ -1398,6 +1496,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k392": {
+        "building": "K",
         "name": "K392",
         "capacity": "32",
         "tags": [],
@@ -1408,6 +1507,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "k393": {
+        "building": "K",
         "name": "K393",
         "capacity": "32",
         "tags": [],
@@ -1418,6 +1518,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "kf38": {
+        "building": "K",
         "name": "KF38",
         "capacity": "360",
         "tags": [
@@ -1434,6 +1535,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf51(audmax)": {
+        "building": "K",
         "name": "KF51(AUDMAX)",
         "capacity": "594",
         "tags": [
@@ -1447,6 +1549,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "kf76": {
+        "building": "K",
         "name": "KF76",
         "capacity": "392",
         "tags": [],
@@ -1457,6 +1560,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "kf81": {
+        "building": "K",
         "name": "KF81",
         "capacity": "104",
         "tags": [
@@ -1475,6 +1579,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf82": {
+        "building": "K",
         "name": "KF82",
         "capacity": "80",
         "tags": [
@@ -1491,6 +1596,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf83": {
+        "building": "K",
         "name": "KF83",
         "capacity": "48",
         "tags": [
@@ -1508,6 +1614,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf84": {
+        "building": "K",
         "name": "KF84",
         "capacity": "32",
         "tags": [
@@ -1521,6 +1628,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "kf85": {
+        "building": "K",
         "name": "KF85",
         "capacity": "32",
         "tags": [
@@ -1538,6 +1646,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf86": {
+        "building": "K",
         "name": "KF86",
         "capacity": "48",
         "tags": [
@@ -1555,6 +1664,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf87": {
+        "building": "K",
         "name": "KF87",
         "capacity": "80",
         "tags": [
@@ -1573,6 +1683,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kf88": {
+        "building": "K",
         "name": "KF88",
         "capacity": "104",
         "tags": [],
@@ -1583,6 +1694,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "km34": {
+        "building": "K",
         "name": "KM34",
         "capacity": "182",
         "tags": [
@@ -1602,6 +1714,7 @@ const ROOM_DATABASE = {
         ]
     },
     "mgfea": {
+        "building": "MG",
         "name": "MGFEA",
         "capacity": "110",
         "tags": [
@@ -1619,6 +1732,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qi": {
+        "building": "Q",
         "name": "Q-I",
         "capacity": "456",
         "tags": [],
@@ -1629,6 +1743,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "qii": {
+        "building": "Q",
         "name": "Q-II",
         "capacity": "380",
         "tags": [],
@@ -1639,6 +1754,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "qa202": {
+        "building": "Q",
         "name": "QA202",
         "capacity": "67",
         "tags": [],
@@ -1653,6 +1769,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qa240": {
+        "building": "Q",
         "name": "QA240",
         "capacity": "67",
         "tags": [],
@@ -1667,6 +1784,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qaf14": {
+        "building": "Q",
         "name": "QAF14",
         "capacity": "189",
         "tags": [
@@ -1683,6 +1801,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qaf15": {
+        "building": "Q",
         "name": "QAF15",
         "capacity": "189",
         "tags": [
@@ -1699,6 +1818,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qaf16": {
+        "building": "Q",
         "name": "QAF16",
         "capacity": "104",
         "tags": [
@@ -1715,6 +1835,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qb104": {
+        "building": "Q",
         "name": "QB104",
         "capacity": "45",
         "tags": [
@@ -1731,6 +1852,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qb105": {
+        "building": "Q",
         "name": "QB105",
         "capacity": "30",
         "tags": [
@@ -1747,6 +1869,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qbf08": {
+        "building": "Q",
         "name": "QBF08",
         "capacity": "95",
         "tags": [
@@ -1761,6 +1884,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qbf09": {
+        "building": "Q",
         "name": "QBF09",
         "capacity": "105",
         "tags": [
@@ -1777,6 +1901,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qbf10": {
+        "building": "Q",
         "name": "QBF10",
         "capacity": "54",
         "tags": [
@@ -1793,6 +1918,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qbf11": {
+        "building": "Q",
         "name": "QBF11",
         "capacity": "54",
         "tags": [
@@ -1810,6 +1936,7 @@ const ROOM_DATABASE = {
         ]
     },
     "qbf13": {
+        "building": "Q",
         "name": "QBF13",
         "capacity": "104",
         "tags": [
@@ -1826,6 +1953,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r108": {
+        "building": "R",
         "name": "R108",
         "capacity": "120",
         "tags": [
@@ -1843,6 +1971,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r501": {
+        "building": "R",
         "name": "R501",
         "capacity": "40",
         "tags": [],
@@ -1856,6 +1985,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r504": {
+        "building": "R",
         "name": "R504",
         "capacity": "42",
         "tags": [],
@@ -1869,6 +1999,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r505": {
+        "building": "R",
         "name": "R505",
         "capacity": "42",
         "tags": [],
@@ -1882,6 +2013,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r506": {
+        "building": "R",
         "name": "R506",
         "capacity": "36",
         "tags": [],
@@ -1895,6 +2027,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r507": {
+        "building": "R",
         "name": "R507",
         "capacity": "30",
         "tags": [],
@@ -1908,6 +2041,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r508": {
+        "building": "R",
         "name": "R508",
         "capacity": "36",
         "tags": [],
@@ -1921,6 +2055,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r509": {
+        "building": "R",
         "name": "R509",
         "capacity": "24",
         "tags": [],
@@ -1933,6 +2068,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r510": {
+        "building": "R",
         "name": "R510",
         "capacity": "40",
         "tags": [],
@@ -1947,6 +2083,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r511": {
+        "building": "R",
         "name": "R511",
         "capacity": "40",
         "tags": [],
@@ -1960,6 +2097,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r512": {
+        "building": "R",
         "name": "R512",
         "capacity": "40",
         "tags": [],
@@ -1973,6 +2111,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r513": {
+        "building": "R",
         "name": "R513",
         "capacity": "40",
         "tags": [],
@@ -1986,6 +2125,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r514": {
+        "building": "R",
         "name": "R514",
         "capacity": "40",
         "tags": [],
@@ -1999,6 +2139,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r515": {
+        "building": "R",
         "name": "R515",
         "capacity": "40",
         "tags": [],
@@ -2012,6 +2153,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r516": {
+        "building": "R",
         "name": "R516",
         "capacity": "40",
         "tags": [],
@@ -2025,6 +2167,7 @@ const ROOM_DATABASE = {
         ]
     },
     "r517": {
+        "building": "R",
         "name": "R517",
         "capacity": "38",
         "tags": [],
@@ -2037,6 +2180,7 @@ const ROOM_DATABASE = {
         ]
     },
     "st319": {
+        "building": "ST",
         "name": "ST319",
         "capacity": "24",
         "tags": [],
@@ -2047,6 +2191,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "st320": {
+        "building": "ST",
         "name": "ST320",
         "capacity": "24",
         "tags": [
@@ -2059,6 +2204,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "st321a": {
+        "building": "ST",
         "name": "ST321A",
         "capacity": "52",
         "tags": [
@@ -2071,6 +2217,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "st321b": {
+        "building": "ST",
         "name": "ST321B",
         "capacity": "40",
         "tags": [],
@@ -2081,6 +2228,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "stfkis": {
+        "building": "ST",
         "name": "STFKIS",
         "capacity": "128",
         "tags": [
@@ -2093,6 +2241,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "stfnagy": {
+        "building": "ST",
         "name": "STFNAGY",
         "capacity": "374",
         "tags": [
@@ -2105,6 +2254,7 @@ const ROOM_DATABASE = {
         "images": []
     },
     "t601/2": {
+        "building": "T",
         "name": "T601/2",
         "capacity": "70",
         "tags": [],
@@ -2119,6 +2269,7 @@ const ROOM_DATABASE = {
         ]
     },
     "t603": {
+        "building": "T",
         "name": "T603",
         "capacity": "30",
         "tags": [],
@@ -2132,6 +2283,7 @@ const ROOM_DATABASE = {
         ]
     },
     "t604": {
+        "building": "T",
         "name": "T604",
         "capacity": "40",
         "tags": [],
@@ -2145,6 +2297,7 @@ const ROOM_DATABASE = {
         ]
     },
     "t605": {
+        "building": "T",
         "name": "T605",
         "capacity": "36",
         "tags": [],
@@ -2158,6 +2311,7 @@ const ROOM_DATABASE = {
         ]
     },
     "t606": {
+        "building": "T",
         "name": "T606",
         "capacity": "40",
         "tags": [],
@@ -2171,6 +2325,7 @@ const ROOM_DATABASE = {
         ]
     },
     "nagyolvasó": {
+        "building": "KT",
         "name": "Nagyolvasó",
         "capacity": "200",
         "tags": [
@@ -2185,6 +2340,7 @@ const ROOM_DATABASE = {
         ]
     },
     "Műszaki és Természettudományi Olvasó": {
+        "building": "KT",
         "name": "Műszaki és Természettudományi Olvasó",
         "capacity": "20",
         "tags": [
@@ -2201,6 +2357,10 @@ const ROOM_DATABASE = {
         ]
     },
     "k050": {
+        "building": [
+            "K",
+            "KT"
+        ],
         "name": "Gazdaság- és Társadalomtudományi Olvasó",
         "capacity": "80",
         "tags": [
@@ -2217,6 +2377,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kt018": {
+        "building": "KT",
         "name": "Könyvtári aula és folyosó",
         "tags": [
             "social",
@@ -2233,6 +2394,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kt01": {
+        "building": "KT",
         "name": "Számítógépterem",
         "tags": [
             "pc",
@@ -2245,6 +2407,10 @@ const ROOM_DATABASE = {
         }
     },
     "k053": {
+        "building": [
+            "K",
+            "KT"
+        ],
         "name": "Tankönyvolvasó",
         "capacity": "45",
         "tags": [
@@ -2262,6 +2428,7 @@ const ROOM_DATABASE = {
         ]
     },
     "kt02": {
+        "building": "KT",
         "name": "Földszinti közösségi terem",
         "capacity": "20",
         "tags": [
@@ -2278,6 +2445,10 @@ const ROOM_DATABASE = {
         ]
     },
     "kmf51": {
+        "building": [
+            "K",
+            "KT"
+        ],
         "name": "Emeleti közösségi terem",
         "capacity": "26",
         "tags": [
@@ -2294,6 +2465,7 @@ const ROOM_DATABASE = {
         ]
     },
     "Sóhajok Hídja": {
+        "building": "KT",
         "name": "Sóhajok Hídja",
         "tags": [
             "social"
@@ -2304,6 +2476,7 @@ const ROOM_DATABASE = {
         }
     },
     "Központi kölcsönző": {
+        "building": "KT",
         "name": "Központi kölcsönző",
         "tags": [
             "kölcsönzés",

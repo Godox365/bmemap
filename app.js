@@ -3520,6 +3520,20 @@ function _drawFavoriteIcons(level) {
 }
 
 /**
+ * Ellenőrzi, hogy a bejegyzés épülete (string vagy string tömb) illeszkedik-e a célépületre.
+ * @param {string|string[]} entryBuilding - A bejegyzés épületazonosítója vagy azonosítói.
+ * @param {string} targetB - A célépület kisbetűs azonosítója.
+ * @returns {boolean}
+ */
+function matchesBuilding(entryBuilding, targetB) {
+    if (!entryBuilding) return true;
+    if (Array.isArray(entryBuilding)) {
+        return entryBuilding.some(b => b.toLowerCase() === targetB);
+    }
+    return entryBuilding.toLowerCase() === targetB;
+}
+
+/**
  * Szobakereső algoritmus külső adatbázis illesztéséhez.
  * @param {Object} feature - A térképi elem.
  * @returns {Object|null} A szoba adatbázis bejegyzése vagy null.
@@ -3572,6 +3586,7 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
             for (const dbKey of dbKeys) {
                 const entry = ROOM_DATABASE[dbKey];
                 if (!entry || !entry.name) continue;
+                if (!matchesBuilding(entry.building, b)) continue;
                 const dbName = normalizeRoomId(entry.name);
                 if (dbName === n || dbName.includes(n) || n.includes(dbName)) {
                     return entry;
@@ -3584,10 +3599,12 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
     // Támogatja a zárójeles kiegészítéssel ellátott DB kulcsokat is (pl. "kf51" === "kf51(audmax)")
     for (const cand of candidates) {
         for (const dbKey of dbKeys) {
+            const entry = ROOM_DATABASE[dbKey];
+            if (entry && !matchesBuilding(entry.building, b)) continue;
             const cleanKey = normalizeRoomId(dbKey);
             const baseKey = normalizeRoomId(dbKey.replace(/\(.*?\)/g, ""));
             if (cleanKey === cand || baseKey === cand) {
-                return ROOM_DATABASE[dbKey]; 
+                return entry; 
             }
         }
     }
@@ -3600,6 +3617,8 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
         const isNumeric = /^\d+$/.test(candNum);
 
         for (const dbKey of dbKeys) {
+            const entry = ROOM_DATABASE[dbKey];
+            if (entry && !matchesBuilding(entry.building, b)) continue;
             const cleanDbKey = normalizeRoomId(dbKey);
             
             // SZABÁLY 1: Az adatbázis kulcsnak az aktuális épület betűjével kell kezdődnie!
@@ -3612,12 +3631,12 @@ function findBestRoomMatch(osmName, osmRef, osmLevel, buildingKey, osmAltName) {
             if (isNumeric) {
                 // Numerikus terem esetén PONTOS számazonosság kell (pl. 37 nem lehet 371)
                 if (dbNum === candNum || dbNum.startsWith(candNum + '_') || dbNum.startsWith(candNum + '/')) {
-                    return ROOM_DATABASE[dbKey];
+                    return entry;
                 }
             } else {
                 // Betűs szárny esetén a teljes kódnak egyeznie kell a DB kulcs prefixével
                 if (baseDbKey === cand || baseDbKey.startsWith(cand + '_') || baseDbKey.startsWith(cand + '/')) {
-                    return ROOM_DATABASE[dbKey];
+                    return entry;
                 }
             }
         }
