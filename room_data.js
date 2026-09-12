@@ -2490,3 +2490,409 @@ const ROOM_DATABASE = {
         }
     }
 };
+
+/**
+ * A BME kampusz épületeinek metaadatbázisa
+ */
+const BUILDING_DATABASE = {
+    "K": {
+        "building": "K",
+        "name": "K épület (Központi)",
+        "address": "1111 Budapest, Műegyetem rkp. 3.",
+        "website": "https://bme.hu",
+        "opening_hours": "Mo-Fr 06:00-22:00; Sa 06:00-18:00",
+        "tags": ["elevator", "wifi", "accessible"],
+        "note": {
+            "hu": "A Műegyetem neoreneszánsz főépülete a Duna partján. Itt található a Rektori Hivatal, a Díszterem, az Aulák, az Építőmérnöki Kar (ÉMK) és a Gazdaság- és Társadalomtudományi Kar (GTK) dékáni hivatalai, valamint a kari Hallgatói Képviseletek.",
+            "en": "The central neo-Renaissance building of BME along the Danube riverbank. Houses the Rectorate, the Assembly Hall, the Dean's Offices of Civil Engineering and Economics, and Student Representative councils."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/K_epulet_honlapra.jpg"
+        ]
+    },
+    "I": {
+        "building": "I",
+        "name": "I épület (Informatika)",
+        "address": "1117 Budapest, Magyar tudósok körútja 2.",
+        "website": "https://vik.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-22:00; Sa 07:00-19:00",
+        "tags": ["elevator", "wifi", "accessible"],
+        "note": {
+            "hu": "A Villamosmérnöki és Informatikai Kar (VIK) déli informatikai tömbje az Infopark szomszédságában (IB és IE szárny). Számítógépes laborok, tanszéki irodák (AAI, IIT), az I büfé és a belső fedett átrium helyszíne.",
+            "en": "Southern IT complex of the Faculty of Electrical Engineering and Informatics (VIK) next to Infopark (IB and IE wings). Features computer labs, department offices, buffet, and indoor atrium."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/I_epulet_honlapra.jpg"
+        ]
+    },
+    "Q": {
+        "building": "Q",
+        "name": "Q épület",
+        "address": "1117 Budapest, Magyar tudósok körútja 2.",
+        "website": "https://vik.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-22:00; Sa 07:00-19:00",
+        "tags": ["elevator", "wifi", "accessible"],
+        "note": {
+            "hu": "Modern oktatási tömb a Duna-part és az Infopark találkozásánál (QA és QB szárny). A Villamosmérnöki és Informatikai Kar (VIK), valamint a Gazdaság- és Társadalomtudományi Kar (GTK) előadói (Q-I, Q-II), tanszékei és a Q büfé található itt.",
+            "en": "Modern academic complex (Wings QA and QB). Houses major lecture halls (Q-I, Q-II) and department offices for VIK and GTK, along with the Q buffet."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/Q_epulet_honlapra.jpg"
+        ]
+    },
+    "CH": {
+        "building": "CH",
+        "name": "CH épület (Kémia)",
+        "address": "1111 Budapest, Szent Gellért tér 4.",
+        "website": "https://vbk.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
+        "tags": ["accessible"],
+        "note": {
+            "hu": "A Vegyészmérnöki és Biomérnöki Kar (VBK) történelmi főépülete a Szent Gellért téren. Dékáni hivatal, vegyész tantermek, nagyelőadók (CH Max, CH201) és kutatólaborok otthona.",
+            "en": "Historic main building of the Faculty of Chemical Technology and Biotechnology (VBK) at Szent Gellért tér. Houses the Dean's Office, chemistry lecture halls, and research laboratories."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/CH_epulet-honlap.jpg"
+        ]
+    },
+    "E": {
+        "building": "E",
+        "name": "E épület",
+        "address": "1111 Budapest, Egry József utca 1.",
+        "website": "https://epitesz.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-22:00; Sa 07:00-18:00",
+        "tags": ["elevator", "wifi"],
+        "note": {
+            "hu": "Az Egry József utcai oktatási tömb. Főként az Építészmérnöki Kar (ÉPK) rajztermei, tanszéki műtermei, valamint a TTK és GTK nagyobb tantermei találhatók benne.",
+            "en": "Educational building on Egry József utca, primarily housing Architecture drafting studios, department offices, and general lecture rooms."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/E_epulet_honlapra.jpg"
+        ]
+    },
+    "F": {
+        "building": "F",
+        "name": "F épület (Fizika)",
+        "address": "1111 Budapest, Budafoki út 6-8.",
+        "website": "https://physics.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Természettudományi Kar (TTK) Fizikai Intézetének épülete a Budafoki úton. Fizika laboratóriumok, a Kísérleti Fizika Tanszék és nagy előadótermek találhatók itt.",
+            "en": "Home of the BME Institute of Physics (Faculty of Natural Sciences) on Budafoki út, featuring experimental physics labs and lecture halls."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/F_epulet.jpg"
+        ]
+    },
+    "H": {
+        "building": "H",
+        "name": "H épület (Hőerőmű)",
+        "address": "1111 Budapest, Egry József utca 1.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Az Energetikai Gépek és Rendszerek Tanszék oktató- és laborépülete az Egry József utcában, az egyetemi hőközpont szomszédságában.",
+            "en": "Department of Energy Engineering building and thermal research facilities on Egry József utca."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/H_epulet.jpg"
+        ]
+    },
+    "J": {
+        "building": "J",
+        "name": "J épület (Járműgépészet)",
+        "address": "1111 Budapest, Stoczek utca 2.",
+        "website": "https://kjk.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Közlekedésmérnöki és Járműmérnöki Kar (KJK) központi épülete a Stoczek utcában. Járműtechnikai és logisztikai laborok, tanszéki irodák és tantermek találhatók itt.",
+            "en": "Main building of the Faculty of Transportation Engineering and Vehicle Engineering (KJK) on Stoczek utca, housing vehicle labs and classrooms."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/J_epulet_honlapra-2.jpg"
+        ]
+    },
+    "MG": {
+        "building": "MG",
+        "name": "MG épület (Mezőgazdasági Géptan)",
+        "address": "1111 Budapest, Bertalan Lajos utca 1.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "A Gépészmérnöki Kar gépészeti és mezőgazdasági géptani laboratóriumai a Bertalan Lajos utcai belső udvarban.",
+            "en": "Mechanical and agricultural machinery laboratories of the Faculty of Mechanical Engineering on Bertalan Lajos utca."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/MG_epulet_honlapra.JPG"
+        ]
+    },
+    "R": {
+        "building": "R",
+        "name": "R épület",
+        "address": "1111 Budapest, Műegyetem rkp. 7-9.",
+        "website": "https://hszi.bme.hu",
+        "opening_hours": "Mo-Fr 06:00-20:00",
+        "tags": ["elevator", "wifi", "accessible"],
+        "note": {
+            "hu": "A Műegyetem rakparti igazgatási és hallgatói szolgáltató központja. Itt működik a Hallgatói Szolgáltatási Igazgatóság (HSZI / KTH központi ügyfélszolgálat) és a Kancellária.",
+            "en": "Administrative and student service center on Műegyetem rakpart. Houses the Central Academic Office (KTH / HSZI) and Chancellor's offices."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/R_epulet_honlapra.jpg"
+        ]
+    },
+    "ST": {
+        "building": "ST",
+        "name": "ST épület (Stoczek)",
+        "address": "1111 Budapest, Stoczek utca 4.",
+        "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Stoczek József utcai oktatási és tanszéki épület. Tanszéki irodák, tantermek és kutatólaborok találhatók a tömbben.",
+            "en": "Academic building on Stoczek utca, housing department offices, seminar rooms, and research facilities."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/ST_epulet_honlapra.jpg"
+        ]
+    },
+    "T": {
+        "building": "T",
+        "name": "T épület",
+        "address": "1111 Budapest, Egry József utca 1.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Gépészmérnöki oktató műhelyek, méréstechnikai laborok és technológiai oktatóterek a Bertalan Lajos és Egry József utca közötti tömbben.",
+            "en": "Mechanical engineering workshops, measurement laboratories, and training halls."
+        },
+        "images": [
+            "https://www.ttdh.bme.hu/kari/T_epulet_epulet.jpg"
+        ]
+    },
+    "KT": {
+        "building": "KT",
+        "name": "BME OMIKK Könyvtár",
+        "address": "1111 Budapest, Budafoki út 4-6.",
+        "website": "https://omikk.bme.hu",
+        "opening_hours": "Mo-Fr 08:00-20:00",
+        "tags": ["elevator", "wifi", "accessible"],
+        "note": {
+            "hu": "A Műegyetem Központi Könyvtára és Információs Központja (OMIKK). Hatalmas olvasótermek (Nagyolvasó, Műszaki és Természettudományi Olvasó), könyvkölcsönzés, csendes tanulóboxok és kutatóterek.",
+            "en": "Central Library and Information Center of BME (OMIKK). Features grand reading rooms, book lending, silent study spaces, and research archives."
+        },
+        "images": []
+    },
+    "A": {
+        "building": "A",
+        "name": "A épület (Adminisztráció)",
+        "address": "1111 Budapest, Egry József utca 1.",
+        "opening_hours": "Mo-Fr 07:00-19:00",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Rektori Hivatal gazdasági, műszaki és kancelláriai igazgatási egységeinek épülete.",
+            "en": "Administrative building housing economic, technical, and operational departments of the Rectorate."
+        },
+        "images": []
+    },
+    "V1": {
+        "building": "V1",
+        "name": "V1 épület (Villamosságtan)",
+        "address": "1111 Budapest, Egry József utca 18.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Villamos energetika, villamos gépek és nagyfeszültségű technika tanszéki és laborépülete az Egry József utcában.",
+            "en": "Department of Electric Power Engineering and high-voltage laboratories on Egry József utca."
+        },
+        "images": []
+    },
+    "ÉL": {
+        "building": "ÉL",
+        "name": "ÉL épület (Építőipari labor)",
+        "address": "1111 Budapest, Műegyetem rkp. 3.",
+        "opening_hours": "Mo-Fr 07:00-19:00",
+        "tags": ["accessible"],
+        "note": {
+            "hu": "Az Építőmérnöki Kar szerkezetvizsgáló, építőanyag- és geotechnikai nagylaboratóriuma a K épület mögött.",
+            "en": "Civil Engineering large-scale structural, building materials, and geotechnical testing laboratory behind the K building."
+        },
+        "images": []
+    },
+    "D": {
+        "building": "D",
+        "name": "D épület (Gépészet)",
+        "address": "1111 Budapest, Bertalan Lajos utca 4-6.",
+        "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Gépészmérnöki Kar tanszéki és oktatási épülete a Bertalan Lajos utcában (Polimertechnika, Épületgépészet).",
+            "en": "Mechanical Engineering academic building on Bertalan Lajos utca (Polymer Engineering, Building Services)."
+        },
+        "images": []
+    },
+    "G": {
+        "building": "G",
+        "name": "G épület",
+        "address": "1111 Budapest, Stoczek utca 4.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Gépgyártástechnológiai műhelyek, hegesztő és megmunkáló laborok a Stoczek utca mentén.",
+            "en": "Manufacturing science workshops, welding and machining laboratories on Stoczek utca."
+        },
+        "images": []
+    },
+    "Z": {
+        "building": "Z",
+        "name": "Z épület",
+        "address": "1111 Budapest, Bertalan Lajos utca 2.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Gépészmérnöki oktató és laboratóriumi épület a Bertalan Lajos utca és Budafoki út sarkán.",
+            "en": "Mechanical Engineering teaching and laboratory facility at the corner of Bertalan Lajos utca and Budafoki út."
+        },
+        "images": []
+    },
+    "AE": {
+        "building": "AE",
+        "name": "AE épület",
+        "address": "1111 Budapest, Bertalan Lajos utca 4-6.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Az Áramlástan Tanszék épülete az egyetemi szélcsatorna laboratóriummal a Bertalan Lajos utcában.",
+            "en": "Department of Fluid Mechanics featuring the university wind tunnel facility on Bertalan Lajos utca."
+        },
+        "images": []
+    },
+    "MM": {
+        "building": "MM",
+        "name": "MM épület (Műszaki Mechanika)",
+        "address": "1111 Budapest, Bertalan Lajos utca 1.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "A Műszaki Mechanikai Tanszék oktatási és kutatási épülete a Bertalan Lajos utcai campusrészen.",
+            "en": "Department of Applied Mechanics building on Bertalan Lajos utca."
+        },
+        "images": []
+    },
+    "L": {
+        "building": "L",
+        "name": "L épület (Labor)",
+        "address": "1111 Budapest, Bertalan Lajos utca 7-9.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Központi műszaki oktatólaboratóriumok és műhelyek a belső egyetemi udvarban.",
+            "en": "Central technical teaching laboratories and workshops in the inner campus courtyard."
+        },
+        "images": []
+    },
+    "MT": {
+        "building": "MT",
+        "name": "MT épület",
+        "address": "1111 Budapest, Bertalan Lajos utca 3.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Anyagtudományi és technológiai oktatóterek és tanszéki laborok.",
+            "en": "Materials science and technology educational halls and departmental laboratories."
+        },
+        "images": []
+    },
+    "TR": {
+        "building": "TR",
+        "name": "TR épület (Oktatóreaktor)",
+        "address": "1111 Budapest, Műegyetem rkp. 7-9.",
+        "website": "https://reak.bme.hu",
+        "opening_hours": "Mo-Fr 08:00-16:00",
+        "note": {
+            "hu": "A Nukleáris Technikai Intézet oktatóreaktora a Műegyetem rakparti belső parkjában.",
+            "en": "Educational Training Reactor of the Institute of Nuclear Techniques on Műegyetem rakpart."
+        },
+        "images": []
+    },
+    "MFK": {
+        "building": "MFK",
+        "name": "Martos Flóra Kollégium",
+        "address": "1111 Budapest, Stoczek utca 1-7.",
+        "website": "https://martos.bme.hu",
+        "opening_hours": "24/7",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Vegyészmérnöki és Biomérnöki Kar hallgatói kollégiuma a Stoczek utcában, kollégiumi klubbal és rendezvényteremmel.",
+            "en": "Student dormitory of the Faculty of Chemical Technology and Biotechnology on Stoczek utca."
+        },
+        "images": []
+    },
+    "SCH": {
+        "building": "SCH",
+        "name": "Schönherz Kollégium",
+        "address": "1117 Budapest, Irinyi József utca 42.",
+        "website": "https://sch.bme.hu",
+        "opening_hours": "24/7",
+        "tags": ["elevator", "wifi"],
+        "note": {
+            "hu": "A Villamosmérnöki és Informatikai Kar 20 emeletes hallgatói kollégiuma az Irinyi József utcában. Itt működik a Simonyi Károly Szakkollégium és a Schönherz Stúdió.",
+            "en": "20-story student dormitory of the Faculty of Electrical Engineering and Informatics on Irinyi József utca."
+        },
+        "images": []
+    },
+    "BMB": {
+        "building": "BMB",
+        "name": "Bercsényi Kollégium",
+        "address": "1117 Budapest, Bercsényi utca 28-30.",
+        "website": "https://bercsenyi.bme.hu",
+        "opening_hours": "24/7",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "Az Építészmérnöki Kar hallgatói kollégiuma a Bercsényi utcában, a Bercsényi Építész Műhely és kiállítótér otthona.",
+            "en": "Architecture student dormitory on Bercsényi utca, home to the Bercsényi Architecture Workshop and gallery."
+        },
+        "images": []
+    },
+    "BGK": {
+        "building": "BGK",
+        "name": "Baross Gábor Kollégium",
+        "address": "1111 Budapest, Bartók Béla út 17.",
+        "opening_hours": "24/7",
+        "note": {
+            "hu": "A Közlekedésmérnöki és Járműmérnöki Kar hallgatói kollégiuma a Bartók Béla út közelében.",
+            "en": "Student dormitory of the Faculty of Transportation Engineering and Vehicle Engineering."
+        },
+        "images": []
+    },
+    "B": {
+        "building": "B",
+        "name": "B épület (Infopark)",
+        "address": "1117 Budapest, Infopark sétány 3.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "A BME külső oktatási és kutatási bázisa az Infoparkban.",
+            "en": "External education and research facility of BME in Infopark."
+        },
+        "images": []
+    },
+    "C": {
+        "building": "C",
+        "name": "C épület (Infopark)",
+        "address": "1117 Budapest, Gábor Dénes utca 4.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "A BME külső kutató és innovációs telephelye az Infopark C épületében.",
+            "en": "External research and innovation facility of BME in Infopark Building C."
+        },
+        "images": []
+    }
+};
+
+/**
+ * Lekéri egy BME kampusz épület adatait a kódja alapján (pl. "K", "I", "CH", "SCH").
+ * @param {string} key - Az épület kódja.
+ * @returns {Object|null}
+ */
+function getBuildingData(key) {
+    if (!key || typeof BUILDING_DATABASE === 'undefined') return null;
+    const cleanKey = String(key).trim().toUpperCase().replace(/^BME_/, '').replace(/^CAMPUS_/, '');
+    return BUILDING_DATABASE[cleanKey] || null;
+}
+
+if (typeof window !== 'undefined') {
+    window.BUILDING_DATABASE = BUILDING_DATABASE;
+    window.getBuildingData = getBuildingData;
+}

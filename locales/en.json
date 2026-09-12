@@ -17,7 +17,8 @@
     "loading": "Loading data...",
     "connecting": "Connecting...",
     "unknown": "Unknown",
-    "building_name": "Building {name}"
+    "building_name": "Building {name}",
+    "campus_overview": "BME Campus"
   },
   "search": {
     "placeholder": "Search...",
@@ -25,6 +26,7 @@
     "maybe_in_building": "Maybe in building {building}?",
     "level_badge": "(Floor: {level})",
     "fav_sub": "(Building {building}, Floor {level})",
+    "fav_sub_building": "(Building)",
     "search_aria": "Search"
   },
   "modal": {

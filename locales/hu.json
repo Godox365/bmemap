@@ -17,7 +17,8 @@
     "loading": "Adatok betöltése...",
     "connecting": "Kapcsolódás...",
     "unknown": "Ismeretlen",
-    "building_name": "{name} Épület"
+    "building_name": "{name} Épület",
+    "campus_overview": "BME Kampusz"
   },
   "search": {
     "placeholder": "Keress...",
@@ -25,6 +26,7 @@
     "maybe_in_building": "Talán a {building} épületben?",
     "level_badge": "(Szint: {level})",
     "fav_sub": "({building} épület, {level}. szint)",
+    "fav_sub_building": "(Épület)",
     "search_aria": "Keresés"
   },
   "modal": {

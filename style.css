@@ -5,6 +5,7 @@
             --bg-body: #000000;
             --bg-surface: #1e1e1e;
             --bg-element: #333333;
+            --color-floor-fill: #0d0d0d;
             
             /* Üveg-hatású gombok háttere (pl. Share, Close) */
             --bg-button-glass: rgba(255,255,255,0.1); 
@@ -93,6 +94,7 @@
             --border-color: #d1d1d1;
             --icon-color: #666666;
             --icon-color-active: #000000;
+            --color-floor-fill: #f5f5f5;
         }
         
         /* Címek színe (Fix) */
@@ -181,12 +183,26 @@
             border-radius: 12px; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
             display: flex; flex-direction: column; gap: 6px; 
-            
-            max-height: 50vh; 
+            box-sizing: border-box;
+            max-height: min(50vh, calc(100dvh - 200px)); 
             overflow-y: auto;
+            overflow-x: hidden;
             scrollbar-width: none;
+            -ms-overflow-style: none;
             touch-action: pan-y; 
             pointer-events: auto; 
+            transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+        }
+        .level-control::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+        }
+        .level-control.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px);
+            visibility: hidden;
         }
         /* MapLibre marker pointer-events kezelése */
         .maplibregl-marker {
@@ -1069,7 +1085,7 @@
         @media (max-width: 600px) {
             #top-bar { flex-direction: column-reverse; align-items: flex-start; top: 10px; left: 10px; right: 10px; }
             #search-wrapper { width: 100%; }
-            .level-control { top: 130px; right: 10px; }
+            .level-control { top: 130px; right: 10px; max-height: min(45vh, calc(100dvh - 260px)); }
             .maplibregl-ctrl-top-right { top: 130px; }
             .custom-select { margin-top: 5px; }
         }
@@ -1735,14 +1751,14 @@
    BLUEPRINT FADE-IN (FOCUS) ANIMATION
 ========================================= */
 @keyframes blueprintFocus {
-    0% { opacity: 0; filter: blur(4px); }
-    100% { opacity: 1; filter: blur(0px); }
+    0% { opacity: 0.7; }
+    100% { opacity: 1; }
 }
 
 /* Csak az épülethez tartozó rétegeket animáljuk. */
 .blueprint-animating .maplibregl-canvas-container,
 .blueprint-animating .maplibregl-marker {
-    animation: blueprintFocus 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    animation: blueprintFocus 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 /* --- Pill (Chip) Gomb Stílusok --- */
@@ -2194,5 +2210,78 @@ body:not(.embed-mode) .embed-info-bar {
     .viewer-close-btn {
         top: 14px;
         right: 14px;
+    }
+}
+
+/* ==========================================================================
+   GPS KÉK PÖTTY ÉS ÉLŐ IRÁNYTŰ FÉNYCSÓVA (CAMPUS OVERVIEW GPS)
+   ========================================================================== */
+.user-location-marker {
+    position: relative;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Iránytű fénycsóva (Flashlight cone) */
+.user-location-heading-cone {
+    position: absolute;
+    top: -68px;
+    left: -38px;
+    width: 76px;
+    height: 68px;
+    background: radial-gradient(circle at 50% 100%, rgba(26, 115, 232, 0.45) 0%, rgba(26, 115, 232, 0.15) 55%, rgba(26, 115, 232, 0) 100%);
+    clip-path: polygon(50% 100%, 8% 0%, 92% 0%);
+    transform-origin: 50% 100%;
+    pointer-events: none;
+    transition: transform 0.12s ease-out, opacity 0.2s ease;
+    opacity: 0;
+}
+.user-location-heading-cone.visible {
+    opacity: 1;
+}
+
+/* Kék belső pont */
+.user-location-dot {
+    position: absolute;
+    top: -9px;
+    left: -9px;
+    width: 18px;
+    height: 18px;
+    background: #1a73e8;
+    border: 2.5px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Pulzáló gyűrű */
+.user-location-pulse {
+    position: absolute;
+    top: -11px;
+    left: -11px;
+    width: 34px;
+    height: 34px;
+    background: rgba(26, 115, 232, 0.35);
+    border-radius: 50%;
+    animation: gps-pulse 2.2s infinite cubic-bezier(0.2, 0.6, 0.35, 1);
+    pointer-events: none;
+}
+
+@keyframes gps-pulse {
+    0% {
+        transform: scale(0.5);
+        opacity: 0.95;
+    }
+    70% {
+        transform: scale(2.0);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(2.0);
+        opacity: 0;
     }
 }

@@ -35,6 +35,24 @@ function fastDistMeters(lat1, lon1, lat2, lon2) {
 }
 
 /**
+ * Ellenőrzi, hogy egy 2D pont [lng, lat] egy sokszögön belül van-e (Ray casting).
+ * @param {number[]} pt [lng, lat]
+ * @param {number[][]} poly [[lng, lat], ...]
+ * @returns {boolean}
+ */
+function pointInPoly(pt, poly) {
+    if (!pt || !poly || poly.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        const intersect = ((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+/**
  * Kezdő épület adatainak azonnali, párhuzamos lekérése az oldal betöltésekor.
  */
 let _initialBuildingFetchPromise = null;
@@ -47,8 +65,151 @@ try {
     }
     _initialBuildingFetchPromise = fetch(`./data/${_initialBuildingKey.toLowerCase()}_epulet.json`)
         .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (data) _buildingJsonCache.set(_initialBuildingKey, data);
+            return data;
+        })
         .catch(() => null);
 } catch(e) {}
+
+/**
+ * Kampusz átnézeti adatok és beltéri GeoJSON memóriagyorsítótár
+ */
+const CAMPUS_OVERVIEW_ZOOM = 16.0;
+const _buildingJsonCache = new Map();
+let campusGeoJsonData = null;
+let _campusDataFetchPromise = null;
+
+/**
+ * Szűri a kampusz rétegeket: beltéri módban az aktív épület kontúrja, kitöltése és betűjele eltűnik, a szomszédos épületeké látható marad.
+ */
+function updateCampusLayersFilter() {
+    if (typeof map === 'undefined' || !map.getLayer) return;
+    const zoom = map.getZoom ? map.getZoom() : 18;
+    const isIndoorMode = zoom >= CAMPUS_OVERVIEW_ZOOM && typeof currentBuildingKey !== 'undefined' && currentBuildingKey;
+    const filter = isIndoorMode ? ['!=', ['get', 'key'], currentBuildingKey] : null;
+
+    if (map.getLayer('campus-building-stroke')) map.setFilter('campus-building-stroke', filter);
+    if (map.getLayer('campus-building-fill')) map.setFilter('campus-building-fill', filter);
+    if (map.getLayer('campus-building-labels')) map.setFilter('campus-building-labels', filter);
+}
+const updateCampusLabelsFilter = updateCampusLayersFilter;
+
+/**
+ * Előállítja a feliratokhoz tartozó Point típusú GeoJSON adatokat,
+ * hogy a feliratok az épület közepén maradjanak.
+ */
+function _getCampusLabelsGeoJson(data) {
+    if (!data || !data.features) return { type: 'FeatureCollection', features: [] };
+    return {
+        type: 'FeatureCollection',
+        features: data.features
+            .filter(f => f.properties && f.properties.center)
+            .map(f => ({
+                type: 'Feature',
+                id: f.id ? f.id + '_lbl' : undefined,
+                properties: {
+                    ...f.properties
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: f.properties.center
+                }
+            }))
+    };
+}
+
+/**
+ * Szinkronizálja a kampusz GeoJSON rétegeket (kontúrok + feliratok)
+ */
+function updateCampusSources(data) {
+    if (!data) return;
+    campusGeoJsonData = data;
+    if (typeof map !== 'undefined' && map.getSource) {
+        if (map.getSource('campus-geojson')) {
+            map.getSource('campus-geojson').setData(data);
+        }
+        if (map.getSource('campus-labels-geojson')) {
+            map.getSource('campus-labels-geojson').setData(_getCampusLabelsGeoJson(data));
+        }
+        updateCampusLabelsFilter();
+    }
+}
+
+/**
+ * Megkeresi a megadott [lng, lat] koordinátákhoz tartozó BME épületet (BBox + pointInPoly)
+ * @param {number} lng
+ * @param {number} lat
+ * @param {boolean} [exactOnly=false] - Ha true, csak a sokszögön belüli találatot fogadja el (pl. automata váltásnál)
+ * @returns {Object|null}
+ */
+function findCampusBuildingAt(lng, lat, exactOnly = false) {
+    if (!campusGeoJsonData || !campusGeoJsonData.features) return null;
+    const centerPt = [lng, lat];
+
+    // 1. Gyors BBox előszűrés + Point-in-polygon
+    for (const f of campusGeoJsonData.features) {
+        if (!f.geometry) continue;
+        const bbox = f.properties && f.properties.bbox;
+        if (bbox && (lng < bbox[0] || lng > bbox[2] || lat < bbox[1] || lat > bbox[3])) {
+            continue;
+        }
+
+        const geomType = f.geometry.type;
+        const coords = f.geometry.coordinates;
+
+        if (geomType === 'Polygon') {
+            if (pointInPoly(centerPt, coords[0])) return f;
+        } else if (geomType === 'MultiPolygon') {
+            for (const poly of coords) {
+                if (pointInPoly(centerPt, poly[0])) return f;
+            }
+        }
+    }
+
+    if (exactOnly) return null;
+
+    // 2. Ha a koordináta épp a fal peremén / bejáratnál van (kattintáskor): legközelebbi épület < 35m
+    let closest = null, minDist = 35;
+    for (const f of campusGeoJsonData.features) {
+        if (f.properties && f.properties.center) {
+            const d = fastDistMeters(lat, lng, f.properties.center[1], f.properties.center[0]);
+            if (d < minDist) {
+                minDist = d;
+                closest = f;
+            }
+        }
+    }
+    return closest;
+}
+
+/**
+ * Háttérben előtölti a 6 beltéri épület adatait a gyorsítótárba a zökkenőmentes váltáshoz
+ */
+function _preloadIndoorBuildings() {
+    ['K', 'I', 'Q', 'E', 'R', 'KT'].forEach(key => {
+        if (!_buildingJsonCache.has(key)) {
+            fetch(`./data/${key.toLowerCase()}_epulet.json`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (data) _buildingJsonCache.set(key, data);
+                })
+                .catch(() => {});
+        }
+    });
+}
+
+try {
+    _campusDataFetchPromise = fetch('./data/campus_buildings.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            updateCampusSources(data);
+            setTimeout(_preloadIndoorBuildings, 600);
+            return data;
+        })
+        .catch(() => null);
+} catch(e) {}
+
 
 /**
  * EMBED MÓD DETEKTÁLÁS ÉS BEÁLLÍTÁS
@@ -435,6 +596,101 @@ async function loadSearchIndex() {
 }
 
 /**
+ * A BME kampusz mind a 29 épületét keresi (név, kód, alternatív név, leírás alapján).
+ * Ha a felhasználó pl. "Q", "Q épület", "CH", "Kémia", "Schönherz", "Könyvtár" kifejezésekre keres,
+ * a releváns épületek közvetlenül a lista élére kerülnek.
+ * @param {string} term - A keresési kifejezés.
+ * @returns {Object[]} A megtalált épületek listája.
+ */
+function searchCampusBuildings(term) {
+    if (!term) return [];
+    const cleanTerm = normalizeRoomId(term);
+    if (!cleanTerm) return [];
+
+    let buildingList = [];
+    if (globalSearchIndex && Array.isArray(globalSearchIndex)) {
+        buildingList = globalSearchIndex.filter(item => item.isBuilding);
+    } else if (campusGeoJsonData && Array.isArray(campusGeoJsonData.features)) {
+        buildingList = campusGeoJsonData.features.map(f => {
+            const p = f.properties || {};
+            const code = (p.code || p.key || "").toUpperCase();
+            return {
+                id: f.id || `campus_${code}`,
+                b: code,
+                ref: code,
+                name: p.name || `${code} épület`,
+                alt: `${p.name || ''} ${code} épület`,
+                lvl: "0",
+                isBuilding: true,
+                hasIndoor: p.hasIndoor === true || p.hasIndoor === 'true'
+            };
+        });
+    }
+
+    if (buildingList.length === 0) return [];
+
+    const scored = [];
+
+    for (const b of buildingList) {
+        const bCode = (b.b || b.ref || "").toLowerCase();
+        const bName = normalizeRoomId(b.name);
+        const bAlt = normalizeRoomId(b.alt || "");
+        const bRef = normalizeRoomId(b.ref || "");
+
+        let score = 0;
+
+        // 1. Pontos épületkód egyezés (pl. "Q", "CH", "K", "KT")
+        if (cleanTerm === bCode || cleanTerm === bRef) {
+            score = 1500;
+        }
+        // 2. Pontos "X épület" vagy teljes név egyezés (pl. "qepulet", "kemia", "schonherz")
+        else if (cleanTerm === bCode + "epulet" || cleanTerm === bRef + "epulet" || (bName && cleanTerm === bName)) {
+            score = 1450;
+        }
+        // 3. Név / alternatív név kezdete (pl. "kemi...", "schon...", "konyvt...")
+        else if (bName && bName.startsWith(cleanTerm)) {
+            score = 1350 - (bName.length - cleanTerm.length) * 2;
+        }
+        // 4. Prefix vagy tartalmazás az alternatív névben / címben
+        else if ((bCode + "epulet").startsWith(cleanTerm) || (bRef + "epulet").startsWith(cleanTerm)) {
+            score = 1250;
+        }
+        else if (bAlt && bAlt.includes(cleanTerm)) {
+            score = 1200;
+        }
+        else if (bName && cleanTerm.length >= 3 && bName.includes(cleanTerm)) {
+            score = 1150;
+        }
+
+        if (score > 0) {
+            scored.push({
+                hit: {
+                    id: b.id || `campus_${b.b}`,
+                    properties: {
+                        ref: b.ref || b.b,
+                        name: b.name,
+                        alt_name: b.alt,
+                        level: "0",
+                        'level:ref': "",
+                        _isBuilding: true,
+                        hasIndoor: b.hasIndoor
+                    },
+                    _buildingKey: b.b,
+                    _isBuilding: true,
+                    _hasIndoor: b.hasIndoor,
+                    _isLocal: false,
+                    _score: score
+                },
+                score: score
+            });
+        }
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map(s => s.hit);
+}
+
+/**
  * A globális keresési indexben keres az aktuális épülettől ELTÉRŐ épületekben.
  * Ugyanazt a pontozási logikát használja, mint a smartFilter, de egy fix pontlevonással (-150),
  * hogy az aktuális épület találatai mindig prioritást élvezzenek.
@@ -454,6 +710,7 @@ function searchOtherBuildings(term) {
     const scored = [];
 
     for (const item of globalSearchIndex) {
+        if (item.isBuilding) continue; // Épületeket a searchCampusBuildings kezeli
         // Kizárólag más épületekben keresünk (nincs duplikáció a jelenlegi épülettel!)
         if (item.b === currentBuildingKey) continue;
 
@@ -581,15 +838,23 @@ function searchOtherBuildings(term) {
 }
 
 /**
- * Összefűzi a helyi és más épületek találatait pontszám szerint,
- * biztosítva a duplikációmentességet és a helyi épület prioritását.
+ * Összefűzi az épületek, a helyi és más épületek találatait pontszám szerint,
+ * deduplikálva, pontszám szerint rendezve.
  * @param {Object[]} localHits - A jelenlegi épületből származó találatok (smartFilter).
  * @param {Object[]} otherHits - A más épületekből származó találatok (searchOtherBuildings).
+ * @param {Object[]} [buildingHits=[]] - A kampusz épületeinek találatai (searchCampusBuildings).
  * @returns {Object[]} A rendezett, egyesített találati lista.
  */
-function mergeSearchResults(localHits, otherHits) {
+function mergeSearchResults(localHits, otherHits, buildingHits = []) {
     const combined = [];
     const seenIds = new Set();
+
+    for (const b of buildingHits) {
+        if (!seenIds.has(b.id)) {
+            seenIds.add(b.id);
+            combined.push({ hit: b, score: b._score || 1300 });
+        }
+    }
 
     for (const h of localHits) {
         h._isLocal = true;
@@ -612,8 +877,7 @@ function mergeSearchResults(localHits, otherHits) {
 /**
  * Segédfüggvény a szobaazonosítók és keresési kifejezések normalizálására.
  * Eltávolítja az ékezeteket, szóközöket, pontokat és kötőjeleket, majd kisbetűssé alakítja a szöveget.
- * Ez biztosítja a robusztus és elgépelés-biztos keresést.
- * * @param {string} str - A formázandó, eredeti szöveg.
+ * @param {string} str - A formázandó, eredeti szöveg.
  * @returns {string} A normalizált, megtisztított szöveg.
  */
 function normalizeRoomId(str) {
@@ -631,6 +895,10 @@ function normalizeRoomId(str) {
 function getCanonicalRoomCode(p, buildingKey) {
     if (!p) return "";
     const props = p.properties ? p.properties : p;
+    // Ha maga az elem egy épület, nem szabad szobakódot prefixelni vagy generálni!
+    if (props._isBuilding || props._isCampusOverview || props.room === 'building' || props.building || p._isBuilding) {
+        return "";
+    }
     if (!props.ref) return "";
 
     const b = (buildingKey || p._buildingKey || (p.properties && p.properties._buildingKey) || currentBuildingKey || "").trim().toUpperCase();
@@ -723,6 +991,10 @@ function getCanonicalRoomCode(p, buildingKey) {
 function formatFeatureName(p, buildingKey) {
     if (!p) return "";
     const props = p.properties ? p.properties : p;
+    // Ha maga az elem egy épület, tiszta épületnevet adunk vissza szobakód-előtag nélkül
+    if (props._isBuilding || props._isCampusOverview || props.room === 'building' || props.building || p._isBuilding) {
+        return props.name || (props.code ? `${props.code} épület` : (props.ref ? `${props.ref} épület` : (props.key ? `${props.key} épület` : '')));
+    }
     const bKey = buildingKey || p._buildingKey || (p.properties && p.properties._buildingKey) || currentBuildingKey;
     const canonRef = getCanonicalRoomCode(props, bKey);
     const name = (props.name || "").trim();
@@ -794,7 +1066,7 @@ const THEME_VARS = {
     '--color-corridor-fill':{ dark: 'rgba(34, 34, 34, 0.5)', light: 'rgba(0, 0, 0, 0.08)', label: 'Folyosó Kitöltés' },
     
     '--color-outline':     { dark: '#ffffff', light: '#555555', label: 'Épület Körvonal' },
-    '--color-floor-fill':  { dark: '#222222', light: '#f5f5f5', label: 'Épület/Padló Kitöltés' }, // ÚJ
+    '--color-floor-fill':  { dark: '#0d0d0d', light: '#f5f5f5', label: 'Épület/Padló Kitöltés' },
     
     '--color-door':        { dark: '#ffffff', light: '#333333', label: 'Ajtók' },
     '--color-highlight':   { dark: '#ffeb3b', light: '#ffab00', label: 'Kijelölés (Highlight)' },
@@ -1249,9 +1521,19 @@ function saveFavorites() {
  */
 function isFavorite(feature) {
     if (!feature) return false;
+    const p = feature.properties || {};
+    const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
+    if (isBuilding) {
+        const bKey = (p._buildingKey || p.code || p.ref || p.key || (typeof feature.id === 'string' && feature.id.replace(/^campus_/, '')) || '').toUpperCase();
+        return userFavorites.some(fav => 
+            (fav.isBuilding && (fav.buildingKey === bKey || fav.building === bKey)) ||
+            fav.id === feature.id ||
+            fav.id === `campus_${bKey}`
+        );
+    }
     const featId = feature.id;
     const origId = feature._originalId || (feature.properties && (feature.properties.id || feature.properties.osm_id));
-    return userFavorites.some(fav => fav.id === featId || (origId && (fav.id === origId || String(fav.id) === String(origId))));
+    return userFavorites.some(fav => !fav.isBuilding && (fav.id === featId || (origId && (fav.id === origId || String(fav.id) === String(origId)))));
 }
 
 /**
@@ -1263,9 +1545,40 @@ function isFavorite(feature) {
 function toggleFavoriteCurrent() {
     if (!selectedFeature) return;
     
+    const p = selectedFeature.properties || {};
+    const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding;
+    
+    if (isBuilding) {
+        const bKey = (p._buildingKey || p.code || p.ref || p.key || (typeof selectedFeature.id === 'string' && selectedFeature.id.replace(/^campus_/, '')) || '').toUpperCase();
+        const bId = selectedFeature.id || `campus_${bKey}`;
+        const name = p.name || (bKey ? `${bKey} épület` : 'Épület');
+        
+        if (isFavorite(selectedFeature)) {
+            userFavorites = userFavorites.filter(fav => 
+                !(fav.isBuilding && (fav.buildingKey === bKey || fav.building === bKey)) &&
+                fav.id !== bId &&
+                fav.id !== `campus_${bKey}`
+            );
+            showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből! 🗑️");
+        } else {
+            userFavorites.push({
+                id: bId,
+                name: name,
+                type: 'building',
+                isBuilding: true,
+                buildingKey: bKey,
+                building: bKey,
+                level: null
+            });
+            showToast(typeof t === 'function' ? t('toasts.fav_added') : "Hozzáadva a kedvencekhez! ⭐");
+        }
+        saveFavorites();
+        updateFavoriteUI();
+        return;
+    }
+
     const origId = selectedFeature._originalId || (selectedFeature.properties && (selectedFeature.properties.id || selectedFeature.properties.osm_id));
     const id = origId || selectedFeature.id; 
-    const p = selectedFeature.properties;
     
     // Név meghatározása: mosdók esetén automatikus nemmel/szobaszámmal, egyébként kánonikus név alapján
     const toiletInfo = getToiletInfo(selectedFeature);
@@ -1407,9 +1720,15 @@ function showFavoritesInSearch() {
         userFavorites.forEach(fav => {
             const div = document.createElement('div');
             div.className = 'result-item';
-            const favSub = typeof t === 'function' 
-                ? t('search.fav_sub', { building: escapeHTML(fav.building), level: escapeHTML(fav.level) })
-                : `(${escapeHTML(fav.building)} épület, ${escapeHTML(fav.level)}. szint)`;
+            const isBld = fav.isBuilding || fav.type === 'building';
+            let favSub = "";
+            if (isBld) {
+                favSub = typeof t === 'function' ? (t('search.fav_sub_building') || "(Épület)") : "(Épület)";
+            } else {
+                favSub = typeof t === 'function' 
+                    ? t('search.fav_sub', { building: escapeHTML(fav.building), level: escapeHTML(fav.level) })
+                    : `(${escapeHTML(fav.building)} épület, ${escapeHTML(fav.level)}. szint)`;
+            }
             div.innerHTML = `<span class="material-symbols-outlined fav-icon" style="color:#ffd700">star</span> ${escapeHTML(fav.name)} <span style="color:#888; font-size:12px">${favSub}</span>`;
             
             // Kattintás eseménykezelője az adott kedvenc kiválasztásához
@@ -1417,6 +1736,36 @@ function showFavoritesInSearch() {
                 resultsDiv.style.display = 'none';
                 _searchSelectedIndex = -1;
                 _searchUserNavigated = false;
+
+                if (isBld) {
+                    const bKey = (fav.buildingKey || fav.building || '').toUpperCase();
+                    let bFeature = null;
+                    if (campusGeoJsonData && campusGeoJsonData.features) {
+                        bFeature = campusGeoJsonData.features.find(f => {
+                            const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+                            return k === bKey || f.id === fav.id;
+                        });
+                    }
+                    if (!bFeature) {
+                        bFeature = {
+                            id: fav.id || `campus_${bKey}`,
+                            type: "Feature",
+                            properties: {
+                                key: bKey,
+                                code: bKey,
+                                ref: bKey,
+                                name: fav.name,
+                                hasIndoor: Boolean(BUILDINGS[bKey]),
+                                _isBuilding: true,
+                                _isCampusOverview: true
+                            }
+                        };
+                    }
+                    handleCampusBuildingClick(bFeature);
+                    document.getElementById('search-input').value = fav.name;
+                    updateRightButtonState();
+                    return;
+                }
 
                 if (fav.building !== currentBuildingKey) {
                     changeBuilding(fav.building, fav.name, fav.id);
@@ -1604,6 +1953,10 @@ let pendingNavSource = null;
 let pendingSearchTerm = null;
 /** Automatikus célelem azonosító (feature ID), amelyet épületváltás után közvetlenül meg kell nyitni. */
 let pendingTargetId = null;
+/** Függőben lévő épület feature, amelyet loadOsmData befejezése után nyit meg az openSheet. */
+let _pendingBuildingOpenFeature = null;
+/** Jelző: animált kampuszközi vagy keresőből indított épületváltási repülés van folyamatban, az automata felismerő ne avatkozzon be. */
+let _isCampusTransitionActive = false;
 /** Globális keresési index a campus összes épületének termeivel. */
 let globalSearchIndex = null;
 let isSearchIndexLoading = false;
@@ -1815,14 +2168,125 @@ map.on('zoomend', function() {
         cancelAnimationFrame(_zoomVisibilityRaf);
         _zoomVisibilityRaf = null;
     }
-    updateDynamicVisibility();      
+    updateDynamicVisibility();
+    if (_autoSwitchDebounceTimer) clearTimeout(_autoSwitchDebounceTimer);
+    _autoSwitchDebounceTimer = setTimeout(() => {
+        checkBuildingAutoSwitch();
+    }, 60);
 });
+
+let _autoSwitchDebounceTimer = null;
+map.on('move', function() {
+    if (!_isCampusTransitionActive && !selectedFeature) {
+        requestDynamicVisibilityUpdate();
+    }
+});
+
+map.on('moveend', function() {
+    if (_zoomVisibilityRaf) {
+        cancelAnimationFrame(_zoomVisibilityRaf);
+        _zoomVisibilityRaf = null;
+    }
+    updateDynamicVisibility();
+    if (_autoSwitchDebounceTimer) clearTimeout(_autoSwitchDebounceTimer);
+    _autoSwitchDebounceTimer = setTimeout(() => {
+        checkBuildingAutoSwitch();
+    }, 60);
+});
+
+map.on('rotate', function() {
+    if (typeof CampusGPS !== 'undefined' && CampusGPS.isActive) {
+        CampusGPS.updateBearing();
+    }
+});
+
+/**
+ * Visszaadja a képernyőn ténylegesen látható térképrészlet földrajzi középpontját,
+ * figyelembe véve az alsó panel (Bottom Sheet) vagy desktop oldalsó panel kitakarását.
+ * @returns {Object|null} { lng, lat } koordináta objektum vagy null.
+ */
+function getEffectiveMapCenter() {
+    if (typeof map === 'undefined' || !map.getCenter || !map.unproject) return null;
+
+    const sheetEl = document.getElementById('bottom-sheet');
+    const isSheetOpen = sheetEl && sheetEl.classList.contains('open');
+
+    if (isDesktopSidePanel()) {
+        if (isSheetOpen) {
+            const panelW = sheetEl.getBoundingClientRect().width || 390;
+            const visibleX = panelW + (window.innerWidth - panelW) / 2;
+            const visibleY = window.innerHeight / 2;
+            return map.unproject([visibleX, visibleY]);
+        }
+        return map.getCenter();
+    }
+
+    if (isSheetOpen) {
+        const sheetRect = sheetEl.getBoundingClientRect();
+        const topBar = document.getElementById('top-bar');
+        const topY = (topBar && topBar.offsetHeight) ? topBar.offsetHeight : 0;
+        const bottomY = sheetRect.top > topY ? sheetRect.top : window.innerHeight;
+        const visibleY = (topY + bottomY) / 2;
+        const visibleX = window.innerWidth / 2;
+        return map.unproject([visibleX, visibleY]);
+    }
+
+    return map.getCenter();
+}
 
 /**
  * Frissíti a térkép DOM elemeinek CSS változóit az aktuális nagyítási szint (zoom) alapján.
  */
 function updateDynamicVisibility() {
     const zoom = map.getZoom();
+
+    // 0. Szintválasztó (.level-control) elrejtése vagy megjelenítése
+    const levelControl = document.querySelector('.level-control');
+    if (levelControl) {
+        let isIndoorActive = false;
+        if (_pendingBuildingOpenFeature && _pendingBuildingOpenFeature.properties) {
+            const p = _pendingBuildingOpenFeature.properties;
+            const k = (p._buildingKey || p.key || p.code || "").toUpperCase();
+            isIndoorActive = (p.hasIndoor === true || p.hasIndoor === 'true' || Boolean(k && BUILDINGS[k])) && zoom >= CAMPUS_OVERVIEW_ZOOM;
+        } else if (selectedFeature && (selectedFeature.properties?._isBuilding || selectedFeature._isBuilding || selectedFeature.properties?._isCampusOverview)) {
+            const p = selectedFeature.properties || {};
+            const k = (p._buildingKey || p.key || p.code || "").toUpperCase();
+            isIndoorActive = (p.hasIndoor === true || p.hasIndoor === 'true' || Boolean(k && BUILDINGS[k])) && zoom >= CAMPUS_OVERVIEW_ZOOM;
+        } else if (zoom >= CAMPUS_OVERVIEW_ZOOM && typeof map !== 'undefined') {
+            const center = (typeof getEffectiveMapCenter === 'function') ? getEffectiveMapCenter() : map.getCenter();
+            if (center) {
+                const bld = (typeof findCampusBuildingAt === 'function') ? findCampusBuildingAt(center.lng, center.lat, false) : null;
+                if (bld && bld.properties) {
+                    isIndoorActive = bld.properties.hasIndoor === true || bld.properties.hasIndoor === 'true';
+                } else if (typeof currentBuildingKey !== 'undefined' && currentBuildingKey && BUILDINGS[currentBuildingKey]) {
+                    const bDef = BUILDINGS[currentBuildingKey];
+                    const d = (typeof fastDistMeters === 'function') ? fastDistMeters(center.lat, center.lng, bDef.center[0], bDef.center[1]) : 999;
+                    isIndoorActive = d < 150;
+                }
+            }
+        }
+        if (isIndoorActive) {
+            levelControl.classList.remove('hidden');
+        } else {
+            levelControl.classList.add('hidden');
+        }
+    }
+
+    // Fejléc és legördülő menü kijelölésének szinkronizálása
+    updateBuildingSelectorUI();
+
+    // Kampusz címkék dinamikus szűrése (aktív épület címkéjének elrejtése beltéri nézetben)
+    updateCampusLabelsFilter();
+
+    // Automatikus épületfelismerés azonnal a zoomolás közben (ha zoom >= CAMPUS_OVERVIEW_ZOOM)
+    if (zoom >= CAMPUS_OVERVIEW_ZOOM) {
+        checkBuildingAutoSwitch();
+    }
+
+    // GPS kék pötty figyelő életciklusának frissítése a zoom függvényében
+    if (typeof CampusGPS !== 'undefined') {
+        CampusGPS.handleZoomChange(zoom);
+    }
 
     // 1. Ikonok és POI-k skálázása (Eredeti 18.5 küszöbérték)
     let iconScale = (zoom - 18.5) / (20.5 - 18.5);
@@ -1931,6 +2395,16 @@ function _resetMapPadding() {
 }
 
 function _initMapSources() {
+    map.addSource('campus-geojson', {
+        type: 'geojson',
+        data: campusGeoJsonData || { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addSource('campus-labels-geojson', {
+        type: 'geojson',
+        data: _getCampusLabelsGeoJson(campusGeoJsonData)
+    });
+
     map.addSource('indoor-geojson', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
@@ -1954,11 +2428,82 @@ function _initMapSources() {
 
 function _initMapLayers() {
     const cs = () => getComputedStyle(document.documentElement);
-    const get = (v) => cs().getPropertyValue(v).trim();
+    const get = (v, fallback = '#ffffff') => {
+        const val = cs().getPropertyValue(v);
+        return (val && val.trim()) ? val.trim() : fallback;
+    };
+
+    // =========================================================================
+    // 0. KAMPUSZ ÁTNÉZET RÉTEGEK (Minden nagyítási szinten láthatóak)
+    // =========================================================================
+    map.addLayer({
+        id: 'campus-building-fill', type: 'fill', source: 'campus-geojson',
+        paint: {
+            'fill-color': get('--color-floor-fill', '#0d0d0d'),
+            'fill-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                13.0, 0.95,
+                15.0, 0.90,
+                16.5, 0.85,
+                18.0, 0.80,
+                19.0, 0.75
+            ]
+        }
+    });
+
+    map.addLayer({
+        id: 'campus-building-stroke', type: 'line', source: 'campus-geojson',
+        maxzoom: 18.6,
+        paint: {
+            'line-color': ['case', ['==', ['get', 'hasIndoor'], true], '#8A2432', get('--color-outline', '#555555')],
+            'line-width': ['case', ['==', ['get', 'hasIndoor'], true], 2.0, 1.2],
+            'line-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                16.0, 0.95,
+                18.0, 0.95,
+                18.5, 0.0
+            ]
+        }
+    });
+
+    map.addLayer({
+        id: 'campus-building-labels', type: 'symbol', source: 'campus-labels-geojson',
+        maxzoom: 18.6,
+        layout: {
+            'text-field': ['get', 'code'],
+            'text-font': ['Noto Sans Bold'],
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                13.0, 10,
+                14.5, 12,
+                15.5, 14,
+                16.5, 15,
+                18.0, 16
+            ],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true
+        },
+        paint: {
+            'text-color': get('--text-main', '#ffffff'),
+            'text-halo-color': get('--color-floor-fill', '#0d0d0d'),
+            'text-halo-width': 2.5,
+            'text-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                14.0, 1.0,
+                18.0, 1.0,
+                18.5, 0.0
+            ]
+        }
+    });
     
+    // =========================================================================
+    // BELTÉRI RÉTEGEK (minzoom: CAMPUS_OVERVIEW_ZOOM = 16.0)
+    // =========================================================================
+
     // 1. PADLÓ / FAL (floor-fill)
     map.addLayer({
         id: 'floor-fill', type: 'fill', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all',
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['any', ['==', ['get', 'indoor'], 'level'], ['has', 'building:part'], ['==', ['get', 'indoor'], 'wall'], ['has', 'building']]
@@ -1967,6 +2512,7 @@ function _initMapLayers() {
     });
     map.addLayer({
         id: 'floor-outline', type: 'line', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['any', ['==', ['get', 'indoor'], 'level'], ['has', 'building:part']],
         paint: { 'line-color': get('--color-outline'), 'line-width': 1 }
     });
@@ -1974,6 +2520,7 @@ function _initMapLayers() {
     // 2. FOLYOSÓK
     map.addLayer({
         id: 'corridor-fill', type: 'fill', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all',
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['==', ['get', 'indoor'], 'corridor']
@@ -1982,6 +2529,7 @@ function _initMapLayers() {
     });
     map.addLayer({
         id: 'corridor-line', type: 'line', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['==', ['get', 'highway'], 'corridor'],
         paint: { 'line-color': get('--color-corridor'), 'line-width': 4, 'line-opacity': 0.5 }
     });
@@ -1989,6 +2537,7 @@ function _initMapLayers() {
     // 3. SZOBÁK
     map.addLayer({
         id: 'room-fill', type: 'fill', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all', 
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['!', ['any', ['==',['get','indoor'],'level'], ['has','building:part'], ['==',['get','indoor'],'wall'], ['has','building'], ['==',['get','indoor'],'corridor'], ['==',['get','highway'],'corridor'], ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets'], ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps'], ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']]],
@@ -1998,6 +2547,7 @@ function _initMapLayers() {
     });
     map.addLayer({
         id: 'room-stroke', type: 'line', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all', 
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['!', ['any', ['==',['get','indoor'],'level'], ['has','building:part'], ['==',['get','indoor'],'wall'], ['has','building'], ['==',['get','indoor'],'corridor'], ['==',['get','highway'],'corridor'], ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets'], ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps'], ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']]],
@@ -2009,6 +2559,7 @@ function _initMapLayers() {
     // 4. MOSDÓK (toilet-fill)
     map.addLayer({
         id: 'toilet-fill', type: 'fill', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all',
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['any', ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets']]
@@ -2017,6 +2568,7 @@ function _initMapLayers() {
     });
     map.addLayer({
         id: 'toilet-stroke', type: 'line', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['any', ['==',['get','room'],'toilet'], ['==',['get','room'],'toilets'], ['==',['get','amenity'],'toilets']],
         paint: { 'line-color': get('--color-toilet-stroke'), 'line-width': 2 }
     });
@@ -2024,6 +2576,7 @@ function _initMapLayers() {
     // 5. LÉPCSŐK
     map.addLayer({
         id: 'stairs-fill', type: 'fill', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all',
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['any', ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps']]
@@ -2032,6 +2585,7 @@ function _initMapLayers() {
     });
     map.addLayer({
         id: 'stairs-stroke', type: 'line', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['any', ['==',['get','room'],'stairs'], ['==',['get','indoor'],'staircase'], ['==',['get','highway'],'steps']],
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
@@ -2043,6 +2597,7 @@ function _initMapLayers() {
     // 6. LIFTEK
     map.addLayer({
         id: 'elevator-fill', type: 'fill', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['all',
             ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
             ['any', ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']]
@@ -2051,6 +2606,7 @@ function _initMapLayers() {
     });
     map.addLayer({
         id: 'elevator-stroke', type: 'line', source: 'indoor-geojson',
+        minzoom: CAMPUS_OVERVIEW_ZOOM,
         filter: ['any', ['==',['get','highway'],'elevator'], ['==',['get','room'],'elevator']],
         paint: { 'line-color': get('--color-elevator-stroke'), 'line-width': 1 }
     });
@@ -2110,6 +2666,437 @@ function _initMapLayers() {
 
 }
 
+/**
+ * Rákattintás kezelése a kampusz átnézeti épületekre (Zoom < 18).
+ * - Ha van beltéri térkép: odarepülünk és átváltunk az épületre.
+ * - Ha nincs beltéri térkép (pl. CH, MM, ST): ráközpontosítunk és megnyitjuk az információs kártyát.
+ * @param {Object} feature - A kattintott épület GeoJSON feature objektuma.
+ */
+function handleCampusBuildingClick(feature) {
+    if (!feature || !feature.properties) return;
+    const p = feature.properties;
+    const bKey = (p.key || p.code || p.ref || p._buildingKey || (typeof feature.id === 'string' && feature.id.replace(/^campus_/, '')) || "").toUpperCase();
+    const hasIndoor = p.hasIndoor === true || p.hasIndoor === 'true' || Boolean(bKey && BUILDINGS[bKey]);
+    const bData = (typeof getBuildingData === 'function') ? getBuildingData(bKey) : null;
+
+    let center = p.center;
+    if (typeof center === 'string') {
+        try { center = JSON.parse(center); } catch(e) {}
+    }
+    if (!center && BUILDINGS[bKey]) {
+        center = [BUILDINGS[bKey].center[1], BUILDINGS[bKey].center[0]];
+    }
+
+    let bbox = p.bbox;
+    if (typeof bbox === 'string') {
+        try { bbox = JSON.parse(bbox); } catch(e) {}
+    }
+
+    // A térképi rétegekből lekérdezett geometria a nézet szélén megvágott lehet,
+    // ezért a campusGeoJsonData forrásból mindig a teljes, vágatlan geometriát használjuk.
+    if (typeof campusGeoJsonData !== 'undefined' && campusGeoJsonData && campusGeoJsonData.features) {
+        const found = campusGeoJsonData.features.find(f => {
+            const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+            return (bKey && k === bKey) || f.id === feature.id;
+        });
+        if (found) {
+            if (found.geometry && found.geometry.type !== 'Point') {
+                feature.geometry = found.geometry;
+            }
+            if (found.properties) {
+                if (!bbox && found.properties.bbox) bbox = found.properties.bbox;
+                if (!center && found.properties.center) center = found.properties.center;
+            }
+        }
+    }
+
+    if (!bbox && typeof turf !== 'undefined' && feature.geometry) {
+        try { bbox = turf.bbox(feature); } catch(e) {}
+    }
+
+    if (!feature.geometry && center) {
+        feature.geometry = {
+            type: "Point",
+            coordinates: [center[0], center[1]]
+        };
+    }
+
+    const isMobile = !isDesktopSidePanel();
+
+    const buildingFeature = {
+        id: feature.id || `campus_${bKey}`,
+        type: "Feature",
+        geometry: feature.geometry,
+        properties: {
+            ...p,
+            name: (bData && bData.name) ? bData.name : (p.name || `${bKey} épület`),
+            ref: p.code || p.ref || bKey,
+            code: p.code || p.ref || bKey,
+            indoor: hasIndoor ? 'yes' : 'no',
+            room: 'building',
+            building: 'yes',
+            address: (bData && bData.address) ? bData.address : p.address,
+            opening_hours: (bData && bData.opening_hours) ? bData.opening_hours : p.opening_hours,
+            website: (bData && bData.website) ? bData.website : p.website,
+            wheelchair: (bData && bData.wheelchair) ? bData.wheelchair : p.wheelchair,
+            _buildingKey: bKey,
+            _isBuilding: true,
+            _isCampusOverview: true
+        }
+    };
+
+    if (hasIndoor && bKey && BUILDINGS[bKey]) {
+        if (bKey === currentBuildingKey && geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+            openSheet(buildingFeature);
+            return;
+        }
+        // Jelzők beállítása: az automata épületváltás nem fut amíg a repülés és betöltés tart.
+        _isCampusTransitionActive = true;
+        _isBuildingSwitching = true;
+
+        // Szintválasztó elrejtése a repülés alatt
+        const lvlCtrl = document.querySelector('.level-control');
+        if (lvlCtrl) lvlCtrl.classList.add('hidden');
+
+        // preserveCamera = true: a kamerát az openSheet() állítja majd be a betöltés után.
+        _pendingBuildingOpenFeature = buildingFeature;
+        changeBuilding(bKey, null, null, true);
+    } else {
+        // Csak külső kontúrral rendelkező épület (pl. CH, MM, ST):
+        // Az openSheet közvetlenül megnyílik és a smartFlyTo-val a helyére illeszti a kamerát!
+        _isCampusTransitionActive = true;
+        _isBuildingSwitching = true;
+        openSheet(buildingFeature);
+    }
+}
+
+const CAMPUS_BBOX = [
+    [19.0502, 47.4697], // Délnyugat (Infopark / BMB)
+    [19.0611, 47.4832]  // Északkelet (CH / Gellért tér)
+];
+
+/**
+ * Odarepül a teljes BME kampusz átnézethez úgy, hogy az összes épület látható legyen.
+ */
+function zoomToCampusOverview() {
+    if (typeof closeSheet === 'function') closeSheet();
+    _resetMapPadding();
+    _isCampusTransitionActive = true;
+    _isBuildingSwitching = true;
+
+    // Fejléc és legördülő menü azonnali frissítése a kampusz átnézetre
+    const currentNameEl = document.getElementById('current-building-name');
+    const triggerIconEl = document.querySelector('.select-trigger .icon');
+    if (currentNameEl) {
+        currentNameEl.innerText = typeof t === 'function' ? (t('common.campus_overview') || 'BME Kampusz') : 'BME Kampusz';
+        if (triggerIconEl) triggerIconEl.innerText = 'map';
+    }
+    const optionsDiv = document.getElementById('building-options');
+    if (optionsDiv) {
+        optionsDiv.querySelectorAll('.option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.key === 'CAMPUS');
+        });
+    }
+
+    map.fitBounds(CAMPUS_BBOX, {
+        padding: 50,
+        maxZoom: 15.8,
+        duration: 1200
+    });
+    setTimeout(() => {
+        _isCampusTransitionActive = false;
+        _isBuildingSwitching = false;
+        updateDynamicVisibility();
+        updateBuildingSelectorUI();
+    }, 1500);
+}
+
+/**
+ * Frissíti a fejlécben látható épületnevet, ikont és a legördülő menü (.selected) állapotát.
+ */
+function updateBuildingSelectorUI() {
+    const zoom = (typeof map !== 'undefined' && map.getZoom) ? map.getZoom() : 18;
+    const isOverviewZoom = zoom < CAMPUS_OVERVIEW_ZOOM;
+
+    let centerBuilding = null;
+    let centerKey = null;
+    let isCenterIndoor = false;
+
+    if (_pendingBuildingOpenFeature && _pendingBuildingOpenFeature.properties) {
+        const p = _pendingBuildingOpenFeature.properties;
+        centerKey = (p._buildingKey || p.key || p.code || p.ref || "").toUpperCase();
+        isCenterIndoor = p.hasIndoor === true || p.hasIndoor === 'true' || Boolean(centerKey && BUILDINGS[centerKey]);
+    } else if (selectedFeature && (selectedFeature.properties?._isBuilding || selectedFeature._isBuilding || selectedFeature.properties?._isCampusOverview)) {
+        const p = selectedFeature.properties || {};
+        centerKey = (p._buildingKey || p.key || p.code || p.ref || "").toUpperCase();
+        isCenterIndoor = p.hasIndoor === true || p.hasIndoor === 'true' || Boolean(centerKey && BUILDINGS[centerKey]);
+    } else if (_isCampusTransitionActive) {
+        // Átvezető animáció alatt nem váltunk köztes épületekre
+        return;
+    } else if (typeof map !== 'undefined' && map.getCenter && typeof findCampusBuildingAt === 'function') {
+        const c = (typeof getEffectiveMapCenter === 'function') ? getEffectiveMapCenter() : map.getCenter();
+        if (c) {
+            centerBuilding = findCampusBuildingAt(c.lng, c.lat, false);
+            if (centerBuilding && centerBuilding.properties) {
+                centerKey = (centerBuilding.properties.key || centerBuilding.properties.code || "").toUpperCase();
+                isCenterIndoor = centerBuilding.properties.hasIndoor === true || centerBuilding.properties.hasIndoor === 'true';
+            } else if (!isOverviewZoom && typeof currentBuildingKey !== 'undefined' && currentBuildingKey && BUILDINGS[currentBuildingKey]) {
+                const bDef = BUILDINGS[currentBuildingKey];
+                const d = (typeof fastDistMeters === 'function') ? fastDistMeters(c.lat, c.lng, bDef.center[0], bDef.center[1]) : 999;
+                if (d < 150) {
+                    centerKey = currentBuildingKey;
+                    isCenterIndoor = true;
+                }
+            }
+        }
+    }
+
+    // 1. Fejléc név és ikon
+    const currentNameEl = document.getElementById('current-building-name');
+    const triggerIconEl = document.querySelector('.select-trigger .icon');
+    if (currentNameEl) {
+        if (isOverviewZoom || !centerKey) {
+            currentNameEl.innerText = typeof t === 'function' ? (t('common.campus_overview') || 'BME Kampusz') : 'BME Kampusz';
+            if (triggerIconEl) triggerIconEl.innerText = 'map';
+        } else {
+            currentNameEl.innerText = getBuildingName(centerKey);
+            if (triggerIconEl) triggerIconEl.innerText = 'apartment';
+        }
+    }
+
+    // 2. Legördülő lista elemeinek kijelölése (.selected)
+    const optionsDiv = document.getElementById('building-options');
+    if (optionsDiv) {
+        const options = optionsDiv.querySelectorAll('.option');
+        options.forEach(opt => {
+            if (opt.dataset.key === 'CAMPUS') {
+                opt.classList.toggle('selected', isOverviewZoom || !centerKey || !isCenterIndoor);
+            } else if (opt.dataset.key) {
+                opt.classList.toggle('selected', !isOverviewZoom && isCenterIndoor && opt.dataset.key === centerKey);
+            }
+        });
+    }
+}
+
+function updateBuildingHeaderName() {
+    updateBuildingSelectorUI();
+}
+
+/**
+ * Automata épületváltás nagyításkor.
+ * Ha a nézet egy másik beltéri épület fölé kerül (zoom >= CAMPUS_OVERVIEW_ZOOM),
+ * átváltunk az új épületre a kamera pozíciójának megőrzésével.
+ */
+let _isBuildingSwitching = false;
+
+function checkBuildingAutoSwitch() {
+    if (!map) return;
+    if (_isCampusTransitionActive) return;
+    if (_pendingBuildingOpenFeature) return;
+    if (_isBuildingSwitching) return;
+    const zoom = map.getZoom();
+    if (zoom < CAMPUS_OVERVIEW_ZOOM) return;
+    if (activeRouteData) return; // Ne szakítsuk meg az aktív navigációt
+    if (selectedFeature && !selectedFeature.properties._isCampusOverview) return; // Ne zavarjuk a teremnézetet
+    if (selectedFeature && (selectedFeature.properties._isBuilding || selectedFeature._isBuilding)) return; // Ne zavarjuk a manuálisan kijelölt épületet
+    if (!campusGeoJsonData || !campusGeoJsonData.features || campusGeoJsonData.features.length === 0) return;
+
+    const center = (typeof getEffectiveMapCenter === 'function') ? getEffectiveMapCenter() : map.getCenter();
+    if (!center) return;
+    const matchedBuilding = findCampusBuildingAt(center.lng, center.lat, true);
+    if (!matchedBuilding) return;
+
+    const targetKey = (matchedBuilding.properties.key || matchedBuilding.properties.code || "").toUpperCase();
+    const hasIndoor = matchedBuilding.properties.hasIndoor === true || matchedBuilding.properties.hasIndoor === 'true';
+
+    // Ha van beltéri térkép, és másik épületről van szó:
+    if (hasIndoor && targetKey && targetKey !== currentBuildingKey && BUILDINGS[targetKey]) {
+        _isBuildingSwitching = true;
+        console.log(`[CampusOverview] Épületváltás: ${currentBuildingKey} -> ${targetKey} (Zoom: ${zoom.toFixed(2)})`);
+
+        // Szintválasztó elrejtése a váltás alatt
+        const lvlCtrl = document.querySelector('.level-control');
+        if (lvlCtrl) lvlCtrl.classList.add('hidden');
+
+        changeBuilding(targetKey, null, null, true);
+
+        setTimeout(() => {
+            _isBuildingSwitching = false;
+        }, 500);
+    }
+}
+
+/**
+ * Kampusz GPS kezelő objektum (élő pulzáló kék pötty + giroszkópos iránytű fénycsóva)
+ * Kizárólag kampusz átnézetben (zoom < CAMPUS_OVERVIEW_ZOOM) aktív a BME 1.5 km-es körzetében.
+ */
+const CampusGPS = {
+    watchId: null,
+    marker: null,
+    coneEl: null,
+    pulseEl: null,
+    dotEl: null,
+    userCoords: null,
+    currentHeading: null,
+    isActive: false,
+    permissionDenied: false,
+    orientationBound: null,
+
+    init() {
+        this.orientationBound = this.handleOrientation.bind(this);
+        if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+            try {
+                navigator.permissions.query({ name: 'geolocation' }).then(result => {
+                    if (result.state === 'denied') {
+                        this.permissionDenied = true;
+                    }
+                    result.onchange = () => {
+                        if (result.state === 'denied') {
+                            this.permissionDenied = true;
+                            this.stop();
+                        } else if (result.state === 'granted') {
+                            this.permissionDenied = false;
+                        }
+                    };
+                }).catch(() => {});
+            } catch(e) {}
+        }
+    },
+
+    createMarker() {
+        if (this.marker) return;
+        const el = document.createElement('div');
+        el.className = 'user-location-marker';
+        el.innerHTML = `
+            <div class="user-location-heading-cone"></div>
+            <div class="user-location-pulse"></div>
+            <div class="user-location-dot"></div>
+        `;
+        this.coneEl = el.querySelector('.user-location-heading-cone');
+        this.pulseEl = el.querySelector('.user-location-pulse');
+        this.dotEl = el.querySelector('.user-location-dot');
+
+        this.marker = new maplibregl.Marker({ element: el, anchor: 'center' });
+    },
+
+    handleZoomChange(zoom) {
+        const shouldBeActive = zoom < CAMPUS_OVERVIEW_ZOOM;
+        if (shouldBeActive) {
+            if (!this.isActive && !this.permissionDenied) {
+                this.start();
+            }
+        } else {
+            if (this.isActive) {
+                this.stop();
+            }
+        }
+    },
+
+    start() {
+        if (this.isActive || this.permissionDenied) return;
+        if (typeof window === 'undefined' || !("geolocation" in navigator)) return;
+
+        this.isActive = true;
+        this.createMarker();
+        if (!this.orientationBound) this.init();
+
+        try {
+            this.watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    this.userCoords = [lon, lat];
+
+                    // Távolságellenőrzés: BME központtól (47.478, 19.057) max 1.5 km
+                    const dist = fastDistMeters(lat, lon, 47.478, 19.057);
+                    if (dist > 1500) {
+                        if (this.marker && this.marker._map) {
+                            this.marker.remove();
+                        }
+                        return;
+                    }
+
+                    if (this.marker) {
+                        this.marker.setLngLat([lon, lat]);
+                        if (!this.marker._map && map.getZoom() < CAMPUS_OVERVIEW_ZOOM) {
+                            this.marker.addTo(map);
+                        }
+                    }
+
+                    if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.speed > 0.5) {
+                        this.setHeading(pos.coords.heading);
+                    }
+                },
+                (err) => {
+                    // Ha a felhasználó letiltotta a helyhozzáférést vagy bezárta a promptot, ne próbálkozzunk újra
+                    if (err && (err.code === 1 || err.code === err.PERMISSION_DENIED)) {
+                        this.permissionDenied = true;
+                        this.stop();
+                    }
+                },
+                { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+            );
+        } catch (e) {
+            this.permissionDenied = true;
+            this.stop();
+        }
+
+        if (window.DeviceOrientationEvent) {
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', this.orientationBound, true);
+            } else {
+                window.addEventListener('deviceorientation', this.orientationBound, true);
+            }
+        }
+    },
+
+    stop() {
+        this.isActive = false;
+        if (this.watchId !== null) {
+            navigator.geolocation.clearWatch(this.watchId);
+            this.watchId = null;
+        }
+        if (this.orientationBound) {
+            window.removeEventListener('deviceorientationabsolute', this.orientationBound, true);
+            window.removeEventListener('deviceorientation', this.orientationBound, true);
+        }
+        if (this.marker && this.marker._map) {
+            this.marker.remove();
+        }
+    },
+
+    handleOrientation(e) {
+        if (!this.isActive) return;
+        let heading = null;
+        if (typeof e.webkitCompassHeading === 'number') {
+            heading = e.webkitCompassHeading;
+        } else if (e.absolute && typeof e.alpha === 'number') {
+            heading = 360 - e.alpha;
+        } else if (typeof e.alpha === 'number') {
+            heading = 360 - e.alpha;
+        }
+
+        if (heading !== null && !isNaN(heading)) {
+            this.setHeading(heading);
+        }
+    },
+
+    setHeading(deg) {
+        this.currentHeading = deg;
+        if (!this.coneEl) return;
+        const bearing = map ? map.getBearing() : 0;
+        const visualHeading = (deg - bearing + 360) % 360;
+        this.coneEl.style.transform = `rotate(${visualHeading.toFixed(1)}deg)`;
+        this.coneEl.classList.add('visible');
+    },
+
+    updateBearing() {
+        if (this.currentHeading !== null && this.coneEl) {
+            this.setHeading(this.currentHeading);
+        }
+    }
+};
+
 function _initMapEventListeners() {
     if (_mapEventsInitialized) return;
     _mapEventsInitialized = true;
@@ -2121,11 +3108,80 @@ function _initMapEventListeners() {
         map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
     });
 
+    // Kampusz átnézet épületek kurzor kezelése
+    ['campus-building-fill', 'campus-building-labels'].forEach(id => {
+        map.on('mouseenter', id, (e) => {
+            const zoom = map.getZoom();
+            if (zoom < CAMPUS_OVERVIEW_ZOOM) {
+                map.getCanvas().style.cursor = 'pointer';
+            } else {
+                const f = e.features && e.features[0];
+                const k = f && f.properties ? (f.properties.key || f.properties.code) : null;
+                if (k && String(k).toUpperCase() !== String(currentBuildingKey).toUpperCase()) {
+                    map.getCanvas().style.cursor = 'pointer';
+                }
+            }
+        });
+        map.on('mouseleave', id, () => {
+            map.getCanvas().style.cursor = '';
+        });
+    });
+
     map.on('click', (e) => {
         if (window.isMapInteractionLocked) return;
 
+        // 1. Kampusz átnézetben az épületkontúrok kattintása elsőbbséget kap
+        if (map.getZoom() < CAMPUS_OVERVIEW_ZOOM) {
+            let matched = null;
+            const checkLayers = ['campus-building-fill', 'campus-building-stroke', 'campus-building-labels'].filter(id => map.getLayer(id));
+            const campusFeatures = map.queryRenderedFeatures(e.point, { layers: checkLayers });
+            if (campusFeatures && campusFeatures.length > 0) {
+                const target = campusFeatures[0];
+                const bKey = (target.properties && (target.properties.key || target.properties.code || target.properties.ref || "")).toUpperCase();
+                if (campusGeoJsonData && campusGeoJsonData.features) {
+                    matched = campusGeoJsonData.features.find(f => {
+                        const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+                        return (bKey && k === bKey) || f.id === target.id;
+                    });
+                }
+                if (!matched) matched = target;
+            } else {
+                matched = findCampusBuildingAt(e.lngLat.lng, e.lngLat.lat, false);
+            }
+            if (matched) {
+                handleCampusBuildingClick(matched);
+                return;
+            }
+        }
+
+        // 2. Beltéri nézetben: először megvizsgáljuk, hogy az aktív épület egy termére kattintott-e a felhasználó
         const features = map.queryRenderedFeatures(e.point, { layers: FEATURE_LAYERS });
         if (!features || features.length === 0) {
+            // Nem termet kattintott: ellenőrizzük, hogy egy SZOMSZÉD BME épületre kattintott-e!
+            const checkLayers = ['campus-building-fill', 'campus-building-stroke', 'campus-building-labels'].filter(id => map.getLayer(id));
+            const campusFeatures = map.queryRenderedFeatures(e.point, { layers: checkLayers });
+            let neighborMatch = null;
+            if (campusFeatures && campusFeatures.length > 0) {
+                const target = campusFeatures[0];
+                const bKey = (target.properties && (target.properties.key || target.properties.code || target.properties.ref || "")).toUpperCase();
+                if (campusGeoJsonData && campusGeoJsonData.features) {
+                    neighborMatch = campusGeoJsonData.features.find(f => {
+                        const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+                        return (bKey && k === bKey) || f.id === target.id;
+                    });
+                }
+                if (!neighborMatch) neighborMatch = target;
+            } else {
+                neighborMatch = findCampusBuildingAt(e.lngLat.lng, e.lngLat.lat, false);
+            }
+            if (neighborMatch) {
+                const bKey = (neighborMatch.properties && (neighborMatch.properties.key || neighborMatch.properties.code || neighborMatch.properties.ref || "")).toUpperCase();
+                if (bKey && bKey !== currentBuildingKey) {
+                    handleCampusBuildingClick(neighborMatch);
+                    return;
+                }
+            }
+
             if (!activeRouteData) {
                 closeSheet();
             }
@@ -2163,6 +3219,14 @@ function _applyThemeToMapLayers() {
     const cs = getComputedStyle(document.documentElement);
     const get = (v) => cs.getPropertyValue(v).trim();
     
+    // Kampusz átnézet rétegek színeinek frissítése
+    if (map.getLayer('campus-building-fill')) map.setPaintProperty('campus-building-fill', 'fill-color', get('--color-floor-fill'));
+    if (map.getLayer('campus-building-stroke')) map.setPaintProperty('campus-building-stroke', 'line-color', ['case', ['==', ['get', 'hasIndoor'], true], '#8A2432', get('--color-outline')]);
+    if (map.getLayer('campus-building-labels')) {
+        map.setPaintProperty('campus-building-labels', 'text-color', get('--text-main'));
+        map.setPaintProperty('campus-building-labels', 'text-halo-color', get('--color-floor-fill'));
+    }
+
     if (map.getLayer('floor-fill')) map.setPaintProperty('floor-fill', 'fill-color', get('--color-floor-fill'));
     if (map.getLayer('floor-outline')) map.setPaintProperty('floor-outline', 'line-color', get('--color-outline'));
     if (map.getLayer('corridor-fill')) map.setPaintProperty('corridor-fill', 'fill-color', get('--color-corridor-fill'));
@@ -3086,13 +4150,26 @@ function initBuildings() {
     const optionsDiv = document.getElementById('building-options');
     if (!optionsDiv) return;
     optionsDiv.innerHTML = "";
+
+    // 0. BME Kampusz átnézet opció a lista élén
+    const isOverview = typeof map !== 'undefined' && map.getZoom && map.getZoom() < CAMPUS_OVERVIEW_ZOOM;
+    const campusDiv = document.createElement('div');
+    campusDiv.dataset.key = 'CAMPUS';
+    campusDiv.className = 'option' + (isOverview ? ' selected' : '');
+    campusDiv.innerHTML = `<span class="material-symbols-outlined">map</span> ${typeof t === 'function' ? (t('common.campus_overview') || 'BME Kampusz') : 'BME Kampusz'}`;
+    campusDiv.onclick = () => {
+        zoomToCampusOverview();
+        toggleBuildingMenu();
+    };
+    optionsDiv.appendChild(campusDiv);
     
     for (const [key, data] of Object.entries(BUILDINGS)) {
         const div = document.createElement('div');
+        div.dataset.key = key;
         const bName = getBuildingName(key);
         
         // Az aktuálisan kiválasztott épület vizuális kiemelése
-        div.className = 'option' + (key === currentBuildingKey ? ' selected' : '');
+        div.className = 'option' + (!isOverview && key === currentBuildingKey ? ' selected' : '');
         div.innerHTML = `<span class="material-symbols-outlined">apartment</span> ${bName}`;
         
         // Kattintás eseménykezelő az épületváltáshoz és a menü bezárásához
@@ -3104,11 +4181,8 @@ function initBuildings() {
         optionsDiv.appendChild(div);
     }
     
-    // A fejlécben megjelenő aktív épületnév frissítése
-    const currentNameEl = document.getElementById('current-building-name');
-    if (currentNameEl) {
-        currentNameEl.innerText = getBuildingName(currentBuildingKey);
-    }
+    // A fejlécben és menüben lévő kijelölések szinkronizálása
+    updateBuildingSelectorUI();
 }
 
 /**
@@ -3133,15 +4207,38 @@ function toggleBuildingMenu() {
 }
 
 /**
+ * Jelző az automatikus épületváltáshoz: megőrzi a felhasználó aktuális kameranézetét
+ */
+let _preserveCameraNextLoad = false;
+let _preserveCameraOnBuildingChange = false;
+if (typeof window !== 'undefined') {
+    window._preserveCameraNextLoad = false;
+    window._preserveCameraOnBuildingChange = false;
+}
+
+/**
  * Átvált egy másik épület nézetére.
  * Megtisztítja a térképet a korábbi adatoktól, rétegektől és állapotoktól,
  * majd elindítja az új épület adatainak betöltését és a nézet beállítását.
- * * @param {string} key - Az újonnan kiválasztott épület egyedi azonosítója.
+ * @param {string} key - Az újonnan kiválasztott épület egyedi azonosítója.
  * @param {string|null} [autoSearchTerm=null] - Opcionális keresési kifejezés, amely a betöltés után automatikusan lefut.
  * @param {string|null} [targetId=null] - Opcionális célterem azonosító (feature ID), amely azonnal fókuszba kerül betöltés után.
+ * @param {boolean} [preserveCamera=false] - Ha true, nem ugrik az épület közepére (pl. finom benagyításkor).
  */
-function changeBuilding(key, autoSearchTerm = null, targetId = null) {
+function changeBuilding(key, autoSearchTerm = null, targetId = null, preserveCamera = false) {
+    if (!key) return;
+    key = String(key).trim().toUpperCase();
     if (!BUILDINGS[key]) return;
+
+    _isCampusTransitionActive = true;
+    _isBuildingSwitching = true;
+
+    _preserveCameraNextLoad = preserveCamera;
+    _preserveCameraOnBuildingChange = preserveCamera;
+    if (typeof window !== 'undefined') {
+        window._preserveCameraNextLoad = preserveCamera;
+        window._preserveCameraOnBuildingChange = preserveCamera;
+    }
     
     const settingsModal = document.getElementById('settings-modal');
     if (settingsModal) {
@@ -3153,9 +4250,27 @@ function changeBuilding(key, autoSearchTerm = null, targetId = null) {
     if (typeof closeSheet === 'function') closeSheet();
     _resetMapPadding();
 
+    // Rejtsük el a korábbi szintválasztót, hogy ne villanjon be az új épület betöltése előtt
+    const existingLevelCtrl = document.querySelector('.level-control');
+    if (existingLevelCtrl) existingLevelCtrl.classList.add('hidden');
+
     currentBuildingKey = key;
     currentBuilding = BUILDINGS[key];
     currentLevel = getDefaultLevelForBuilding(key);
+
+    // Fejléc név és ikon azonnali frissítése a kiválasztott épületre
+    const currentNameEl = document.getElementById('current-building-name');
+    const triggerIconEl = document.querySelector('.select-trigger .icon');
+    if (currentNameEl) {
+        currentNameEl.innerText = getBuildingName(key);
+        if (triggerIconEl) triggerIconEl.innerText = 'apartment';
+    }
+    const optionsDiv = document.getElementById('building-options');
+    if (optionsDiv) {
+        optionsDiv.querySelectorAll('.option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.key === key);
+        });
+    }
     
     if (autoSearchTerm) pendingSearchTerm = autoSearchTerm;
     if (targetId) pendingTargetId = targetId;
@@ -3184,6 +4299,7 @@ function changeBuilding(key, autoSearchTerm = null, targetId = null) {
     updateRightButtonState();
     
     initBuildings(); 
+    updateCampusLabelsFilter();
     loadOsmData(); 
 }
 
@@ -3443,13 +4559,22 @@ function processOsmData(osmData, isUpdate = false) {
     }
 
     // 3. KAMERA POZICIONÁLÁSA
-    // Szigorúan azonnali beállás az adatok renderelése előtt
-    if (!isUpdate) {
+    // Kamera pozícionálás a renderelés előtt (ha nem preserveCamera)
+    const shouldPreserveCamera = _preserveCameraNextLoad || _preserveCameraOnBuildingChange || 
+        (typeof window !== 'undefined' && (window._preserveCameraNextLoad || window._preserveCameraOnBuildingChange));
+
+    if (!isUpdate && !shouldPreserveCamera) {
         alignMapToBuildingCenter();
+    }
+    _preserveCameraNextLoad = false;
+    _preserveCameraOnBuildingChange = false;
+    if (typeof window !== 'undefined') {
+        window._preserveCameraNextLoad = false;
+        window._preserveCameraOnBuildingChange = false;
     }
 
     // 4. Felhasználói felület és térkép renderelése
-    renderLevel(currentLevel, !isUpdate);
+    renderLevel(currentLevel, !isUpdate && !shouldPreserveCamera);
     createLevelControls();
     
     // Dinamikus láthatóság (részletességi szint / LOD) frissítése az aktuális nagyításhoz
@@ -3464,15 +4589,22 @@ function processOsmData(osmData, isUpdate = false) {
 async function loadOsmData() {
     const loader = document.getElementById('loader');
     const buildingKey = currentBuildingKey;
+    const isSilentSwitch = _preserveCameraNextLoad || _preserveCameraOnBuildingChange || 
+        (typeof window !== 'undefined' && (window._preserveCameraNextLoad || window._preserveCameraOnBuildingChange));
 
-    loader.style.display = 'block';
-    document.getElementById('loader-status').innerText = "Betöltés...";
+    if (!isSilentSwitch) {
+        loader.style.display = 'block';
+        document.getElementById('loader-status').innerText = "Betöltés...";
+    }
 
     try {
         let data = null;
-        if (_initialBuildingFetchPromise && buildingKey === _initialBuildingKey) {
+        if (_buildingJsonCache.has(buildingKey)) {
+            data = _buildingJsonCache.get(buildingKey);
+        } else if (_initialBuildingFetchPromise && buildingKey === _initialBuildingKey) {
             try {
                 data = await _initialBuildingFetchPromise;
+                if (data) _buildingJsonCache.set(buildingKey, data);
             } catch(e) {}
         }
         _initialBuildingFetchPromise = null;
@@ -3481,10 +4613,21 @@ async function loadOsmData() {
             const res = await fetch(`./data/${buildingKey.toLowerCase()}_epulet.json`);
             if (!res.ok) throw new Error("Statikus fájl nem található (HTTP " + res.status + ")");
             data = await res.json();
+            _buildingJsonCache.set(buildingKey, data);
         }
 
         processOsmData(data, false);
         loader.style.display = 'none';
+
+        // Függőben lévő épület adatlap megnyitása (indoor épület kattintás esetén)
+        // Az openSheet hívás a processOsmData után történik, hogy ne ütközzön a buildingváltás lépéseivel.
+        if (_pendingBuildingOpenFeature) {
+            const _pbf = _pendingBuildingOpenFeature;
+            _pendingBuildingOpenFeature = null;
+            requestAnimationFrame(() => {
+                if (typeof openSheet === 'function') openSheet(_pbf);
+            });
+        }
 
         // Függőben lévő célterem vagy keresés végrehajtása kis késleltetéssel (pl. automatikus épületváltás után)
         if (pendingTargetId || pendingSearchTerm) {
@@ -3523,6 +4666,12 @@ async function loadOsmData() {
         console.warn("⚠️ Hiba a térképadatok betöltésekor:", localError);
         document.getElementById('loader-status').innerText = "FAILED.";
         alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: A térképfájl nem érhető el.\n(Ellenőrizd az internetkapcsolatot!)");
+    } finally {
+        setTimeout(() => {
+            _isCampusTransitionActive = false;
+            _isBuildingSwitching = false;
+            _pendingBuildingOpenFeature = null;
+        }, 350);
     }
 }
 
@@ -3715,6 +4864,7 @@ function drawLabels(level) {
  * Kizárólag épületváltáskor és első betöltéskor hívódik meg a prémium UX érdekében.
  */
 function triggerBlueprintAnimation() {
+    if (_preserveCameraNextLoad || _preserveCameraOnBuildingChange) return;
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
     
@@ -3928,6 +5078,10 @@ function isDesktopSidePanel() {
 function getDefaultIllustration(feature) {
     if (!feature || !feature.properties) return 'assets/illustrations/default_room.svg';
     const p = feature.properties;
+    const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
+    if (isBuilding) {
+        return 'assets/illustrations/building.svg';
+    }
     const nameLower = (p.name || '').toLowerCase();
     const refLower = (p.ref || '').toLowerCase();
 
@@ -4273,7 +5427,7 @@ function setupGalleryCarousel(imageCount) {
  * Megnyitja az alsó információs panelt (Bottom Sheet) a kiválasztott térképelemhez.
  * @param {Object} feature - A megjelenítendő GeoJSON feature.
  */
-function openSheet(feature) {
+function openSheet(feature, skipFly = false) {
     // DOM elrendezés szinkronizálása a kijelzőméretnek megfelelően
     syncSheetLayoutForViewport();
 
@@ -4316,25 +5470,51 @@ function openSheet(feature) {
 
     const header = document.querySelector('.sheet-header');
     if (header) header.classList.remove('nav-mode');
-    const footer = document.querySelector('.sheet-footer');
-    if (footer) footer.style.display = 'flex';
     
     const p = feature.properties;
+    const isBuildingFeat = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
+
+    const footer = document.querySelector('.sheet-footer');
+    if (footer) footer.style.display = isBuildingFeat ? 'none' : 'flex';
     const toiletInfo = getToiletInfo(feature);
+
+    // --- 1. KÜLSŐ ADATBÁZIS (ROOM_DATABASE / BUILDING_DATABASE) LEKÉRDEZÉSE ---
+    const rawLevel = getLevelsFromFeature(feature)[0] || "0";
+    let roomData = null;
+    if (isBuildingFeat) {
+        const bKey = (p.code || p.ref || p.key || p._buildingKey || '').toUpperCase();
+        if (typeof getBuildingData === 'function') {
+            roomData = getBuildingData(bKey);
+        }
+    } else {
+        roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey, p.alt_name);
+    }
     
-    // --- 1. TÍPUS FORDÍTÁSA ÉS MAGYARÍTÁS ---
-    // A helyiség típusának lekérése és lefordítása magyar nyelvre
-    let typeName = toiletInfo ? toiletInfo.name : getHungarianType(p);
-    // Formázás: Az első betű nagybetűsítése a szebb megjelenés érdekében (pl. "mosdó" -> "Mosdó")
+    // --- 2. TÍPUS FORDÍTÁSA ÉS MAGYARÍTÁS ---
+    let typeName = toiletInfo ? toiletInfo.name : (isBuildingFeat ? (typeof t === 'function' ? (t('types.building') || 'Épület') : 'Épület') : getHungarianType(p));
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
-    // --- 2. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
-    let displayName = toiletInfo ? toiletInfo.name : formatFeatureName(feature, currentBuildingKey);
+    // --- 3. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
+    let displayName = "";
+    if (toiletInfo) {
+        displayName = toiletInfo.name;
+    } else if (isBuildingFeat) {
+        const lang = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.language) || (typeof currentLanguage !== 'undefined' ? currentLanguage : 'hu');
+        const bNameObj = (roomData && roomData.name) || p.name;
+        if (typeof bNameObj === 'object' && bNameObj !== null) {
+            displayName = bNameObj[lang] || bNameObj.hu || bNameObj.en || '';
+        } else if (typeof bNameObj === 'string' && bNameObj) {
+            displayName = bNameObj;
+        } else {
+            displayName = `${p.code || p.ref || p.key || ''} épület`;
+        }
+    } else {
+        displayName = formatFeatureName(feature, currentBuildingKey);
+    }
 
     // Névszűrés: azonosító vagy hiányzó név kezelése
     if (!toiletInfo && (!displayName || (!isNaN(displayName) && displayName.toString().length > 5))) {
         let matchedPoiName = null;
-        // Megvizsgáljuk, hogy az elem illeszkedik-e valamelyik POI konfigurációra
         if (typeof POI_TYPES !== 'undefined') {
             for (const key in POI_TYPES) {
                 if (POI_TYPES[key].filter(p)) { 
@@ -4346,15 +5526,11 @@ function openSheet(feature) {
         displayName = matchedPoiName || typeName;
     }
 
-    // --- 3. SZINT-INFORMÁCIÓK MEGJELENÍTÉSE (Alias Logika bevonásával) ---
+    // --- 4. SZINT-INFORMÁCIÓK MEGJELENÍTÉSE (Alias Logika bevonásával) ---
     let displayLevelString = "";
-    
-    // A) Lokális felülírás: Ha a térképelem rendelkezik egyedi szint-megnevezéssel 
     if (p['level:ref']) {
         displayLevelString = p['level:ref'];
-    } 
-    // B) Globális alias fordítás
-    else {
+    } else {
         const rawLevels = getLevelsFromFeature(feature);
         const mappedLevels = rawLevels.map(lvl => {
             return levelAliases[lvl] || lvl;
@@ -4367,7 +5543,10 @@ function openSheet(feature) {
     
     const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
 
-    if (toiletInfo) {
+    if (isBuildingFeat) {
+        const bAddress = (roomData && roomData.address) || p.address;
+        document.getElementById('sheet-sub').innerText = bAddress || (typeof t === 'function' ? (t('types.building') || 'BME Épület') : 'BME Épület');
+    } else if (toiletInfo) {
         // Mosdók esetén: ha van szobaszám, elválasztó ponttal írjuk ki utána (pl. "Szint: 0 • BF21"), nincs felesleges utótag
         const refPart = toiletInfo.ref ? ` • ${toiletInfo.ref}` : '';
         document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString}${refPart}`;
@@ -4375,11 +5554,8 @@ function openSheet(feature) {
         // Alcím generálása OSM tagek alapján egyéb helyiségekhez
         let extraInfo = "";
         if (p.amenity === 'vending_machine' && p.vending) {
-            // Szótár a fordításhoz
             const vDict = { 'coffee': 'Kávé', 'drinks': 'Ital', 'sweets': 'Édesség', 'snack': 'Snack', 'food': 'Étel' };
-            // A pontosvesszővel elválasztott értékek szétdarabolása (pl. "coffee;drinks" -> ["coffee", "drinks"])
             const types = p.vending.split(';');
-            // Lefordítjuk az elemeket, és ha nincs a szótárban, az eredetit hagyjuk meg
             const translated = types.map(tKey => {
                 const raw = tKey.trim();
                 if (typeof t === 'function') {
@@ -4388,10 +5564,8 @@ function openSheet(feature) {
                 }
                 return vDict[raw] || raw;
             });
-            // Elemek összefűzése vesszővel elválasztott listává
             extraInfo = translated.join(', ');
         } else if (p.operator) {
-            // Operátor megjelenítése (pl. ATM esetében a bank neve)
             extraInfo = p.operator; 
         }
 
@@ -4403,12 +5577,6 @@ function openSheet(feature) {
             document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
         }
     }
-    
-    // --- 4. KÜLSŐ ADATBÁZIS (ROOM_DATABASE) LEKÉRDEZÉSE ---
-    // Kinyerjük a legelső szintet a kereséshez
-    const rawLevel = getLevelsFromFeature(feature)[0] || "0";
-    // Szobakeresés futtatása a részletesebb metaadatokért
-    const roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey, p.alt_name);
     
     const dataContainer = document.getElementById('room-data-container');
 
@@ -4422,10 +5590,10 @@ function openSheet(feature) {
     let hasPoiData = false;
 
     // Weboldal kezelése
-    if (p.website || p['contact:website']) {
-        const url = p.website || p['contact:website'];
-        webLink.href = url.startsWith('http') ? url : 'https://' + url;
-        webLink.innerText = url.replace('https://', '').replace('http://', '').split('/')[0]; // Domain név kiírása
+    const websiteUrl = p.website || p['contact:website'] || (roomData && roomData.website);
+    if (websiteUrl) {
+        webLink.href = websiteUrl.startsWith('http') ? websiteUrl : 'https://' + websiteUrl;
+        webLink.innerText = websiteUrl.replace('https://', '').replace('http://', '').split('/')[0]; // Domain név kiírása
         webRow.style.display = 'flex';
         hasPoiData = true;
     } else {
@@ -4433,8 +5601,9 @@ function openSheet(feature) {
     }
 
     // Nyitvatartás kezelése és értelmezése
-    if (p.opening_hours) {
-        const rawHours = escapeHTML(p.opening_hours);
+    const openingHoursRaw = p.opening_hours || (roomData && roomData.opening_hours);
+    if (openingHoursRaw) {
+        const rawHours = escapeHTML(openingHoursRaw);
         let formattedHours = rawHours;
         let isOpenNowHtml = "";
 
@@ -4495,102 +5664,104 @@ function openSheet(feature) {
 
     poiContainer.style.display = hasPoiData ? 'flex' : 'none';
     
-    const isAccessible = p.wheelchair === 'yes';
+    const isAccessible = p.wheelchair === 'yes' || (roomData && (roomData.wheelchair === 'yes' || roomData.wheelchair === 'limited'));
 
-    // A Fő konténer láthatósága: ha BÁRMELYIK adat létezik (Terem infó VAGY POI infó VAGY Akadálymentes)
-    if (roomData || hasPoiData || isAccessible) {
+    // Chipek (kapacitás, címkék, felszereltség, funkciók, akadálymentesség) dinamikus kirajzolása
+    // Épületeknél (isBuildingFeat) NEM jelenik meg chip – az elevator/wifi/accessible tagek ott feleslegesek.
+    renderRoomMeta(isBuildingFeat ? null : roomData, isBuildingFeat ? false : isAccessible);
+
+    // --- LEÍRÁS ÉS FOTÓ GALÉRIA KEZELÉSE ---
+    const noteEl = document.getElementById('room-note');
+    const galleryContainer = document.getElementById('gallery-container');
+    const galleryEl = document.getElementById('room-gallery');
+
+    const curLang = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.language) || (typeof currentLanguage !== 'undefined' ? currentLanguage : 'hu');
+    let noteText = getRoomNote(roomData);
+    if (!noteText && p.note) {
+        noteText = typeof p.note === 'object' ? (p.note[curLang] || p.note.hu || p.note.en || '') : String(p.note);
+    }
+
+    if (noteEl) {
+        if (noteText && noteText.trim() !== "") {
+            const escaped = escapeHTML(noteText.trim());
+            const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: var(--color-ui-active); text-decoration: underline; font-weight: 500;">$1</a>');
+            noteEl.innerHTML = linked;
+            noteEl.style.display = 'block';
+        } else {
+            noteEl.innerHTML = "";
+            noteEl.style.display = 'none';
+        }
+    }
+    
+    if (galleryEl) {
+        galleryEl.innerHTML = ""; 
+        if (roomData && roomData.images && roomData.images.length > 0) {
+            if (galleryContainer) galleryContainer.style.display = 'block';
+            galleryEl.style.display = 'flex';
+            roomData.images.forEach((url, idx) => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = 'gallery-img';
+                img.draggable = false;
+                img.onclick = () => {
+                    if (_galleryMovedDistance > 8) return;
+                    openImageViewer(roomData.images, idx);
+                };
+                galleryEl.appendChild(img);
+            });
+            setupGalleryCarousel(roomData.images.length);
+        } else if (isDesktopSidePanel()) {
+            // Kizárólag desktop nézetben (oldalsó panel), ha nincs saját fotó: SVG illusztráció a típusa alapján
+            if (galleryContainer) galleryContainer.style.display = 'block';
+            galleryEl.style.display = 'flex';
+            const defaultArtSrc = getDefaultIllustration(feature);
+            const img = document.createElement('img');
+            img.src = defaultArtSrc;
+            img.className = 'gallery-img gallery-default-art';
+            img.alt = typeName || (isBuildingFeat ? 'Épület' : 'Terem');
+            img.draggable = false;
+            galleryEl.appendChild(img);
+            setupGalleryCarousel(1);
+        } else {
+            if (galleryContainer) galleryContainer.style.display = 'none';
+            galleryEl.style.display = 'none';
+            setupGalleryCarousel(0);
+        }
+    }
+
+    const hasNote = Boolean(noteText && noteText.trim() !== "");
+    const hasImages = Boolean(roomData && roomData.images && roomData.images.length > 0);
+    const hasIllustration = Boolean(isDesktopSidePanel());
+    const metaContainer = document.querySelector('.room-meta');
+    const hasChips = Boolean(metaContainer && metaContainer.children.length > 0);
+
+    // A Fő konténer láthatósága: ha BÁRMELYIK adat létezik
+    if (roomData || hasPoiData || isAccessible || hasNote || hasImages || hasIllustration || hasChips) {
         dataContainer.style.display = 'block';
     } else {
         dataContainer.style.display = 'none';
     }
 
-    // --- TEREM-ADATBÁZIS SPECIFIKUS ELEMEK KEZELÉSE ---
-    const noteEl = document.getElementById('room-note');
-    const galleryContainer = document.getElementById('gallery-container');
-    const galleryEl = document.getElementById('room-gallery');
-
-    // Chipek (kapacitás, címkék, felszereltség, funkciók, akadálymentesség) dinamikus kirajzolása
-    renderRoomMeta(roomData, isAccessible);
-
-    if (roomData || isAccessible) {
-        if (noteEl) {
-            const noteText = getRoomNote(roomData);
-            if (noteText && noteText.trim() !== "") {
-                const escaped = escapeHTML(noteText.trim());
-                const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: var(--color-ui-active); text-decoration: underline; font-weight: 500;">$1</a>');
-                noteEl.innerHTML = linked;
-                noteEl.style.display = 'block';
-            } else {
-                noteEl.innerHTML = "";
-                noteEl.style.display = 'none';
-            }
-        }
-        
-        if (galleryEl) {
-            galleryEl.innerHTML = ""; 
-            if (roomData && roomData.images && roomData.images.length > 0) {
-                if (galleryContainer) galleryContainer.style.display = 'block';
-                galleryEl.style.display = 'flex';
-                roomData.images.forEach((url, idx) => {
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.className = 'gallery-img';
-                    img.draggable = false;
-                    img.onclick = () => {
-                        if (_galleryMovedDistance > 8) return;
-                        openImageViewer(roomData.images, idx);
-                    };
-                    galleryEl.appendChild(img);
-                });
-                setupGalleryCarousel(roomData.images.length);
-            } else if (isDesktopSidePanel()) {
-                // Desktopon stílusos kategória vektorgrafika, ha nincs fotó
-                if (galleryContainer) galleryContainer.style.display = 'block';
-                galleryEl.style.display = 'flex';
-                const defaultArtSrc = getDefaultIllustration(feature);
-                const img = document.createElement('img');
-                img.src = defaultArtSrc;
-                img.className = 'gallery-img gallery-default-art';
-                img.alt = typeName || 'Terem';
-                img.draggable = false;
-                galleryEl.appendChild(img);
-                setupGalleryCarousel(1);
-            } else {
-                if (galleryContainer) galleryContainer.style.display = 'none';
-                galleryEl.style.display = 'none';
-                setupGalleryCarousel(0);
-            }
-        }
-    } else {
-        if (noteEl) {
-            noteEl.innerHTML = "";
-            noteEl.style.display = 'none';
-        }
-        if (galleryEl) {
-            galleryEl.innerHTML = "";
-            if (isDesktopSidePanel()) {
-                if (galleryContainer) galleryContainer.style.display = 'block';
-                galleryEl.style.display = 'flex';
-                const defaultArtSrc = getDefaultIllustration(feature);
-                const img = document.createElement('img');
-                img.src = defaultArtSrc;
-                img.className = 'gallery-img gallery-default-art';
-                img.alt = typeName || 'Helyszín';
-                img.draggable = false;
-                galleryEl.appendChild(img);
-                setupGalleryCarousel(1);
-            } else {
-                if (galleryContainer) galleryContainer.style.display = 'none';
-                galleryEl.style.display = 'none';
-                setupGalleryCarousel(0);
-            }
-        }
-    }
-
     // --- 5. MAGASSÁG-SZABÁLYOZÁS (AUTO-HEIGHT) ---
     // Azonnal kiszámítjuk a végleges célmagasságot a betöltött tartalom alapján (késleltetés nélkül)
     const autoH = getAutoHeight();
-    const targetHeight = (roomData || hasPoiData) ? autoH : (getPeekHeight() + 20);
+    const isMobile = !isDesktopSidePanel();
+    const bKeyForIndoor = (p._buildingKey || p.code || p.ref || p.key || (typeof feature.id === 'string' && feature.id.replace(/^campus_/, '')) || '').toUpperCase();
+    const buildingHasIndoor = isBuildingFeat && (
+        p.hasIndoor === true ||
+        p.hasIndoor === 'true' ||
+        p.indoor === 'yes' ||
+        Boolean(bKeyForIndoor && BUILDINGS[bKeyForIndoor])
+    );
+
+    let targetHeight;
+    if (isMobile && buildingHasIndoor) {
+        // Telefonon a beltéri térképpel rendelkező épületek csak 'peek' (betekintő) állapotban nyílnak meg,
+        // hogy a frissen betöltött belső alaprajz (szintek, termek, folyosók) azonnal látható és használható legyen.
+        targetHeight = getPeekHeight();
+    } else {
+        targetHeight = (roomData || hasPoiData || hasNote || hasImages || hasIllustration) ? autoH : (getPeekHeight() + 20);
+    }
 
     // Az információs panel (Sheet) végleges magasságának és nyitott állapotának azonnali beállítása
     const sheet = document.getElementById('bottom-sheet');
@@ -4619,7 +5790,7 @@ function openSheet(feature) {
     } else {
         sheet.style.height = `${targetHeight}px`;
         // Állapot nyilvántartás frissítése
-        _sheetState = (targetHeight >= getAutoHeight() - 5) ? 'auto' : 'peek';
+        _sheetState = (isMobile && buildingHasIndoor) ? 'peek' : ((targetHeight >= autoH - 5) ? 'auto' : 'peek');
     }
     sheet.classList.add('open');
     sheet.classList.remove('sheet-full');
@@ -4631,7 +5802,9 @@ function openSheet(feature) {
     drawSelectedHighlight(feature);
     
     // Kamera mozgatása a célmagasság (targetHeight) alapján
-    smartFlyTo(feature, targetHeight);
+    if (!skipFly) {
+        smartFlyTo(feature, targetHeight);
+    }
 }
 
 /**
@@ -4883,6 +6056,9 @@ function focusOnRouteSegment(level) {
  * Mivel az indulási pont (null), a rendszer egy későbbi interakciót vár annak megadására.
  */
 function startNavigationToHere() { 
+    if (!selectedFeature) return;
+    const p = selectedFeature.properties || {};
+    if (p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding) return;
     startNavigation(selectedFeature, null); 
 }
 
@@ -4893,6 +6069,9 @@ function startNavigationToHere() {
  * hogy egyértelműsítse a célpont megadásának szükségességét.
  */
 function startNavigationFromHere() {
+    if (!selectedFeature) return;
+    const p = selectedFeature.properties || {};
+    if (p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding) return;
     // A kiválasztott elem regisztrálása várakozó indulási pontként
     pendingNavSource = selectedFeature; 
     
@@ -4928,14 +6107,32 @@ function drawSelectedHighlight(feature) {
     }
 
     const p = feature.properties || {};
+    const isBuildingFeat = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
+
+    // Épület esetén a teljes, eredeti geometriát használjuk a kiemeléshez
+    let highlightFeature = feature;
+    if (isBuildingFeat && typeof campusGeoJsonData !== 'undefined' && campusGeoJsonData && campusGeoJsonData.features) {
+        const bKey = (p._buildingKey || p.key || p.code || p.ref || (typeof feature.id === 'string' && feature.id.replace(/^campus_/, '')) || '').toUpperCase();
+        const found = campusGeoJsonData.features.find(f => {
+            const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || '')).toUpperCase();
+            return (bKey && k === bKey) || f.id === feature.id;
+        });
+        if (found && found.geometry && found.geometry.type !== 'Point') {
+            highlightFeature = {
+                ...feature,
+                geometry: found.geometry
+            };
+        }
+    }
+
     const targetIdx = p._featureIndex;
     const targetRef = p.ref || p.name;
 
     let targetCoords = null;
-    if (feature.geometry) {
-        const c = (feature.geometry.type === "Point") 
-            ? feature.geometry.coordinates 
-            : (typeof turf !== 'undefined' && turf.centroid ? turf.centroid(feature).geometry.coordinates : null);
+    if (highlightFeature.geometry) {
+        const c = (highlightFeature.geometry.type === "Point") 
+            ? highlightFeature.geometry.coordinates 
+            : (typeof turf !== 'undefined' && turf.centroid ? turf.centroid(highlightFeature).geometry.coordinates : null);
         if (c && c.length >= 2) {
             targetCoords = `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
         }
@@ -4973,7 +6170,7 @@ function drawSelectedHighlight(feature) {
     });
 
 
-    const data = feature.type === 'FeatureCollection' ? feature : { type: 'FeatureCollection', features: [feature] };
+    const data = highlightFeature.type === 'FeatureCollection' ? highlightFeature : { type: 'FeatureCollection', features: [highlightFeature] };
     map.getSource('highlight-geojson').setData(data);
     
     updateSelectedHighlight(currentLevel);
@@ -5008,6 +6205,8 @@ function closeSheet() {
 
     const header = document.querySelector('.sheet-header');
     if (header) header.classList.remove('nav-mode');
+    const footer = document.querySelector('.sheet-footer');
+    if (footer) footer.style.display = 'flex';
 
     const sheetEl = document.getElementById('bottom-sheet');
     if (sheetEl) {
@@ -5027,8 +6226,32 @@ function closeSheet() {
         map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
     }
     _resetMapPadding();
-    
+
+    const wasBuilding = selectedFeature && (selectedFeature.properties?._isBuilding || selectedFeature.properties?._isCampusOverview || selectedFeature._isBuilding);
+    let closedBuildingCenter = null;
+    if (wasBuilding && selectedFeature.geometry) {
+        try {
+            if (selectedFeature.geometry.type === 'Point') {
+                closedBuildingCenter = selectedFeature.geometry.coordinates;
+            } else if (typeof turf !== 'undefined') {
+                const c = turf.centroid(selectedFeature);
+                closedBuildingCenter = c.geometry.coordinates;
+            }
+        } catch (e) {}
+    }
+
     selectedFeature = null;
+
+    if (closedBuildingCenter && typeof map !== 'undefined' && map.easeTo) {
+        const curCenter = map.getCenter();
+        const dist = (typeof fastDistMeters === 'function') ? fastDistMeters(curCenter.lat, curCenter.lng, closedBuildingCenter[1], closedBuildingCenter[0]) : 0;
+        if (dist < 350) {
+            map.easeTo({ center: closedBuildingCenter, duration: 300 });
+        }
+    }
+
+    updateBuildingSelectorUI();
+    updateDynamicVisibility();
 
     _poiMarkers.forEach(m => {
         const el = m.getElement();
@@ -5231,10 +6454,11 @@ function _executeSearch(e) {
             return;
         }
 
-        // --- 2. Prioritás: Helyi és Globális térképelemek keresése ---
+        // --- 2. Prioritás: Épületek, Helyi és Globális térképelemek keresése ---
+        const buildingHits = searchCampusBuildings(term);
         const localHits = smartFilter(term); 
         const otherHits = searchOtherBuildings(term);
-        const allHits = mergeSearchResults(localHits, otherHits);
+        const allHits = mergeSearchResults(localHits, otherHits, buildingHits);
 
         if (allHits.length > 0) {
             const topHit = allHits[0];
@@ -5242,7 +6466,36 @@ function _executeSearch(e) {
             _searchSelectedIndex = -1;
             _searchUserNavigated = false;
 
-            if (topHit._isLocal) {
+            if (topHit._isBuilding) {
+                const val = topHit.properties.name || `${topHit._buildingKey} épület`;
+                document.getElementById('search-input').value = val;
+                updateRightButtonState();
+
+                let bFeature = null;
+                if (campusGeoJsonData && campusGeoJsonData.features) {
+                    bFeature = campusGeoJsonData.features.find(f => {
+                        const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+                        return k === topHit._buildingKey.toUpperCase() || f.id === topHit.id;
+                    });
+                }
+                if (!bFeature) {
+                    bFeature = {
+                        id: topHit.id,
+                        type: "Feature",
+                        properties: {
+                            key: topHit._buildingKey,
+                            code: topHit._buildingKey,
+                            ref: topHit._buildingKey,
+                            name: topHit.properties.name,
+                            hasIndoor: topHit._hasIndoor,
+                            _isBuilding: true,
+                            _isCampusOverview: true
+                        }
+                    };
+                }
+                handleCampusBuildingClick(bFeature);
+                return;
+            } else if (topHit._isLocal) {
                 openSheet(topHit);
                 const val = formatFeatureName(topHit.properties, topHit._buildingKey) || term;
                 document.getElementById('search-input').value = val;
@@ -5283,12 +6536,12 @@ function _executeSearch(e) {
         return; 
     }
 
-    // --- Autocomplete Találatok (Helyi és Más Épületek) ---
-    // Csak akkor indítunk keresést, ha legalább 2 karaktert beírt a felhasználó (teljesítményoptimalizálás)
-    if (term.length >= 2) {
-        const localHits = smartFilter(term);
-        const otherHits = searchOtherBuildings(term);
-        const allHits = mergeSearchResults(localHits, otherHits);
+    // --- Autocomplete Találatok (Épületek, Helyi és Más Épületek) ---
+    if (term.length >= 1) {
+        const buildingHits = searchCampusBuildings(term);
+        const localHits = term.length >= 2 ? smartFilter(term) : [];
+        const otherHits = term.length >= 2 ? searchOtherBuildings(term) : [];
+        const allHits = mergeSearchResults(localHits, otherHits, buildingHits);
 
         if (allHits.length > 0) {
             // A találati listát 7 legrelevánsabb elemre korlátozzuk
@@ -5296,21 +6549,26 @@ function _executeSearch(e) {
                 const div = document.createElement('div');
                 div.className = 'result-item';
                 
-                let displayName = formatFeatureName(hit.properties, hit._buildingKey) || "???";
+                let displayName = hit._isBuilding 
+                    ? (hit.properties.name || `${hit._buildingKey} épület`)
+                    : (formatFeatureName(hit.properties, hit._buildingKey) || "???");
                 const rawLvl = getLevelsFromFeature(hit)[0] || hit.properties.level || "?";
                 const lvl = hit.properties['level:ref'] || (hit._isLocal && typeof levelAliases !== 'undefined' && levelAliases[rawLvl]) || rawLvl;
                 
                 let levelBadge = "";
-                if (hit._isLocal) {
+                if (hit._isBuilding) {
+                    const bType = typeof t === 'function' ? (t('types.building') || 'Épület') : 'Épület';
+                    levelBadge = `(${bType})`;
+                    div.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; vertical-align:text-bottom; margin-right:5px; opacity:0.8;">apartment</span>${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
+                } else if (hit._isLocal) {
                     levelBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `(Szint: ${escapeHTML(lvl)})`;
+                    div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 } else {
                     const bName = getBuildingName(hit._buildingKey);
                     const rawBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `Szint: ${escapeHTML(lvl)}`;
                     levelBadge = `(${escapeHTML(bName)}, ${rawBadge.replace(/^\(|\)$/g, '')})`;
+                    div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 }
-                
-                // A javaslat összeállítása: Név (kiemelve) és a szint / épület (halványan)
-                div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
                 div.onclick = () => { 
@@ -5319,6 +6577,33 @@ function _executeSearch(e) {
                     _searchUserNavigated = false;
                     document.getElementById('search-input').value = displayName; 
                     updateRightButtonState();
+
+                    if (hit._isBuilding) {
+                        let bFeature = null;
+                        if (campusGeoJsonData && campusGeoJsonData.features) {
+                            bFeature = campusGeoJsonData.features.find(f => {
+                                const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+                                return k === hit._buildingKey.toUpperCase() || f.id === hit.id;
+                            });
+                        }
+                        if (!bFeature) {
+                            bFeature = {
+                                id: hit.id,
+                                type: "Feature",
+                                properties: {
+                                    key: hit._buildingKey,
+                                    code: hit._buildingKey,
+                                    ref: hit._buildingKey,
+                                    name: hit.properties.name,
+                                    hasIndoor: hit._hasIndoor,
+                                    _isBuilding: true,
+                                    _isCampusOverview: true
+                                }
+                            };
+                        }
+                        handleCampusBuildingClick(bFeature);
+                        return;
+                    }
 
                     if (hit._isLocal) {
                         openSheet(hit); 
@@ -6228,6 +7513,10 @@ function findNearestNodeInGraph(targetLat, targetLon, targetLevel, toleranceMete
  * Megjeleníti vagy elrejti a "Közelben" POI rácsot a Bottom Sheet-en belül.
  */
 function toggleNearbyMenu() {
+    if (selectedFeature) {
+        const p = selectedFeature.properties || {};
+        if (p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding) return;
+    }
     const btn = document.querySelector('.btn-nearby');
     let container = document.getElementById('nearby-menu-container');
     
@@ -7541,7 +8830,8 @@ function createLevelControls() {
     document.querySelectorAll('.level-control').forEach(e => e.remove());
     
     const div = document.createElement('div');
-    div.className = 'level-control';
+    const isOverview = typeof map !== 'undefined' && map.getZoom && map.getZoom() < CAMPUS_OVERVIEW_ZOOM;
+    div.className = 'level-control' + (isOverview ? ' hidden' : '');
     
     ['wheel', 'touchstart', 'touchmove', 'mousedown', 'click'].forEach(evt => {
         div.addEventListener(evt, e => e.stopPropagation());
@@ -7689,10 +8979,18 @@ function smartFlyTo(feature, explicitBottomHeight) {
     _lastFlyToTime = now;
     _lastFlyToCoords = [lon, lat];
 
-    // 3. Emeletváltás, ha a kiválasztott elem más szinten van
-    const levels = getLevelsFromFeature(feature);
-    if (levels.length > 0 && !levels.includes(currentLevel)) {
-        switchLevel(levels[0]);
+    const isBuildingFeat = feature.properties && (feature.properties._isBuilding || feature.properties._isCampusOverview || feature.properties.room === 'building' || feature.properties.building || feature._isBuilding);
+    if (isBuildingFeat) {
+        _isCampusTransitionActive = true;
+        _isBuildingSwitching = true;
+    }
+
+    // 3. Emeletváltás, ha a kiválasztott elem más szinten van (kivéve épületek)
+    if (!isBuildingFeat) {
+        const levels = getLevelsFromFeature(feature);
+        if (levels.length > 0 && !levels.includes(currentLevel)) {
+            switchLevel(levels[0]);
+        }
     }
 
     // 4. Bounding box számítása
@@ -7705,7 +9003,7 @@ function smartFlyTo(feature, explicitBottomHeight) {
     }
 
     // 5. UI Padding és kitakarások kiszámítása
-    const isMobile = window.innerWidth <= 600;
+    const isMobile = !isDesktopSidePanel();
     let topPad = 70;
     let bottomPad = 160;
     let leftPad = isMobile ? 25 : 45;
@@ -7741,8 +9039,8 @@ function smartFlyTo(feature, explicitBottomHeight) {
             finalBottomHeight = getSheetTargetHeight(explicitBottomHeight);
         }
 
-        // Kitakart terület maximális korlátja a képernyőmagasság 50%-ában
-        const maxAllowedBottom = window.innerHeight * 0.5;
+        // Kitakart terület maximális korlátja a képernyőmagasság 55%-ában
+        const maxAllowedBottom = window.innerHeight * 0.55;
         finalBottomHeight = Math.min(Math.max(160, finalBottomHeight), maxAllowedBottom);
         bottomPad = finalBottomHeight + 20;
     }
@@ -7757,8 +9055,16 @@ function smartFlyTo(feature, explicitBottomHeight) {
     };
 
     // 6. Optimális Zoom határok
-    const maxComfortZoom = IS_EMBED_MODE ? 18.5 : 19.35;
-    const minComfortZoom = 18.2;
+    let maxComfortZoom = 19.35;
+    let minComfortZoom = 18.2;
+    if (isBuildingFeat) {
+        const bKey = (feature.properties && (feature.properties._buildingKey || feature.properties.code || feature.properties.ref || feature.properties.key || '')).toUpperCase();
+        const bDef = BUILDINGS[bKey];
+        maxComfortZoom = bDef && bDef.zoom ? (bDef.zoom - 0.7) : 18.5;
+        minComfortZoom = 15.5;
+    } else if (IS_EMBED_MODE) {
+        maxComfortZoom = 18.5;
+    }
 
     // 7. Kamera kiszámítása a MapLibre cameraForBounds funkciójával
     let camera = null;
@@ -7771,12 +9077,14 @@ function smartFlyTo(feature, explicitBottomHeight) {
         console.warn("cameraForBounds error:", e);
     }
 
+    const flyDuration = isBuildingFeat ? 950 : 750;
+
     if (camera && camera.center) {
         const finalZoom = Math.min(maxComfortZoom, Math.max(minComfortZoom, camera.zoom));
         map.flyTo({
             center: camera.center,
             zoom: finalZoom,
-            duration: 750,
+            duration: flyDuration,
             essential: true
         });
     } else {
@@ -7790,9 +9098,22 @@ function smartFlyTo(feature, explicitBottomHeight) {
                 left: leftPad, 
                 right: rightPad 
             },
-            duration: 750,
+            duration: flyDuration,
             essential: true
         });
+    }
+
+    if (isBuildingFeat || _isCampusTransitionActive) {
+        let transitionEnded = false;
+        const onFlyEnd = () => {
+            if (transitionEnded) return;
+            transitionEnded = true;
+            _isCampusTransitionActive = false;
+            _isBuildingSwitching = false;
+            updateDynamicVisibility();
+        };
+        map.once('moveend', onFlyEnd);
+        setTimeout(onFlyEnd, flyDuration + 300);
     }
 
     drawSelectedHighlight(feature);
@@ -8369,20 +9690,35 @@ function showToast(message) {
  * Képes teljes útvonalak (navigáció) vagy egyedi kiválasztott helyszínek megosztására.
  */
 function shareCurrentState() {
-    // Az alapvető adatcsomag inicializálása az aktuális épület azonosítójával
     let payload = { b: currentBuildingKey }; 
 
-    if (activeRouteData) {
-        // --- ÚTVONAL MEGOSZTÁSI MÓD ---
+    if (selectedFeature) {
+        const p = selectedFeature.properties || {};
+        const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding;
+        if (isBuilding) {
+            // --- ÉPÜLET MEGOSZTÁSI MÓD ---
+            const bKey = (p._buildingKey || p.code || p.ref || p.key || (typeof selectedFeature.id === 'string' && selectedFeature.id.replace(/^campus_/, '')) || '').toUpperCase();
+            payload = {
+                b: bKey,
+                mode: 'building',
+                id: selectedFeature.id || `campus_${bKey}`,
+                key: bKey
+            };
+        } else if (activeRouteData) {
+            // --- ÚTVONAL MEGOSZTÁSI MÓD ---
+            payload.mode = 'route';
+            payload.s = getFeatureId(activeRouteData.start); 
+            payload.e = getFeatureId(activeRouteData.end);   
+        } else {
+            // --- EGYEDI HELYSZÍN MEGOSZTÁSI MÓD ---
+            payload.mode = 'loc';
+            payload.t = getFeatureId(selectedFeature);
+        }
+    } else if (activeRouteData) {
+        // --- ÚTVONAL MEGOSZTÁSI MÓD (ha nincs kiválasztott elem de aktív útvonal van) ---
         payload.mode = 'route';
-        // A kezdőpont és a célpont azonosítóinak kinyerése
-        // Megjegyzés: activeRouteData.start lehet null (pl. Főbejárat használata esetén)
         payload.s = getFeatureId(activeRouteData.start); 
         payload.e = getFeatureId(activeRouteData.end);   
-    } else if (selectedFeature) {
-        // --- EGYEDI HELYSZÍN MEGOSZTÁSI MÓD ---
-        payload.mode = 'loc';
-        payload.t = getFeatureId(selectedFeature);
     } else {
         // Megszakítás: nincs megosztható állapot
         return; 
@@ -8437,11 +9773,17 @@ function copyEmbedCode() {
         params.set('nav', 'true');
     } else if (selectedFeature) {
         const p = selectedFeature.properties || {};
-        const refOrName = p.ref || p.name;
-        if (refOrName) {
-            params.set('room', refOrName);
-        } else if (selectedFeature.id) {
-            params.set('id', selectedFeature.id);
+        const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding;
+        if (isBuilding) {
+            const bKey = (p._buildingKey || p.code || p.ref || p.key || '').toUpperCase();
+            if (bKey) params.set('b', bKey);
+        } else {
+            const refOrName = p.ref || p.name;
+            if (refOrName) {
+                params.set('room', refOrName);
+            } else if (selectedFeature.id) {
+                params.set('id', selectedFeature.id);
+            }
         }
     }
 
@@ -8530,8 +9872,45 @@ async function processUrlParams() {
 
         // --- ÁLLAPOT VISSZAÁLLÍTÁSA A MÓD ALAPJÁN ---
 
+        // 0. ÉPÜLET MEGOSZTÁSI MÓD ('building')
+        if (data.mode === 'building') {
+            const bKey = (data.key || data.b || '').toUpperCase();
+            const openBuildingAction = () => {
+                let bFeature = null;
+                if (campusGeoJsonData && campusGeoJsonData.features) {
+                    bFeature = campusGeoJsonData.features.find(f => {
+                        const k = (f.properties && (f.properties.key || f.properties.code || f.properties.ref || "")).toUpperCase();
+                        return k === bKey || f.id === data.id;
+                    });
+                }
+                if (!bFeature) {
+                    bFeature = {
+                        id: data.id || `campus_${bKey}`,
+                        type: "Feature",
+                        properties: {
+                            key: bKey,
+                            code: bKey,
+                            ref: bKey,
+                            name: `${bKey} épület`,
+                            hasIndoor: Boolean(BUILDINGS[bKey]),
+                            _isBuilding: true,
+                            _isCampusOverview: true
+                        }
+                    };
+                }
+                handleCampusBuildingClick(bFeature);
+            };
+
+            if (campusGeoJsonData) {
+                setTimeout(openBuildingAction, 300);
+            } else if (_campusDataFetchPromise) {
+                _campusDataFetchPromise.then(() => setTimeout(openBuildingAction, 300));
+            } else {
+                setTimeout(openBuildingAction, 500);
+            }
+        }
         // 1. EGYEDI HELYSZÍN MÓD ('loc')
-        if (data.mode === 'loc') {
+        else if (data.mode === 'loc') {
             const target = findFeat(data.t);
             if (target) {
                 // Időzített végrehajtás (300ms késleltetés) a térkép renderelési ciklusának 
@@ -8539,6 +9918,11 @@ async function processUrlParams() {
                 setTimeout(() => {
                     openSheet(target);
                 }, 300);
+            } else if (data.t && data.t.val && (String(data.t.val).startsWith('campus_') || (campusGeoJsonData && campusGeoJsonData.features && campusGeoJsonData.features.some(f => f.id === data.t.val)))) {
+                // Kompatibilitás: 'loc' módban érkezett épület azonosító kezelése
+                const bKey = String(data.t.val).replace(/^campus_/, '').toUpperCase();
+                const bFeature = (campusGeoJsonData && campusGeoJsonData.features) ? campusGeoJsonData.features.find(f => f.id === data.t.val || (f.properties && (f.properties.key === bKey || f.properties.code === bKey))) : null;
+                if (bFeature) handleCampusBuildingClick(bFeature);
             }
         } 
         // 2. ÚTVONALTERVEZÉSI MÓD ('route')
@@ -9074,6 +10458,18 @@ map.on('load', async () => {
     _mapLayersInitialized = true;
     _currentMapStyleMode = getEffectiveThemeMode();
 
+    if (typeof CampusGPS !== 'undefined') {
+        CampusGPS.init();
+    }
+
+    if (campusGeoJsonData) {
+        updateCampusSources(campusGeoJsonData);
+    } else if (_campusDataFetchPromise) {
+        _campusDataFetchPromise.then(data => {
+            if (data) updateCampusSources(data);
+        });
+    }
+
     enableOneFingerZoom(map);
 
     initBuildings();
@@ -9117,8 +10513,9 @@ map.on('load', async () => {
             
             const data = JSON.parse(jsonStr);
             
-            if (data.b && BUILDINGS[data.b]) {
-                buildingToLoad = data.b;
+            const bKey = (data.b || data.key || '').toUpperCase();
+            if (bKey && BUILDINGS[bKey]) {
+                buildingToLoad = bKey;
             }
         } catch(e) { 
             console.warn("Invalid Share Code"); 
