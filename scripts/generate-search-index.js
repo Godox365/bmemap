@@ -51,12 +51,46 @@ function generateSearchIndex() {
         console.log(`  🏢 ${bKey} épület: ${count} kereshető terem hozzáadva.`);
     });
 
+    // 4. BME Kampusz épületek hozzáadása a keresési indexhez
+    const campusPath = path.join(dataDir, 'campus_buildings.json');
+    if (fs.existsSync(campusPath)) {
+        const campusData = JSON.parse(fs.readFileSync(campusPath, 'utf8'));
+        let bCount = 0;
+        (campusData.features || []).forEach(f => {
+            const p = f.properties || {};
+            const code = (p.code || p.key || '').toUpperCase();
+            if (!code) return;
+
+            let alt = `${p.name || ''} ${code} épület`;
+            if (code === 'ÉL') {
+                alt += ' BME Sportközpont sportcsarnok fitness terem fallabda küzdősport';
+            } else if (code === 'KT') {
+                alt += ' Könyvtár OMIKK olvasóterem könyvtár';
+            } else if (code === 'SPORT') {
+                alt += ' Sporttelep sportpálya tenisz atlétika futópálya foci';
+            }
+
+            searchIndex.push({
+                id: f.id || `campus_${code.toLowerCase()}`,
+                b: code,
+                ref: code,
+                name: p.name || `${code} épület`,
+                alt: alt.trim(),
+                lvl: '0',
+                isBuilding: true,
+                hasIndoor: p.hasIndoor === true || p.hasIndoor === 'true'
+            });
+            bCount++;
+        });
+        console.log(`  🏛️ Kampusz: ${bCount} épület hozzáadva a keresési indexhez.`);
+    }
+
     const jsonStr = JSON.stringify(searchIndex);
     fs.writeFileSync(outputFile, jsonStr, 'utf8');
 
     const sizeKb = (Buffer.byteLength(jsonStr, 'utf8') / 1024).toFixed(1);
     console.log(`\n✅ Sikeresen mentve: ${outputFile}`);
-    console.log(`📊 Összesen ${searchIndex.length} kereshető terem az indexben (${sizeKb} KB nyers méret).`);
+    console.log(`📊 Összesen ${searchIndex.length} kereshető elem az indexben (${sizeKb} KB nyers méret).`);
 }
 
 generateSearchIndex();

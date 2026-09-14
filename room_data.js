@@ -2601,7 +2601,7 @@ const BUILDING_DATABASE = {
     "J": {
         "building": "J",
         "name": "J épület (Járműgépészet)",
-        "address": "1111 Budapest, Stoczek utca 2.",
+        "address": "1111 Budapest, Stoczek utca 4.",
         "website": "https://kjk.bme.hu",
         "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
         "tags": ["wifi"],
@@ -2644,7 +2644,7 @@ const BUILDING_DATABASE = {
     "ST": {
         "building": "ST",
         "name": "ST épület (Stoczek)",
-        "address": "1111 Budapest, Stoczek utca 4.",
+        "address": "1111 Budapest, Stoczek utca 2.",
         "opening_hours": "Mo-Fr 06:00-21:00; Sa 07:00-14:00",
         "tags": ["wifi"],
         "note": {
@@ -2708,12 +2708,12 @@ const BUILDING_DATABASE = {
     "ÉL": {
         "building": "ÉL",
         "name": "ÉL épület (Építőipari labor)",
-        "address": "1111 Budapest, Műegyetem rkp. 3.",
-        "opening_hours": "Mo-Fr 07:00-19:00",
-        "tags": ["accessible"],
+        "address": "1111 Budapest, Bertalan Lajos utca 4-6.",
+        "opening_hours": "Mo-Fr 06:00-22:00; Sa 08:00-20:00; Su 08:00-20:00",
+        "tags": ["accessible", "sport"],
         "note": {
-            "hu": "Az Építőmérnöki Kar szerkezetvizsgáló, építőanyag- és geotechnikai nagylaboratóriuma a K épület mögött.",
-            "en": "Civil Engineering large-scale structural, building materials, and geotechnical testing laboratory behind the K building."
+            "hu": "Az Építőmérnöki Kar szerkezetvizsgáló nagylaboratóriuma a K épület mögött. Az épületben működik a BME Sportközpont is (fitness terem, fallabda, küzdősportok, sportcsarnok).",
+            "en": "Civil Engineering structural testing laboratory behind the K building. Also houses the BME Sports Center (fitness gym, squash courts, martial arts, sports hall)."
         },
         "images": []
     },
@@ -2876,6 +2876,78 @@ const BUILDING_DATABASE = {
         "note": {
             "hu": "A BME külső kutató és innovációs telephelye az Infopark C épületében.",
             "en": "External research and innovation facility of BME in Infopark Building C."
+        },
+        "images": []
+    },
+    "VPK": {
+        "building": "VPK",
+        "name": "Vásárhelyi Pál Kollégium",
+        "address": "1111 Budapest, Kruspér utca 2.",
+        "website": "https://vpk.bme.hu",
+        "opening_hours": "24/7",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "Az Építőmérnöki Kar és a Közlekedésmérnöki Kar hallgatói kollégiuma a Kruspér utcában.",
+            "en": "Student dormitory of the Faculty of Civil Engineering and Faculty of Transportation Engineering on Kruspér utca."
+        },
+        "images": []
+    },
+    "KTK": {
+        "building": "KTK",
+        "name": "Kármán Tódor Kollégium",
+        "address": "1111 Budapest, Irinyi József utca 1-17.",
+        "website": "https://ktk.bme.hu",
+        "opening_hours": "24/7",
+        "tags": ["wifi"],
+        "note": {
+            "hu": "A Gépészmérnöki Kar hallgatói kollégiuma a Petőfi híd budai hídfőjénél, az Irinyi József utcában.",
+            "en": "Student dormitory of the Faculty of Mechanical Engineering on Irinyi József utca."
+        },
+        "images": []
+    },
+    "DCS": {
+        "building": "DCS",
+        "name": "Dcs épület (D csarnok)",
+        "address": "1111 Budapest, Bertalan Lajos utca 4-6.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "A Gépészmérnöki Kar gépészeti csarnoka és szerelőműhelyei a belső campusudvarban.",
+            "en": "Mechanical Engineering machinery hall and workshops in the inner campus yard."
+        },
+        "images": []
+    },
+    "HÖ": {
+        "building": "HÖ",
+        "name": "Hö épület (Hőtechnika)",
+        "address": "1111 Budapest, Bertalan Lajos utca 5.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Hőtechnikai és energetikai mérések laborépülete a Bertalan Lajos utcában.",
+            "en": "Thermal technology and energy engineering laboratory on Bertalan Lajos utca."
+        },
+        "images": []
+    },
+    "FA": {
+        "building": "FA",
+        "name": "Fa épület (Atomfizika)",
+        "address": "1111 Budapest, Budafoki út 6-8.",
+        "opening_hours": "Mo-Fr 07:00-20:00",
+        "note": {
+            "hu": "Az Atomfizika Tanszék és nukleáris oktató-kutató laborok épülete az F épület belső udvarában.",
+            "en": "Department of Atomic Physics and experimental laboratories in the F building inner courtyard."
+        },
+        "images": []
+    },
+    "SPORT": {
+        "building": "SPORT",
+        "name": "BME Sporttelep",
+        "address": "1117 Budapest, Bogdánfy Ödön utca 10/B",
+        "website": "https://bmecivil.hu",
+        "opening_hours": "Mo-Su 06:00-22:00",
+        "tags": ["sport"],
+        "note": {
+            "hu": "A BME Bogdánfy utcai egyetemi sporttelepe és sportpályái (atlétika, labdarúgás, tenisz).",
+            "en": "BME University Sports Grounds on Bogdánfy utca (track and field, football pitches, tennis courts)."
         },
         "images": []
     }
