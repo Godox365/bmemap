@@ -2395,15 +2395,15 @@ const ROOM_DATABASE = {
     },
     "kt01": {
         "building": "KT",
-        "name": "Számítógépterem",
+        "name": "Kisterem",
         "tags": [
             "pc",
             "scan",
             "print"
         ],
         "note": {
-            "hu": "Könyvtárunk fszt. 1-es szobája szabadon használható számítógépes kutatóterem. Szolgáltatások: 8 db számítógép használata (katalógus, LibreOffice), adatbázisok használata, e-folyóiratok és e-könyvek használata, nyomtatás, 1 db A/4-es, 1 db A/3-as szkenner használata.",
-            "en": "Ground floor Room 1 is an open computer research room. Services: 8 workstations (catalogue, LibreOffice), database access, e-journals, e-books, printing, A4 and A3 scanners."
+            "hu": "Megközelítése: az aulán keresztül. Foglalható, kötetlenebb használatú tér csoportos munkához, beszélgetéshez.",
+            "en": "Access: via the lobby. A bookable, informal space for group work and discussions."
         }
     },
     "k053": {
@@ -2433,7 +2433,6 @@ const ROOM_DATABASE = {
         "capacity": "20",
         "tags": [
             "social",
-            "eat",
             "reserve"
         ],
         "note": {
@@ -2453,7 +2452,6 @@ const ROOM_DATABASE = {
         "capacity": "26",
         "tags": [
             "study",
-            "eat",
             "reserve"
         ],
         "note": {
