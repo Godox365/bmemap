@@ -9612,42 +9612,79 @@ document.addEventListener('keydown', (e) => {
 /**
  * Kinyeri a legmegbízhatóbb egyedi azonosítót egy térképelemből (GeoJSON feature)
  * a megosztási hivatkozások és állapotmentés számára. 
- * Azonosítási prioritás: 1. OSM ID, 2. Referencia (ref) vagy Név (name), 3. Geometriai középpont.
+ * 
+ * Azonosítási prioritás:
+ * 1. OpenStreetMap perzisztens azonosító (feature._originalId vagy properties.osm_id, pl. way/1529355178).
+ *    A MapLibre által felülírt numerikus feature.id (index) kifejezetten kizárásra kerül.
+ *    Nevesített / ref-fel rendelkező termeknél a payload tartalmazza a kánonikus szobakódot is (ref: 'KF51').
+ * 2. Kánonikus referencia kód vagy Név (ha az OSM ID valamiért hiányozna).
+ * 3. Geometriai középpont (Centroid tartalék).
  *
  * @param {Object} feature - A feldolgozandó GeoJSON térképelem.
- * @returns {Object|null} Az azonosítót ({type, val|lat, lon, lvl}) tartalmazó objektum, 
+ * @returns {Object|null} Az azonosítót ({type, val, ref, lvl}) tartalmazó objektum, 
  * vagy null, ha a bemenet érvénytelen.
  */
 function getFeatureId(feature) {
     if (!feature) return null;
     
-    const p = feature.properties;
+    const p = feature.properties || {};
     const lvl = getLevelsFromFeature(feature)[0] || "0";
 
-    // 1. PRIORITÁS: OSM ID (A legpontosabb, globálisan egyedi azonosító)
-    // Használatával elkerülhető a névütközésekből adódó pontatlan helymeghatározás.
-    if (feature.id) {
-        return { type: 'id', val: feature.id, lvl: lvl };
+    // 0. Épület elem kezelése (Campus overview)
+    const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
+    if (isBuilding) {
+        const bKey = (p._buildingKey || p.code || p.ref || p.key || (typeof feature.id === 'string' && feature.id.replace(/^campus_/, '')) || '').toUpperCase();
+        return { type: 'building', val: bKey, id: feature.id || `campus_${bKey}` };
     }
 
-    // 2. PRIORITÁS: Referencia azonosító vagy Név (Tartalék megoldás)
+    // Kánonikus szobakód (pl. "KF51", "KMF4", "IE224") meghatározása, ha van ref
+    let canonRef = null;
     if (p.ref) {
-        return { type: 'ref', val: p.ref, lvl: lvl };
+        canonRef = (typeof getCanonicalRoomCode === 'function') 
+            ? (getCanonicalRoomCode(p, currentBuildingKey) || String(p.ref).trim())
+            : String(p.ref).trim();
+    }
+
+    // 1. PRIORITÁS: Stabil, perzisztens OpenStreetMap azonosító (way/..., node/..., relation/...)
+    // FONTOS: Kizárjuk a MapLibre futásidejű numerikus indexét (feature.id = 482)!
+    const origId = feature._originalId 
+        || (p && (p.osm_id || p.id))
+        || (typeof feature.id === 'string' && !/^\d+$/.test(feature.id) ? feature.id : null);
+
+    if (origId) {
+        const payload = { type: 'id', val: origId, lvl: lvl };
+        if (canonRef) {
+            payload.ref = canonRef; // Másodlagos biztonsági tartalék nevesített termeknél
+        }
+        return payload;
+    }
+
+    // 2. TARTALÉK: Kánonikus referencia vagy név (ha nincs OSM ID)
+    if (canonRef) {
+        return { type: 'ref', val: canonRef, lvl: lvl };
     }
     if (p.name) {
-        return { type: 'name', val: p.name, lvl: lvl };
+        return { type: 'name', val: String(p.name).trim(), lvl: lvl };
     }
     
-    // 3. PRIORITÁS: Földrajzi koordináta (Végső tartalék megoldás)
-    // A térképelem geometriai középpontjának (centroid) kiszámítása a Turf.js segítségével.
-    const c = turf.centroid(feature);
-    return { 
-        type: 'coord', 
-        // A koordinátákat 6 tizedesjegy pontosságra (kb. 10 cm) kerekítjük az URL rövidsége érdekében
-        lat: c.geometry.coordinates[1].toFixed(6), 
-        lon: c.geometry.coordinates[0].toFixed(6),
-        lvl: lvl
-    };
+    // 3. VÉGSŐ TARTALÉK: Földrajzi koordináta (Centroid)
+    if (typeof turf !== 'undefined' && turf.centroid) {
+        try {
+            const c = turf.centroid(feature);
+            if (c && c.geometry && c.geometry.coordinates) {
+                return { 
+                    type: 'coord', 
+                    lat: Number(c.geometry.coordinates[1].toFixed(6)), 
+                    lon: Number(c.geometry.coordinates[0].toFixed(6)),
+                    lvl: lvl
+                };
+            }
+        } catch (err) {
+            console.warn("Centroid calculation error:", err);
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -9764,11 +9801,13 @@ function copyEmbedCode() {
 
     if (activeRouteData && activeRouteData.end) {
         const p = activeRouteData.end.properties || {};
-        const refOrName = p.ref || p.name;
+        const canonRef = (typeof getCanonicalRoomCode === 'function') ? getCanonicalRoomCode(p, currentBuildingKey) : null;
+        const refOrName = canonRef || p.ref || p.name;
+        const origId = activeRouteData.end._originalId || (p && (p.osm_id || p.id));
         if (refOrName) {
             params.set('room', refOrName);
-        } else if (activeRouteData.end.id) {
-            params.set('id', activeRouteData.end.id);
+        } else if (origId) {
+            params.set('id', origId);
         }
         params.set('nav', 'true');
     } else if (selectedFeature) {
@@ -9778,11 +9817,13 @@ function copyEmbedCode() {
             const bKey = (p._buildingKey || p.code || p.ref || p.key || '').toUpperCase();
             if (bKey) params.set('b', bKey);
         } else {
-            const refOrName = p.ref || p.name;
+            const canonRef = (typeof getCanonicalRoomCode === 'function') ? getCanonicalRoomCode(p, currentBuildingKey) : null;
+            const refOrName = canonRef || p.ref || p.name;
+            const origId = selectedFeature._originalId || (p && (p.osm_id || p.id));
             if (refOrName) {
                 params.set('room', refOrName);
-            } else if (selectedFeature.id) {
-                params.set('id', selectedFeature.id);
+            } else if (origId) {
+                params.set('id', origId);
             }
         }
     }
@@ -9835,39 +9876,145 @@ async function processUrlParams() {
         /**
          * Belső segédfüggvény a megosztott adatokban szereplő térképelem (feature) 
          * azonosítására a memóriában lévő GeoJSON adathalmazból.
-         * * @param {Object} desc - A térképelem leíró objektuma (type, val, lvl).
+         * @param {Object} desc - A térképelem leíró objektuma (type, val, ref, lvl, lat, lon).
          * @returns {Object|null} A megtalált GeoJSON elem, vagy null, ha nincs találat.
          */
         const findFeat = (desc) => {
-            if (!desc) return null;
+            if (!desc || !geoJsonData || !geoJsonData.features) return null;
             
             // A) ID ALAPÚ KERESÉS (Legmagasabb prioritás)
-            // Egyezés vizsgálata az OSM azonosító vagy belső index alapján
+            // Egyezés vizsgálata a perzisztens OSM azonosító (way/..., node/..., relation/...) alapján
             if (desc.type === 'id') {
-                return geoJsonData.features.find(f => 
-                    f.id === desc.val || 
-                    String(f.id) === String(desc.val) || 
-                    f._originalId === desc.val || 
-                    (f.properties && (f.properties.id === desc.val || f.properties.osm_id === desc.val))
-                );
+                const targetId = desc.val;
+
+                // 1. Pontos OSM ID keresése (_originalId, properties.osm_id, properties.id)
+                let matched = geoJsonData.features.find(f => {
+                    const origId = f._originalId || (f.properties && (f.properties.osm_id || f.properties.id));
+                    return origId === targetId || String(origId) === String(targetId);
+                });
+
+                if (matched) return matched;
+
+                // 2. Ha nem található OSM ID szerint, de a leíróban szerepel kánonikus szobakód (desc.ref tartalék háló):
+                if (desc.ref) {
+                    const cleanRef = normalizeRoomId(desc.ref);
+                    const refMatch = geoJsonData.features.find(f => {
+                        const p = f.properties || {};
+                        if (!p.ref) return false;
+                        if (desc.lvl && !getLevelsFromFeature(f).includes(desc.lvl)) return false;
+                        const fCanon = (typeof getCanonicalRoomCode === 'function') 
+                            ? normalizeRoomId(getCanonicalRoomCode(p, currentBuildingKey)) 
+                            : normalizeRoomId(p.ref);
+                        return fCanon === cleanRef || normalizeRoomId(p.ref) === cleanRef;
+                    });
+                    if (refMatch) return refMatch;
+                }
+
+                // 3. Visszafelé kompatibilitás korábbi, numerikus indexet tartalmazó régi linkekhez:
+                if (!isNaN(targetId) && targetId !== '' && targetId !== null) {
+                    const numId = parseInt(targetId, 10);
+                    // Először megpróbáljuk szintazonossággal
+                    const legacyMatch = geoJsonData.features.find(f => 
+                        (f.id === numId || String(f.id) === String(targetId)) &&
+                        (!desc.lvl || getLevelsFromFeature(f).includes(desc.lvl))
+                    );
+                    if (legacyMatch) return legacyMatch;
+                    // Ha szintazonossággal nem volt, index alapján
+                    if (geoJsonData.features[numId]) return geoJsonData.features[numId];
+                }
+
+                return null;
             }
 
             // B) KOORDINÁTA ALAPÚ KERESÉS
-            if (desc.type === 'coord') {
-                // Megjegyzés: Jelenleg nincs implementálva (pl. turf.nearestPoint használható lenne), 
-                // mivel az elsődleges ID alapú azonosítás lefedi a használati esetek többségét.
+            if (desc.type === 'coord' && desc.lat && desc.lon) {
+                const lat = parseFloat(desc.lat);
+                const lon = parseFloat(desc.lon);
+                if (!isNaN(lat) && !isNaN(lon) && typeof turf !== 'undefined') {
+                    try {
+                        const pt = turf.point([lon, lat]);
+                        const floorFeatures = desc.lvl 
+                            ? geoJsonData.features.filter(f => getLevelsFromFeature(f).includes(desc.lvl))
+                            : geoJsonData.features;
+                        const pool = floorFeatures.length > 0 ? floorFeatures : geoJsonData.features;
+
+                        // Kiszűrjük a szintkontúrokat (indoor: 'level', 'wall' és a tiszta épületkörvonalakat)
+                        const roomCandidates = pool.filter(f => {
+                            const p = f.properties || {};
+                            if (p.indoor === 'level' || p.indoor === 'wall') return false;
+                            if (p.building && !p.indoor && !p.room) return false;
+                            return true;
+                        });
+
+                        // 1. Poligonba esés vizsgálata (Polygon / MultiPolygon)
+                        for (const f of roomCandidates) {
+                            if (f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
+                                if (turf.booleanPointInPolygon && turf.booleanPointInPolygon(pt, f)) {
+                                    return f;
+                                }
+                            }
+                        }
+
+                        // 2. Legközelebbi elem centroidja légvonalban
+                        let closestFeat = null;
+                        let minDist = Infinity;
+                        for (const f of roomCandidates) {
+                            if (f.geometry && turf.centroid) {
+                                const c = turf.centroid(f);
+                                const d = turf.distance(pt, c);
+                                if (d < minDist) {
+                                    minDist = d;
+                                    closestFeat = f;
+                                }
+                            }
+                        }
+                        if (closestFeat && minDist < 0.05) { // 50 méteren belül
+                            return closestFeat;
+                        }
+                    } catch(err) {
+                        console.warn("Coordinate lookup error in findFeat:", err);
+                    }
+                }
                 return null; 
             }
             
-            // C) NÉV VAGY REFERENCIA ALAPÚ KERESÉS
-            // A smartFilter algoritmus használata a találatok listázására
-            const hits = smartFilter(desc.val);
-            if (hits.length > 0 && desc.lvl) {
-                // Ha van szintinformáció, megpróbáljuk a pontosan azonos szinten lévő elemet kiválasztani
-                const exact = hits.find(h => getLevelsFromFeature(h).includes(desc.lvl));
-                return exact || hits[0]; // Fallback: az első találat
+            // C) NÉV VAGY REFERENCIA ALAPÚ KERESÉS (Legacy desc.type === 'ref' / 'name' vagy tartalék)
+            if (desc.val) {
+                const cleanQuery = normalizeRoomId(desc.val);
+
+                // 1. Pontos kánonikus kód vagy ref egyezés
+                const exactRef = geoJsonData.features.find(f => {
+                    const p = f.properties || {};
+                    if (!p.ref) return false;
+                    if (desc.lvl && !getLevelsFromFeature(f).includes(desc.lvl)) return false;
+                    const fCanon = (typeof getCanonicalRoomCode === 'function') 
+                        ? normalizeRoomId(getCanonicalRoomCode(p, currentBuildingKey)) 
+                        : normalizeRoomId(p.ref);
+                    return fCanon === cleanQuery || normalizeRoomId(p.ref) === cleanQuery;
+                });
+                if (exactRef) return exactRef;
+
+                // 2. Pontos név egyezés
+                const exactName = geoJsonData.features.find(f => {
+                    const p = f.properties || {};
+                    if (!p.name) return false;
+                    if (desc.lvl && !getLevelsFromFeature(f).includes(desc.lvl)) return false;
+                    return normalizeRoomId(p.name) === cleanQuery;
+                });
+                if (exactName) return exactName;
+
+                // 3. smartFilter algoritmus használata
+                if (typeof smartFilter === 'function') {
+                    const hits = smartFilter(desc.val);
+                    if (hits.length > 0 && desc.lvl) {
+                        const exact = hits.find(h => getLevelsFromFeature(h).includes(desc.lvl));
+                        return exact || hits[0];
+                    }
+                    return hits[0] || null;
+                }
             }
-            return hits[0];
+
+            return null;
         };
 
         // --- ÁLLAPOT VISSZAÁLLÍTÁSA A MÓD ALAPJÁN ---
@@ -10127,12 +10274,15 @@ function openEmbedInfo(feature) {
 
     // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
     const roomVal = p.ref || p.name || displayName || '';
+    const origId = feature._originalId || (p && (p.osm_id || p.id)) || (typeof feature.id === 'string' ? feature.id : null);
     if (window.parent && window.parent !== window) {
         try {
             window.parent.postMessage({
                 type: 'bmemap_embed_select',
                 building: currentBuildingKey,
-                featureId: feature.id || null,
+                featureId: origId || feature.id || null,
+                osmId: origId || null,
+                featureIndex: typeof feature.id === 'number' ? feature.id : null,
                 room: roomVal,
                 ref: p.ref || '',
                 name: p.name || '',
@@ -10220,12 +10370,15 @@ function updateEmbedForNavigation(target, stats, source) {
 
     // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
     const roomVal = p.ref || p.name || displayName || '';
+    const origId = target._originalId || (p && (p.osm_id || p.id)) || (typeof target.id === 'string' ? target.id : null);
     if (window.parent && window.parent !== window) {
         try {
             window.parent.postMessage({
                 type: 'bmemap_embed_nav',
                 building: currentBuildingKey,
-                featureId: target.id || null,
+                featureId: origId || target.id || null,
+                osmId: origId || null,
+                featureIndex: typeof target.id === 'number' ? target.id : null,
                 room: roomVal,
                 ref: p.ref || '',
                 name: p.name || '',
@@ -10316,32 +10469,43 @@ function _selectEmbedFeature(roomParam, idParam, levelParam, autoNav = false) {
 
     // A) ID alapú keresés
     if (idParam) {
-        const numId = parseInt(idParam, 10);
-        target = geoJsonData.features.find(f => 
-            f.id === numId || 
-            f.id === idParam || 
-            String(f.id) === String(idParam) || 
-            f._originalId === idParam || 
-            (f.properties && (f.properties.id === idParam || f.properties.osm_id === idParam))
-        );
+        // 1. Pontos OSM ID keresés (_originalId, properties.osm_id, properties.id)
+        target = geoJsonData.features.find(f => {
+            const origId = f._originalId || (f.properties && (f.properties.osm_id || f.properties.id));
+            return origId === idParam || String(origId) === String(idParam);
+        });
+
+        // 2. Visszafelé kompatibilitás korábbi numerikus indexekhez
+        if (!target && !isNaN(idParam)) {
+            const numId = parseInt(idParam, 10);
+            target = geoJsonData.features.find(f => f.id === numId || String(f.id) === String(idParam));
+        }
     }
 
-    // B) Teremnév / ref alapú keresés (ha szám, akkor ID-ként is teszteljük)
+    // B) Teremnév / ref alapú keresés (ha szám vagy OSM ID formátum, akkor ID-ként is teszteljük)
     if (!target && roomParam) {
         const cleanQuery = roomParam.trim();
-        if (!isNaN(cleanQuery) && cleanQuery.length > 3) {
-            const numId = parseInt(cleanQuery, 10);
-            target = geoJsonData.features.find(f => 
-                f.id === numId || 
-                f.id === cleanQuery || 
-                String(f.id) === String(cleanQuery) || 
-                f._originalId === cleanQuery || 
-                (f.properties && (f.properties.id === cleanQuery || f.properties.osm_id === cleanQuery))
-            );
+        if (cleanQuery.includes('/') || (!isNaN(cleanQuery) && cleanQuery.length > 3)) {
+            target = geoJsonData.features.find(f => {
+                const origId = f._originalId || (f.properties && (f.properties.osm_id || f.properties.id));
+                return origId === cleanQuery || String(origId) === String(cleanQuery);
+            });
+            if (!target && !isNaN(cleanQuery)) {
+                const numId = parseInt(cleanQuery, 10);
+                target = geoJsonData.features.find(f => f.id === numId || String(f.id) === String(cleanQuery));
+            }
         }
-        // 1. Pontos ref egyezés
+        // 1. Kánonikus szobakód vagy pontos ref egyezés
         if (!target) {
-            target = geoJsonData.features.find(f => f.properties && f.properties.ref && f.properties.ref.toLowerCase() === cleanQuery.toLowerCase());
+            target = geoJsonData.features.find(f => {
+                const p = f.properties || {};
+                if (!p.ref) return false;
+                const fCanon = (typeof getCanonicalRoomCode === 'function') 
+                    ? getCanonicalRoomCode(p, currentBuildingKey) 
+                    : p.ref;
+                return (fCanon && fCanon.toLowerCase() === cleanQuery.toLowerCase()) ||
+                       (p.ref && p.ref.toLowerCase() === cleanQuery.toLowerCase());
+            });
         }
         // 2. Pontos név egyezés
         if (!target) {
