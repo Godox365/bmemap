@@ -10162,6 +10162,8 @@ function openEmbedInfo(feature) {
     let displayName = "";
     if (toiletInfo) {
         displayName = toiletInfo.name;
+    } else if (typeof formatFeatureName === 'function') {
+        displayName = formatFeatureName(feature, currentBuildingKey);
     } else if (p.name && p.ref) {
         const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
         const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
@@ -10273,7 +10275,7 @@ function openEmbedInfo(feature) {
     }
 
     // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
-    const roomVal = p.ref || p.name || displayName || '';
+    const roomVal = displayName || p.ref || p.name || '';
     const origId = feature._originalId || (p && (p.osm_id || p.id)) || (typeof feature.id === 'string' ? feature.id : null);
     if (window.parent && window.parent !== window) {
         try {
@@ -10319,7 +10321,32 @@ function updateEmbedForNavigation(target, stats, source) {
     const subEl = document.getElementById('embed-info-sub');
     
     const p = target.properties || {};
-    let displayName = p.name || p.ref || (typeof getHungarianType === 'function' ? getHungarianType(p) : "Célpont");
+    const toiletInfo = typeof getToiletInfo === 'function' ? getToiletInfo(target) : null;
+    let displayName = "";
+    if (toiletInfo) {
+        displayName = toiletInfo.name;
+    } else if (typeof formatFeatureName === 'function') {
+        displayName = formatFeatureName(target, currentBuildingKey);
+    } else if (p.name && p.ref) {
+        const cleanName = p.name.toLowerCase().replace(/[\s-]/g, '');
+        const cleanRef = p.ref.toLowerCase().replace(/[\s-]/g, '');
+        displayName = cleanName.includes(cleanRef) ? p.name : `${p.ref} - ${p.name}`;
+    } else {
+        displayName = p.name || p.ref;
+    }
+
+    if (!toiletInfo && (!displayName || (!isNaN(displayName) && displayName.toString().length > 5))) {
+        let matchedPoiName = null;
+        if (typeof POI_TYPES !== 'undefined') {
+            for (const key in POI_TYPES) {
+                if (POI_TYPES[key].filter(p)) {
+                    matchedPoiName = POI_TYPES[key].name;
+                    break;
+                }
+            }
+        }
+        displayName = matchedPoiName || (typeof getHungarianType === 'function' ? getHungarianType(p) : "Célpont");
+    }
     if (titleEl) titleEl.innerText = displayName;
 
     // Statisztika szöveg összeállítása (pl. "🚶 2 perc • 120 m")
@@ -10369,7 +10396,7 @@ function updateEmbedForNavigation(target, stats, source) {
     }
 
     // Értesítés a beágyazó szülő ablaknak (pl. Embed Konfigurátor)
-    const roomVal = p.ref || p.name || displayName || '';
+    const roomVal = displayName || p.ref || p.name || '';
     const origId = target._originalId || (p && (p.osm_id || p.id)) || (typeof target.id === 'string' ? target.id : null);
     if (window.parent && window.parent !== window) {
         try {
