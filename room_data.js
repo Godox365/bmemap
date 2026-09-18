@@ -2436,7 +2436,7 @@ const ROOM_DATABASE = {
             "reserve"
         ],
         "note": {
-            "hu": "Megközelítése: a földszint 1-es Kutatótermen keresztül. Foglalható, kötetlenebb használatú tér csoportos munkához, beszélgetéshez és étkezéshez. https://appointments.omikk.bme.hu/",
+            "hu": "Megközelítése: a földszint 1-es Kutatótermen keresztül. Foglalható, kötetlenebb használatú tér csoportos munkához, beszélgetéshez. https://appointments.omikk.bme.hu/",
             "en": "Access: via ground floor Room 1 Research Room. Bookable informal space for group work, discussion, and dining. https://appointments.omikk.bme.hu/"
         },
         "images": [
@@ -2455,7 +2455,7 @@ const ROOM_DATABASE = {
             "reserve"
         ],
         "note": {
-            "hu": "Tanulásra, halk beszélgetésre és étkezésre alkalmas tér. Megközelítése a könyvtár központi épületén keresztül lehetséges. Egyetemi és szakmai rendezvények helyszíneként is működik. https://appointments.omikk.bme.hu/",
+            "hu": "Tanulásra, halk beszélgetésre alkalmas tér. Megközelítése a könyvtár központi épületén keresztül lehetséges. Egyetemi és szakmai rendezvények helyszíneként is működik. https://appointments.omikk.bme.hu/",
             "en": "Space suitable for study, quiet discussion, and dining. Accessible through the central library building. Also hosts university and professional events. https://appointments.omikk.bme.hu/"
         },
         "images": [
