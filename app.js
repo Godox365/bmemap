@@ -1351,7 +1351,14 @@ const APP_SETTINGS = {
     toiletAccessible: localStorage.getItem('pref_toilet_acc') === 'true',
     themeMode: localStorage.getItem('pref_theme') || 'system', 
     activeColorTheme: localStorage.getItem('pref_color_theme') || 'default',
-    language: localStorage.getItem('pref_language') || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu')
+    language: localStorage.getItem('pref_language') || (typeof i18n !== 'undefined' ? i18n.currentLanguage : 'hu'),
+    popupsEnabled: (() => {
+        try {
+            return localStorage.getItem('pref_popups_enabled') !== 'false';
+        } catch (e) {
+            return true;
+        }
+    })()
 };
 
 /**
@@ -3308,6 +3315,19 @@ function toggleSettings() {
     modal.classList.toggle('visible');
     if (!modal.classList.contains('visible')) {
         _resetMapPadding();
+        const viewNews = document.getElementById('settings-view-news');
+        const viewMain = document.getElementById('settings-view-main');
+        if (viewNews && viewNews.style.display !== 'none') {
+            viewNews.style.display = 'none';
+            if (viewMain) viewMain.style.display = 'flex';
+        }
+        if (typeof checkAndShowAnnouncementPill === 'function') {
+            checkAndShowAnnouncementPill();
+        }
+    } else {
+        if (typeof dismissAnnouncementPill === 'function') {
+            dismissAnnouncementPill();
+        }
     }
     updateSettingsUI();
 }
@@ -3449,6 +3469,11 @@ function updateSettingsUI() {
 
     // Gyorsítótár méretének aszinkron kiszámítása és megjelenítése
     updateCacheSizeDisplay();
+
+    const toggle = document.getElementById('toggle-popups');
+    if (toggle) toggle.checked = APP_SETTINGS.popupsEnabled !== false;
+
+    updateNewsPreviewCard();
 }
 
 /**
@@ -4031,6 +4056,10 @@ function toggleToiletAccessible() {
 function resetSettings() {
     APP_SETTINGS.elevatorMode = 'balanced';
     APP_SETTINGS.toiletMode = 'all';
+    APP_SETTINGS.popupsEnabled = true;
+    try {
+        localStorage.removeItem('pref_popups_enabled');
+    } catch (e) {}
     updateSettingsUI();
     buildRoutingGraph();
     toggleSettings(); // Bezárás
@@ -4047,7 +4076,535 @@ function toggleImpressum() {
     
     const modal = document.getElementById('impressum-modal');
     modal.classList.toggle('visible');
+    if (modal.classList.contains('visible') && typeof dismissAnnouncementPill === 'function') {
+        dismissAnnouncementPill();
+    }
 }
+
+// === ANNOUNCEMENT AND NEWS SYSTEM ===
+
+let _announcements = [];
+let _pillTimer = null;
+let _pillStartTime = 0;
+let _pillRemaining = 4000;
+let _currentPillAnnouncement = null;
+let _pillInteractionDismissHandlersAttached = false;
+
+function getLocalizedText(field, lang = null) {
+    if (!field) return '';
+    if (typeof field === 'string') return field;
+    const currentLang = lang || (typeof i18n !== 'undefined' && i18n.currentLanguage) || (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.language) || 'hu';
+    return field[currentLang] || field['hu'] || field['en'] || Object.values(field)[0] || '';
+}
+
+function getReadAnnouncementIds() {
+    try {
+        const stored = localStorage.getItem('bmemap_read_announcements');
+        const parsed = stored ? JSON.parse(stored) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function getDismissedPopupIds() {
+    try {
+        const stored = localStorage.getItem('bmemap_dismissed_popups');
+        const parsed = stored ? JSON.parse(stored) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function getUnreadAnnouncements() {
+    const readIds = getReadAnnouncementIds();
+    return _announcements.filter(item => !readIds.includes(item.id));
+}
+
+function updateAnnouncementsBadge() {
+    const btn = document.getElementById('btn-right-action');
+    if (!btn) return;
+    if (IS_EMBED_MODE) {
+        btn.classList.remove('has-unread');
+        return;
+    }
+    const unread = getUnreadAnnouncements();
+    if (unread.length > 0) {
+        btn.classList.add('has-unread');
+    } else {
+        btn.classList.remove('has-unread');
+    }
+}
+
+async function loadAnnouncements() {
+    if (IS_EMBED_MODE) return;
+    try {
+        const res = await fetch('./data/announcements.json');
+        if (!res.ok) {
+            updateAnnouncementsBadge();
+            updateNewsPreviewCard();
+            return;
+        }
+        const data = await res.json();
+        const now = new Date();
+        _announcements = Array.isArray(data) ? data.filter(item => {
+            if (!item || typeof item !== 'object' || !item.id) return false;
+            if (item.validUntil) {
+                const exp = new Date(item.validUntil);
+                if (!isNaN(exp.getTime()) && exp <= now) return false;
+            }
+            return true;
+        }).sort((a, b) => {
+            const timeA = a.date ? (new Date(a.date).getTime() || 0) : 0;
+            const timeB = b.date ? (new Date(b.date).getTime() || 0) : 0;
+            return timeB - timeA;
+        }) : [];
+
+        updateAnnouncementsBadge();
+        updateNewsPreviewCard();
+        checkAndShowAnnouncementPill();
+    } catch (err) {
+        console.warn('Announcements load error:', err);
+        updateAnnouncementsBadge();
+        updateNewsPreviewCard();
+    }
+}
+
+function checkAndShowAnnouncementPill() {
+    const settingsModal = document.getElementById('settings-modal');
+    const impressumModal = document.getElementById('impressum-modal');
+    const customModal = document.getElementById('custom-modal');
+    const bottomSheet = document.getElementById('bottom-sheet');
+    const searchInput = document.getElementById('search-input');
+
+    if (IS_EMBED_MODE || 
+        APP_SETTINGS.popupsEnabled === false || 
+        (settingsModal && settingsModal.classList.contains('visible')) ||
+        (impressumModal && impressumModal.classList.contains('visible')) ||
+        (customModal && customModal.classList.contains('visible')) ||
+        (bottomSheet && bottomSheet.classList.contains('open')) ||
+        (searchInput && document.activeElement === searchInput)) {
+        return;
+    }
+    const dismissedIds = getDismissedPopupIds();
+    const readIds = getReadAnnouncementIds();
+    const eligible = _announcements.find(item => (item.popup === true || item.popup === 'true') && !dismissedIds.includes(item.id) && !readIds.includes(item.id));
+    if (eligible) {
+        showAnnouncementPill(eligible);
+    }
+}
+
+function showAnnouncementPill(announcement) {
+    const pill = document.getElementById('announcement-pill');
+    if (!pill) return;
+
+    _currentPillAnnouncement = announcement;
+
+    const badgeEl = document.getElementById('announcement-pill-badge');
+    const badgeText = getLocalizedText(announcement.badge);
+    if (badgeText && badgeEl) {
+        badgeEl.innerText = badgeText;
+        badgeEl.style.display = 'inline-block';
+    } else if (badgeEl) {
+        badgeEl.style.display = 'none';
+    }
+
+    const textEl = document.getElementById('announcement-pill-text');
+    if (textEl) {
+        textEl.innerText = getLocalizedText(announcement.title);
+    }
+
+    const actionBtn = document.getElementById('announcement-pill-action-btn');
+    if (actionBtn) {
+        if (announcement.action && (announcement.action.type === 'map' || announcement.action.type === 'link')) {
+            const btnText = announcement.action.type === 'map'
+                ? (typeof t === 'function' ? t('news.action_view') : 'Megtekintés')
+                : (typeof t === 'function' ? t('news.action_open') : 'Megnyitás');
+            actionBtn.innerText = btnText;
+            actionBtn.style.display = 'inline-block';
+            actionBtn.onclick = (e) => {
+                e.stopPropagation();
+                dismissAnnouncementPill(true);
+                handleAnnouncementAction(announcement.action);
+            };
+        } else {
+            actionBtn.style.display = 'none';
+        }
+    }
+
+    pill.classList.add('visible');
+
+    startPillAutoDismiss(4000);
+    attachPillDismissHandlers();
+}
+
+function startPillAutoDismiss(duration = 4000) {
+    clearTimeout(_pillTimer);
+    _pillRemaining = duration;
+    _pillStartTime = Date.now();
+    _pillTimer = setTimeout(() => {
+        dismissAnnouncementPill();
+    }, duration);
+}
+
+function attachPillDismissHandlers() {
+    const pill = document.getElementById('announcement-pill');
+    if (!pill) return;
+
+    pill.onmouseenter = () => {
+        if (_pillTimer) {
+            clearTimeout(_pillTimer);
+            _pillTimer = null;
+            _pillRemaining = Math.max(500, _pillRemaining - (Date.now() - _pillStartTime));
+        }
+    };
+
+    pill.onmouseleave = () => {
+        const hasFocus = typeof pill.matches === 'function' ? pill.matches(':focus-within') : false;
+        if (!_pillTimer && pill.classList.contains('visible') && !hasFocus) {
+            startPillAutoDismiss(_pillRemaining);
+        }
+    };
+
+    pill.onfocusin = () => {
+        if (_pillTimer) {
+            clearTimeout(_pillTimer);
+            _pillTimer = null;
+            _pillRemaining = Math.max(500, _pillRemaining - (Date.now() - _pillStartTime));
+        }
+    };
+
+    pill.onfocusout = () => {
+        const hasHover = typeof pill.matches === 'function' ? pill.matches(':hover') : false;
+        if (!_pillTimer && pill.classList.contains('visible') && !hasHover) {
+            startPillAutoDismiss(_pillRemaining);
+        }
+    };
+
+    if (!_pillInteractionDismissHandlersAttached) {
+        _pillInteractionDismissHandlersAttached = true;
+
+        if (typeof map !== 'undefined' && map.on) {
+            map.on('dragstart', handlePillInteractionDismiss);
+            map.on('zoomstart', handlePillInteractionDismiss);
+            map.on('movestart', handlePillInteractionDismiss);
+            map.on('touchstart', handlePillInteractionDismiss);
+        }
+
+        document.addEventListener('pointerdown', handleDocInteractionForPill);
+
+        const searchInput = document.getElementById('search-input');
+        if (searchInput && typeof searchInput.addEventListener === 'function') {
+            searchInput.addEventListener('focus', handlePillInteractionDismiss);
+        }
+    }
+}
+
+function handlePillInteractionDismiss(e) {
+    if (e && (e.type === 'movestart' || e.type === 'zoomstart') && !e.originalEvent) {
+        return;
+    }
+    dismissAnnouncementPill();
+}
+
+function handleDocInteractionForPill(e) {
+    const pill = document.getElementById('announcement-pill');
+    if (pill && pill.classList.contains('visible') && !pill.contains(e.target)) {
+        dismissAnnouncementPill();
+    }
+}
+
+function dismissAnnouncementPill(markAsRead = false) {
+    clearTimeout(_pillTimer);
+    _pillTimer = null;
+
+    const pill = document.getElementById('announcement-pill');
+    if (pill) {
+        pill.classList.remove('visible');
+    }
+
+    if (_currentPillAnnouncement) {
+        const id = _currentPillAnnouncement.id;
+        try {
+            const dismissed = getDismissedPopupIds();
+            if (!dismissed.includes(id)) {
+                dismissed.push(id);
+                localStorage.setItem('bmemap_dismissed_popups', JSON.stringify(dismissed));
+            }
+            if (markAsRead) {
+                const read = getReadAnnouncementIds();
+                if (!read.includes(id)) {
+                    read.push(id);
+                    localStorage.setItem('bmemap_read_announcements', JSON.stringify(read));
+                    updateAnnouncementsBadge();
+                }
+            }
+        } catch (e) {}
+        _currentPillAnnouncement = null;
+    }
+}
+
+function updateNewsPreviewCard() {
+    const section = document.getElementById('news-preview-section');
+    if (!section) return;
+
+    if (_announcements.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    const latest = _announcements[0];
+    section.style.display = 'block';
+
+    const badgeEl = document.getElementById('news-preview-badge');
+    const badgeText = getLocalizedText(latest.badge);
+    if (badgeText && badgeEl) {
+        badgeEl.innerText = badgeText;
+        badgeEl.style.display = 'inline-block';
+    } else if (badgeEl) {
+        badgeEl.style.display = 'none';
+    }
+
+    const titleEl = document.getElementById('news-preview-title');
+    if (titleEl) {
+        titleEl.innerText = getLocalizedText(latest.title);
+    }
+
+    const descEl = document.getElementById('news-preview-desc');
+    if (descEl) {
+        descEl.innerText = getLocalizedText(latest.description);
+    }
+}
+
+function openNewsArchive() {
+    const viewMain = document.getElementById('settings-view-main');
+    const viewNews = document.getElementById('settings-view-news');
+    if (viewMain) viewMain.style.display = 'none';
+    if (viewNews) viewNews.style.display = 'flex';
+
+    dismissAnnouncementPill();
+    renderNewsArchive();
+    const container = document.getElementById('news-archive-content');
+    if (container) container.scrollTop = 0;
+    markAllAnnouncementsAsRead();
+
+    const backBtn = (viewNews && typeof viewNews.querySelector === 'function')
+        ? viewNews.querySelector('.btn-close-settings')
+        : (typeof document !== 'undefined' && typeof document.querySelector === 'function' ? document.querySelector('#settings-view-news .btn-close-settings') : null);
+    if (backBtn && typeof backBtn.focus === 'function') {
+        backBtn.focus();
+    }
+}
+
+function closeNewsArchive() {
+    const viewMain = document.getElementById('settings-view-main');
+    const viewNews = document.getElementById('settings-view-news');
+    if (viewNews) viewNews.style.display = 'none';
+    if (viewMain) viewMain.style.display = 'flex';
+
+    const previewCard = (typeof document !== 'undefined' && typeof document.querySelector === 'function')
+        ? document.querySelector('.news-preview-card')
+        : null;
+    if (previewCard && typeof previewCard.focus === 'function') {
+        previewCard.focus();
+    }
+}
+
+function renderNewsArchive() {
+    const container = document.getElementById('news-archive-content');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (_announcements.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'news-empty-state';
+        emptyDiv.innerText = typeof t === 'function' ? t('news.no_news') : 'Jelenleg nincsenek új hírek.';
+        container.appendChild(emptyDiv);
+        return;
+    }
+
+    _announcements.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'news-item-card';
+
+        const header = document.createElement('div');
+        header.className = 'news-item-header';
+
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'news-item-date';
+        dateSpan.innerText = item.date || '';
+        header.appendChild(dateSpan);
+
+        const badgeText = getLocalizedText(item.badge);
+        if (badgeText) {
+            const badgeSpan = document.createElement('span');
+            badgeSpan.className = 'news-badge';
+            badgeSpan.innerText = badgeText;
+            header.appendChild(badgeSpan);
+        }
+        card.appendChild(header);
+
+        const title = document.createElement('h4');
+        title.className = 'news-item-title';
+        title.innerText = getLocalizedText(item.title);
+        card.appendChild(title);
+
+        const desc = document.createElement('p');
+        desc.className = 'news-item-desc';
+        desc.innerText = getLocalizedText(item.description);
+        card.appendChild(desc);
+
+        if (item.action && (item.action.type === 'map' || item.action.type === 'link')) {
+            const actionContainer = document.createElement('div');
+            actionContainer.className = 'news-item-action';
+
+            const btn = document.createElement('button');
+            btn.className = 'news-action-btn';
+
+            const actionTitle = getLocalizedText(item.title);
+            const btnText = item.action.type === 'map'
+                ? (typeof t === 'function' ? t('news.action_view') : 'Megtekintés')
+                : (typeof t === 'function' ? t('news.action_open') : 'Megnyitás');
+            btn.setAttribute('aria-label', actionTitle ? `${btnText}: ${actionTitle}` : btnText);
+
+            const icon = document.createElement('span');
+            icon.className = 'material-symbols-outlined';
+            if (item.action.type === 'map') {
+                icon.innerText = 'explore';
+                btn.appendChild(icon);
+                const txt = document.createElement('span');
+                txt.innerText = btnText;
+                btn.appendChild(txt);
+            } else {
+                icon.innerText = 'open_in_new';
+                btn.appendChild(icon);
+                const txt = document.createElement('span');
+                txt.innerText = btnText;
+                btn.appendChild(txt);
+            }
+
+            btn.onclick = () => {
+                handleAnnouncementAction(item.action);
+            };
+
+            actionContainer.appendChild(btn);
+            card.appendChild(actionContainer);
+        }
+
+        container.appendChild(card);
+    });
+}
+
+function markAllAnnouncementsAsRead() {
+    try {
+        const readIds = getReadAnnouncementIds();
+        let changed = false;
+        _announcements.forEach(a => {
+            if (!readIds.includes(a.id)) {
+                readIds.push(a.id);
+                changed = true;
+            }
+        });
+        if (changed) {
+            localStorage.setItem('bmemap_read_announcements', JSON.stringify(readIds));
+        }
+        updateAnnouncementsBadge();
+    } catch (e) {}
+}
+
+function setPopupsMode(enabled) {
+    APP_SETTINGS.popupsEnabled = Boolean(enabled);
+    try {
+        localStorage.setItem('pref_popups_enabled', APP_SETTINGS.popupsEnabled ? 'true' : 'false');
+    } catch (e) {}
+
+    if (!APP_SETTINGS.popupsEnabled) {
+        dismissAnnouncementPill();
+    } else {
+        checkAndShowAnnouncementPill();
+    }
+}
+
+function handleAnnouncementAction(action) {
+    if (!action) return;
+    if (action.type === 'map') {
+        const { building, level } = action;
+        if (building) {
+            const bKey = String(building).toUpperCase();
+            if (typeof BUILDINGS !== 'undefined' && !BUILDINGS[bKey]) {
+                console.warn('Unknown building in announcement:', building);
+                return;
+            }
+
+            const targetLvl = level !== undefined && level !== null ? String(level) : null;
+
+            const settingsModal = document.getElementById('settings-modal');
+            if (settingsModal && settingsModal.classList.contains('visible')) {
+                toggleSettings();
+            }
+            if (typeof closeSheet === 'function') {
+                closeSheet();
+            }
+
+            if (currentBuildingKey === bKey) {
+                if (targetLvl !== null && (!availableLevels || availableLevels.includes(targetLvl))) {
+                    switchLevel(targetLvl);
+                }
+                if (typeof alignMapToBuildingCenter === 'function') {
+                    alignMapToBuildingCenter();
+                }
+            } else {
+                pendingTargetLevel = targetLvl;
+                changeBuilding(bKey);
+            }
+        }
+    } else if (action.type === 'link' && action.url) {
+        if (/^https?:\/\//i.test(action.url)) {
+            window.open(action.url, '_blank', 'noopener,noreferrer');
+        } else {
+            console.warn('Blocked non-http external link action:', action.url);
+        }
+    }
+}
+
+function updateAnnouncementsOnLanguageChange() {
+    updateNewsPreviewCard();
+    const viewNews = document.getElementById('settings-view-news');
+    if (viewNews && viewNews.style.display !== 'none') {
+        renderNewsArchive();
+    }
+    if (_currentPillAnnouncement) {
+        const textEl = document.getElementById('announcement-pill-text');
+        if (textEl) textEl.innerText = getLocalizedText(_currentPillAnnouncement.title);
+        const badgeEl = document.getElementById('announcement-pill-badge');
+        const badgeText = getLocalizedText(_currentPillAnnouncement.badge);
+        if (badgeEl) {
+            if (badgeText) {
+                badgeEl.innerText = badgeText;
+                badgeEl.style.display = 'inline-block';
+            } else {
+                badgeEl.style.display = 'none';
+            }
+        }
+        const actionBtn = document.getElementById('announcement-pill-action-btn');
+        if (actionBtn && _currentPillAnnouncement.action) {
+            actionBtn.innerText = _currentPillAnnouncement.action.type === 'map'
+                ? (typeof t === 'function' ? t('news.action_view') : 'Megtekintés')
+                : (typeof t === 'function' ? t('news.action_open') : 'Megnyitás');
+        }
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+        if (!IS_EMBED_MODE && _announcements.length === 0) {
+            loadAnnouncements();
+        }
+    });
+}
+
 
 /**
  * GPS alapú, automatikus épületválasztó funkció (kizárólag mobil eszközökre).
@@ -4211,6 +4768,7 @@ function toggleBuildingMenu() {
  */
 let _preserveCameraNextLoad = false;
 let _preserveCameraOnBuildingChange = false;
+let pendingTargetLevel = null;
 if (typeof window !== 'undefined') {
     window._preserveCameraNextLoad = false;
     window._preserveCameraOnBuildingChange = false;
@@ -4245,6 +4803,12 @@ function changeBuilding(key, autoSearchTerm = null, targetId = null, preserveCam
         if (settingsModal.classList.contains('editor-mode')) {
             closeThemeEditor(false);
         }
+        const viewNews = document.getElementById('settings-view-news');
+        const viewMain = document.getElementById('settings-view-main');
+        if (viewNews && viewNews.style.display !== 'none') {
+            viewNews.style.display = 'none';
+            if (viewMain) viewMain.style.display = 'flex';
+        }
         settingsModal.classList.remove('visible');
     }
     if (typeof closeSheet === 'function') closeSheet();
@@ -4256,7 +4820,7 @@ function changeBuilding(key, autoSearchTerm = null, targetId = null, preserveCam
 
     currentBuildingKey = key;
     currentBuilding = BUILDINGS[key];
-    currentLevel = getDefaultLevelForBuilding(key);
+    currentLevel = (pendingTargetLevel !== null) ? pendingTargetLevel : getDefaultLevelForBuilding(key);
 
     // Fejléc név és ikon azonnali frissítése a kiválasztott épületre
     const currentNameEl = document.getElementById('current-building-name');
@@ -4551,7 +5115,10 @@ function processOsmData(osmData, isUpdate = false) {
     } else {
         // Ha nem háttérfrissítésről van szó, vagy a mentett szint nem elérhető az új adatokban:
         const defaultLvl = getDefaultLevelForBuilding(currentBuildingKey);
-        if (!availableLevels.includes(currentLevel)) {
+        if (pendingTargetLevel !== null && availableLevels.includes(pendingTargetLevel)) {
+            currentLevel = pendingTargetLevel;
+            pendingTargetLevel = null;
+        } else if (!availableLevels.includes(currentLevel)) {
             currentLevel = availableLevels.includes(defaultLvl) 
                 ? defaultLvl 
                 : (availableLevels.includes('0') ? '0' : (availableLevels[0] || "0"));
@@ -4619,6 +5186,14 @@ async function loadOsmData() {
         processOsmData(data, false);
         loader.style.display = 'none';
 
+        if (pendingTargetLevel !== null) {
+            const targetLvl = pendingTargetLevel;
+            pendingTargetLevel = null;
+            if (availableLevels && availableLevels.includes(targetLvl)) {
+                switchLevel(targetLvl);
+            }
+        }
+
         // Függőben lévő épület adatlap megnyitása (indoor épület kattintás esetén)
         // Az openSheet hívás a processOsmData után történik, hogy ne ütközzön a buildingváltás lépéseivel.
         if (_pendingBuildingOpenFeature) {
@@ -4667,6 +5242,7 @@ async function loadOsmData() {
         document.getElementById('loader-status').innerText = "FAILED.";
         alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: A térképfájl nem érhető el.\n(Ellenőrizd az internetkapcsolatot!)");
     } finally {
+        pendingTargetLevel = null;
         setTimeout(() => {
             _isCampusTransitionActive = false;
             _isBuildingSwitching = false;
@@ -5428,6 +6004,7 @@ function setupGalleryCarousel(imageCount) {
  * @param {Object} feature - A megjelenítendő GeoJSON feature.
  */
 function openSheet(feature, skipFly = false) {
+    if (typeof dismissAnnouncementPill === 'function') dismissAnnouncementPill();
     // DOM elrendezés szinkronizálása a kijelzőméretnek megfelelően
     syncSheetLayoutForViewport();
 
@@ -6655,6 +7232,7 @@ function _executeSearch(e) {
  * és megjeleníti a kedvencek listáját, ha a mező még üres.
  */
 function handleSearchFocus() {
+    dismissAnnouncementPill();
     loadSearchIndex(); // Aszinkron előtöltés a kereső fókuszba kerülésekor
     const leftIcon = document.getElementById('search-left-icon');
     
@@ -9592,16 +10170,28 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Escape billentyű leütésére a nyitott modális ablakok bezárása
+// Escape billentyű leütésére a nyitott modális ablakok és értesítő sáv bezárása
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        const pill = document.getElementById('announcement-pill');
+        if (pill && pill.classList.contains('visible') && typeof dismissAnnouncementPill === 'function') {
+            dismissAnnouncementPill();
+            return;
+        }
+        const viewNews = document.getElementById('settings-view-news');
+        if (viewNews && viewNews.style.display !== 'none' && typeof closeNewsArchive === 'function') {
+            closeNewsArchive();
+            return;
+        }
         const sm = document.getElementById('settings-modal');
         if (sm && sm.classList.contains('visible') && !sm.classList.contains('editor-mode')) {
             toggleSettings();
+            return;
         }
         const im = document.getElementById('impressum-modal');
         if (im && im.classList.contains('visible')) {
             toggleImpressum();
+            return;
         }
     }
 });
@@ -10721,8 +11311,10 @@ map.on('load', async () => {
 
     if (!IS_EMBED_MODE) {
         detectClosestBuilding();
+        loadAnnouncements();
     } else {
         processEmbedParams();
+        updateAnnouncementsBadge();
     }
 
     // Globális keresési index csendes előtöltése a háttérben
@@ -10736,6 +11328,7 @@ window.addEventListener('languageChanged', () => {
     if (!IS_EMBED_MODE) {
         updateSettingsUI();
         renderThemeSelector();
+        updateAnnouncementsOnLanguageChange();
     }
     if (typeof initBuildings === 'function') initBuildings();
     if (activeRouteData && activeNavTarget && activeNavSource && currentRoutePath) {

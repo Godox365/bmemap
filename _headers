@@ -4,6 +4,10 @@
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+# Friss bejelentések biztosítása
+/data/announcements.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
 # Minden útvonal - beágyazás engedélyezése iframe-ben és biztonsági fejlécek
 /*
   Content-Security-Policy: frame-ancestors 'self' * https: http: file: blob: data:;

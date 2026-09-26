@@ -18,7 +18,8 @@
     "connecting": "Connecting...",
     "unknown": "Unknown",
     "building_name": "Building {name}",
-    "campus_overview": "BME Campus"
+    "campus_overview": "BME Campus",
+    "back": "Back"
   },
   "search": {
     "placeholder": "Search...",
@@ -53,6 +54,8 @@
     "cache_hint": "Offline map storage.",
     "cache_calculating": "Calculating...",
     "cache_clear": "Clear Cache",
+    "popups_title": "In-app announcements",
+    "popups_hint": "Does not send push notifications.",
     "bug_report": "Report a Bug",
     "reset_settings": "Reset Settings to Default",
     "impressum_link": "About & Legal Notice"
@@ -313,5 +316,13 @@
     "nav_to": "Directions",
     "nav_to_aria": "Start directions to this room in a new tab",
     "brand_title": "BMEmap - Open in new tab"
+  },
+  "news": {
+    "title": "What's New & News",
+    "preview_title": "What's New",
+    "read_more": "...more",
+    "action_view": "View",
+    "action_open": "Open",
+    "no_news": "No new announcements at this time."
   }
 }

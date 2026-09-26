@@ -18,7 +18,8 @@
     "connecting": "Kapcsolódás...",
     "unknown": "Ismeretlen",
     "building_name": "{name} Épület",
-    "campus_overview": "BME Kampusz"
+    "campus_overview": "BME Kampusz",
+    "back": "Vissza"
   },
   "search": {
     "placeholder": "Keress...",
@@ -53,6 +54,8 @@
     "cache_hint": "Térképek offline tárolása.",
     "cache_calculating": "Számítás...",
     "cache_clear": "Cache törlése",
+    "popups_title": "In-app bejelentések",
+    "popups_hint": "Nem küld push értesítéseket.",
     "bug_report": "Hiba jelentése",
     "reset_settings": "Beállítások alaphelyzetbe állítása",
     "impressum_link": "Impresszum & Jogi Nyilatkozat"
@@ -313,5 +316,13 @@
     "nav_to": "Útvonal ide",
     "nav_to_aria": "Útvonaltervezés indítása a teremhez új lapon",
     "brand_title": "BMEmap - Megnyitás új lapon"
+  },
+  "news": {
+    "title": "Újdonságok & Hírek",
+    "preview_title": "Újdonságok",
+    "read_more": "...tovább",
+    "action_view": "Megtekintés",
+    "action_open": "Megnyitás",
+    "no_news": "Jelenleg nincsenek új hírek."
   }
 }

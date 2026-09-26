@@ -1,0 +1,19 @@
+[
+  {
+    "id": "announcement-k3-r4-in-progress",
+    "date": "2026-09-26",
+    "popup": false,
+    "badge": {
+      "hu": "Új",
+      "en": "New"
+    },
+    "title": {
+      "hu": "K épület 3. emelet és R épület 4. emelet",
+      "en": "Building K 3rd floor & Building R 4th floor"
+    },
+    "description": {
+      "hu": "A K épület 3. emeletének és az R épület 4. emeletének felmérése és térképezése folyamatban van, hamarosan elérhetőek lesznek a térképen.",
+      "en": "Mapping of Building K 3rd floor and Building R 4th floor is in progress and will soon be available on the map."
+    }
+  }
+]
