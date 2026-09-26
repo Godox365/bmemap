@@ -23,6 +23,7 @@
   },
   "search": {
     "placeholder": "Search...",
+    "nav_from_prompt": "Where to from here: {target}?",
     "settings_aria": "Settings and filters",
     "maybe_in_building": "Maybe in building {building}?",
     "level_badge": "(Floor: {level})",

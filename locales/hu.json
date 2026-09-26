@@ -23,6 +23,7 @@
   },
   "search": {
     "placeholder": "Keress...",
+    "nav_from_prompt": "Hova mész innen: {target}?",
     "settings_aria": "Beállítások és szűrők",
     "maybe_in_building": "Talán a {building} épületben?",
     "level_badge": "(Szint: {level})",

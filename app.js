@@ -5161,7 +5161,7 @@ async function loadOsmData() {
 
     if (!isSilentSwitch) {
         loader.style.display = 'block';
-        document.getElementById('loader-status').innerText = "Betöltés...";
+        document.getElementById('loader-status').innerText = (typeof t === 'function' ? t('common.loading') : "Betöltés...");
     }
 
     try {
@@ -6041,7 +6041,7 @@ function openSheet(feature, skipFly = false) {
         startNavigation(selectedFeature, pendingNavSource);
         pendingNavSource = null;
         // Keresőmező vizuális visszaállítása
-        document.getElementById('search-input').placeholder = "Keress...";
+        document.getElementById('search-input').placeholder = (typeof t === 'function' ? t('search.placeholder') : "Keress...");
         return; // Kilépünk a függvényből, mivel a panel megnyitása helyett útvonaltervezés indul
     }
 
@@ -6660,7 +6660,10 @@ function startNavigationFromHere() {
     input.value = "";
     
     // Dinamikus placeholder szöveg beállítása a kiválasztott elem referenciája alapján
-    input.placeholder = `Hova mész innen: ${selectedFeature.properties.ref || "..."}?`;
+    const targetRef = selectedFeature.properties.ref || "...";
+    input.placeholder = (typeof t === 'function'
+        ? t('search.nav_from_prompt', { target: targetRef })
+        : `Hova mész innen: ${targetRef}?`);
     
     // Fókuszálás a keresőmezőre, hogy azonnal gépelni lehessen
     input.focus();
@@ -6861,7 +6864,7 @@ function clearRouteDataOnly() {
     currentRoutePath = [];
     
     const input = document.getElementById('search-input');
-    input.placeholder = "Keress...";
+    input.placeholder = (typeof t === 'function' ? t('search.placeholder') : "Keress...");
     input.value = ""; 
     updateRightButtonState();
 
@@ -7044,7 +7047,7 @@ function _executeSearch(e) {
             _searchUserNavigated = false;
 
             if (topHit._isBuilding) {
-                const val = topHit.properties.name || `${topHit._buildingKey} épület`;
+                const val = topHit.properties.name || (typeof getBuildingName === 'function' ? getBuildingName(topHit._buildingKey) : `${topHit._buildingKey} épület`);
                 document.getElementById('search-input').value = val;
                 updateRightButtonState();
 

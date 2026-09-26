@@ -5,8 +5,8 @@
 class I18nManager {
     constructor() {
         this.defaultLanguage = 'hu';
-        this.currentLanguage = 'hu';
         this.supportedLanguages = ['hu', 'en'];
+        this.currentLanguage = this.detectLanguage();
         this.translations = {};          // Aktuális nyelv szótára
         this.fallbackTranslations = {};  // Alapértelmezett (HU) szótár
         this.isLoaded = false;
@@ -309,6 +309,13 @@ const t = (key, params, fallback) => i18n.t(key, params, fallback);
 if (typeof window !== 'undefined') {
     window.i18n = i18n;
     window.t = t;
+
+    // Nyelv inicializálásának azonnali elindítása a háttérben (párhuzamosan a térképpel)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => i18n.init());
+    } else {
+        i18n.init();
+    }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
