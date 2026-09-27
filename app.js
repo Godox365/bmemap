@@ -73,6 +73,29 @@ try {
 } catch(e) {}
 
 /**
+ * Fotó manifest konfigurációja és memóriagyorsítótára.
+ * A manifest helyileg a repóból töltődik be (0 db R2 kérést fogyasztva, CORS-mentesen és offline is működve).
+ */
+const PHOTOS_MANIFEST_URL = './data/photos.json';
+let _remotePhotosMap = {};
+
+function initRemotePhotos() {
+    try {
+        fetch(PHOTOS_MANIFEST_URL)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && typeof data === 'object') {
+                    _remotePhotosMap = data;
+                }
+            })
+            .catch(err => {
+                console.debug('Fotó manifest nem érhető el:', err);
+            });
+    } catch (e) {}
+}
+initRemotePhotos();
+
+/**
  * Kampusz átnézeti adatok és beltéri GeoJSON memóriagyorsítótár
  */
 const CAMPUS_OVERVIEW_ZOOM = 16.0;
@@ -1429,60 +1452,155 @@ const TYPE_DICT = {
 function formatBytes(bytes) {
     if (!bytes || bytes <= 0) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 /**
- * Lekéri a Service Worker Cache Storage becsült méretét bájtokban.
- * Elsődlegesen a modern navigator.storage.estimate API-t használja.
- * @returns {Promise<number>}
+ * Lekéri a Service Worker gyorsítótárak méretét kategóriákra bontva (térképek vs fotók).
+ * @returns {Promise<{mapsBytes: number, photosBytes: number, photoCount: number}>}
  */
-async function getCacheSize() {
-    if (navigator.storage && navigator.storage.estimate) {
-        try {
-            const estimate = await navigator.storage.estimate();
-            if (estimate && typeof estimate.usage === 'number' && estimate.usage > 0) {
-                return estimate.usage;
-            }
-        } catch (e) {}
-    }
+async function getCacheDetails() {
+    let mapsBytes = 0;
+    let photosBytes = 0;
+    let photoCount = 0;
+
     if ('caches' in window) {
         try {
             const keys = await caches.keys();
-            let total = 0;
             for (const key of keys) {
+                const isPhotoCache = (key === 'bmemap-photos-v1' || key.includes('photo'));
                 const cache = await caches.open(key);
                 const reqs = await cache.keys();
+                let cacheBytes = 0;
+                let opaqueCount = 0;
+
                 for (const req of reqs) {
-                    const res = await cache.match(req);
-                    if (res) {
-                        const blob = await res.blob();
-                        total += blob.size;
+                    try {
+                        const res = await cache.match(req);
+                        if (res) {
+                            if (isPhotoCache) {
+                                photoCount++;
+                                if (res.type === 'opaque') {
+                                    opaqueCount++;
+                                } else {
+                                    const blob = await res.blob();
+                                    cacheBytes += blob.size;
+                                }
+                            } else {
+                                const blob = await res.blob();
+                                cacheBytes += blob.size;
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                if (isPhotoCache) {
+                    // Ha vannak opaque válaszok (mert nem jött CORS header az eredetről),
+                    // becsüljük meg a WebP képek átlagméretét (~460 KB / kép)
+                    if (opaqueCount > 0) {
+                        cacheBytes += opaqueCount * 460 * 1024;
                     }
+                    photosBytes += cacheBytes;
+                } else {
+                    mapsBytes += cacheBytes;
                 }
             }
-            return total;
-        } catch (e) {}
+        } catch (e) {
+            console.warn("Hiba a gyorsítótár méretének számításakor:", e);
+        }
     }
-    return 0;
+
+    return { mapsBytes, photosBytes, photoCount };
 }
 
 /**
- * Frissíti a gyorsítótár méretének kijelzését a Beállítások felületen.
+ * Lekéri a Service Worker Cache Storage becsült összméretét bájtokban (visszafelé kompatibilitás).
+ * @returns {Promise<number>}
+ */
+async function getCacheSize() {
+    try {
+        const { mapsBytes, photosBytes } = await getCacheDetails();
+        return mapsBytes + photosBytes;
+    } catch (e) {
+        return 0;
+    }
+}
+
+/**
+ * Frissíti a gyorsítótár méretének kijelzését a Beállítások felületen mindkét kategóriára.
  */
 async function updateCacheSizeDisplay() {
-    const el = document.getElementById('cache-size-display');
-    if (!el) return;
+    const mapsEl = document.getElementById('cache-maps-size-display');
+    const photosEl = document.getElementById('cache-photos-size-display');
+    const legacyEl = document.getElementById('cache-size-display');
+
+    if (!mapsEl && !photosEl && !legacyEl) return;
+
     try {
-        const bytes = await getCacheSize();
-        el.innerText = formatBytes(bytes);
-        el.style.display = 'inline-block';
+        const { mapsBytes, photosBytes } = await getCacheDetails();
+        if (mapsEl) {
+            mapsEl.innerText = formatBytes(mapsBytes);
+            mapsEl.style.display = 'inline-block';
+        }
+        if (photosEl) {
+            photosEl.innerText = formatBytes(photosBytes);
+            photosEl.style.display = 'inline-block';
+        }
+        if (legacyEl) {
+            legacyEl.innerText = formatBytes(mapsBytes + photosBytes);
+            legacyEl.style.display = 'inline-block';
+        }
     } catch (e) {
-        el.innerText = '0 B';
-        el.style.display = 'inline-block';
+        if (mapsEl) mapsEl.innerText = '0 B';
+        if (photosEl) photosEl.innerText = '0 B';
+        if (legacyEl) legacyEl.innerText = '0 B';
     }
+}
+
+/**
+ * Törli a mentett térképeket és shell fájlokat a Service Worker gyorsítótárból (a fotók megmaradnak).
+ */
+async function clearMapsCache() {
+    if (!confirm(typeof t === 'function' ? (t('alerts.confirm_clear_cache') || "Biztosan törlöd a mentett térképeket?") : "Biztosan törlöd a mentett térképeket?")) return;
+    
+    try {
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            for (const key of keys) {
+                if (key !== 'bmemap-photos-v1' && !key.includes('photo')) {
+                    await caches.delete(key);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Hiba a térkép gyorsítótár törlésekor:", e);
+    }
+    await updateCacheSizeDisplay();
+    showToast(typeof t === 'function' ? (t('toasts.maps_cache_cleared') || "Térképadatok gyorsítótára törölve! 🧹") : "Térképadatok gyorsítótára törölve! 🧹");
+}
+
+/**
+ * Törli a mentett helyszíni fotókat a Service Worker gyorsítótárból (a térképek megmaradnak).
+ */
+async function clearPhotosCache() {
+    if (!confirm(typeof t === 'function' ? (t('alerts.confirm_clear_photos_cache') || "Biztosan törlöd a mentett helyszíni fotókat?") : "Biztosan törlöd a mentett helyszíni fotókat?")) return;
+    
+    try {
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            for (const key of keys) {
+                if (key === 'bmemap-photos-v1' || key.includes('photo')) {
+                    await caches.delete(key);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Hiba a fotó gyorsítótár törlésekor:", e);
+    }
+    await updateCacheSizeDisplay();
+    showToast(typeof t === 'function' ? (t('toasts.photos_cache_cleared') || "Helyszíni fotók gyorsítótára törölve! 🧹") : "Helyszíni fotók gyorsítótára törölve! 🧹");
 }
 
 /**
@@ -6000,6 +6118,132 @@ function setupGalleryCarousel(imageCount) {
 }
 
 /**
+ * Lekéri az adott térképelemhez (terem, épület, POI) tartozó összes fotó URL-jét.
+ * Egyesíti a távoli Cloudflare R2 fotókat (elöl) és a lokális room_data.js képeket (hátul).
+ * @param {Object} feature - A kiválasztott GeoJSON térképelem
+ * @param {Object|null} roomData - A belső adatbázis rekordja (ha van)
+ * @param {boolean} isBuildingFeat - Épület-e a kiválasztott elem
+ * @param {string} currentBuildingKey - Az aktív épület betűjele (pl. "K", "I", "CH")
+ * @param {string} displayName - A megjelenítendő név
+ * @returns {string[]} Egyedi képek URL-jeinek listája
+ */
+function resolveFeatureImages(feature, roomData, isBuildingFeat, currentBuildingKey, displayName) {
+    const p = (feature && feature.properties) || {};
+    const specificCandidates = new Set();
+    const fallbackCandidates = new Set();
+
+    // 1. Specifikus OSM azonosítók felderítése
+    const rawIds = [
+        feature && feature._originalId,
+        p.osm_id,
+        p.id,
+        p['@id'],
+        p.osm_way_id,
+        p.osm_node_id
+    ].filter(Boolean);
+
+    for (const rawId of rawIds) {
+        const strId = String(rawId).trim().toLowerCase();
+        specificCandidates.add(strId);
+        const numMatch = strId.match(/(?:way|node|relation)?[_\/]?(\d{5,})/);
+        if (numMatch) {
+            specificCandidates.add(numMatch[1]);
+            if (strId.includes('node')) {
+                specificCandidates.add(`node_${numMatch[1]}`);
+                specificCandidates.add(`node/${numMatch[1]}`);
+            } else if (strId.includes('way')) {
+                specificCandidates.add(`way_${numMatch[1]}`);
+                specificCandidates.add(`way/${numMatch[1]}`);
+            }
+        }
+    }
+
+    // 2. Épületkódok (ha épület elem)
+    if (isBuildingFeat) {
+        const bKey = (p.code || p.ref || p.key || p._buildingKey || currentBuildingKey || '').trim().toLowerCase();
+        if (bKey) {
+            specificCandidates.add(bKey);
+            specificCandidates.add(`${bKey} épület`);
+        }
+    }
+
+    // 3. Teremkódok és nevek
+    if (roomData && roomData.name) {
+        const rName = String(roomData.name).trim().toLowerCase();
+        specificCandidates.add(rName);
+        if (typeof normalizeRoomId === 'function') {
+            specificCandidates.add(normalizeRoomId(rName));
+        }
+    }
+    if (p.ref) {
+        const rRef = String(p.ref).trim().toLowerCase();
+        specificCandidates.add(rRef);
+        if (typeof normalizeRoomId === 'function') {
+            specificCandidates.add(normalizeRoomId(rRef));
+        }
+    }
+
+    // Ha a megjelenített név tartalmaz zárójeles OSM ID-t: az specifikus (pl. "automata (node_11759489942)")
+    if (displayName && /\((?:way|node|relation)?[_\/]?\d+\)/i.test(displayName)) {
+        specificCandidates.add(String(displayName).trim().toLowerCase());
+    }
+
+    // Generic blacklist az általános nevekhez (hogy ne mosódjanak össze a liftek/automaták)
+    const genericBlacklist = new Set([
+        'szoba', 'terem', 'tanterem', 'labor', 'iroda', 'raktar', 'raktár',
+        'lepcső', 'lépcső', 'lift', 'mosdo', 'mosdó', 'wc', 'toilet',
+        'automata', 'kaveautomata', 'kávéautomata', 'folyoso', 'folyosó', 'aula'
+    ]);
+
+    if (p.name) {
+        const lowerName = String(p.name).trim().toLowerCase();
+        if (!genericBlacklist.has(lowerName)) {
+            fallbackCandidates.add(lowerName);
+        }
+    }
+    if (displayName) {
+        const lowerDisplay = String(displayName).trim().toLowerCase();
+        if (!genericBlacklist.has(lowerDisplay)) {
+            fallbackCandidates.add(lowerDisplay);
+        }
+    }
+
+    // 4. Fotók kigyűjtése: először a specifikus jelöltekből
+    const remoteImages = [];
+    const checkCandidates = (candSet) => {
+        for (const cand of candSet) {
+            if (_remotePhotosMap[cand] && Array.isArray(_remotePhotosMap[cand])) {
+                for (const url of _remotePhotosMap[cand]) {
+                    if (!remoteImages.includes(url)) {
+                        remoteImages.push(url);
+                    }
+                }
+            }
+        }
+    };
+
+    checkCandidates(specificCandidates);
+
+    // Ha a specifikus jelöltek alapján nem találtunk fotót, megpróbáljuk a másodlagos neveket
+    if (remoteImages.length === 0) {
+        checkCandidates(fallbackCandidates);
+    }
+
+    // 5. Lokális képek összegyűjtése (roomData.images)
+    const localImages = (roomData && Array.isArray(roomData.images)) ? roomData.images : [];
+
+    // 6. Egyesítés: saját új R2 fotók elöl, meglévő BME képek utána (duplikációmentesen)
+    const combined = [...remoteImages];
+    for (const lUrl of localImages) {
+        if (!combined.includes(lUrl)) {
+            combined.push(lUrl);
+        }
+    }
+
+    return combined;
+}
+
+/**
  * Megnyitja az alsó információs panelt (Bottom Sheet) a kiválasztott térképelemhez.
  * @param {Object} feature - A megjelenítendő GeoJSON feature.
  */
@@ -6270,23 +6514,25 @@ function openSheet(feature, skipFly = false) {
         }
     }
     
+    const allImages = resolveFeatureImages(feature, roomData, isBuildingFeat, currentBuildingKey, displayName);
+
     if (galleryEl) {
         galleryEl.innerHTML = ""; 
-        if (roomData && roomData.images && roomData.images.length > 0) {
+        if (allImages.length > 0) {
             if (galleryContainer) galleryContainer.style.display = 'block';
             galleryEl.style.display = 'flex';
-            roomData.images.forEach((url, idx) => {
+            allImages.forEach((url, idx) => {
                 const img = document.createElement('img');
                 img.src = url;
                 img.className = 'gallery-img';
                 img.draggable = false;
                 img.onclick = () => {
                     if (_galleryMovedDistance > 8) return;
-                    openImageViewer(roomData.images, idx);
+                    openImageViewer(allImages, idx);
                 };
                 galleryEl.appendChild(img);
             });
-            setupGalleryCarousel(roomData.images.length);
+            setupGalleryCarousel(allImages.length);
         } else if (isDesktopSidePanel()) {
             // Kizárólag desktop nézetben (oldalsó panel), ha nincs saját fotó: SVG illusztráció a típusa alapján
             if (galleryContainer) galleryContainer.style.display = 'block';
@@ -6307,7 +6553,7 @@ function openSheet(feature, skipFly = false) {
     }
 
     const hasNote = Boolean(noteText && noteText.trim() !== "");
-    const hasImages = Boolean(roomData && roomData.images && roomData.images.length > 0);
+    const hasImages = Boolean(allImages.length > 0);
     const hasIllustration = Boolean(isDesktopSidePanel());
     const metaContainer = document.querySelector('.room-meta');
     const hasChips = Boolean(metaContainer && metaContainer.children.length > 0);

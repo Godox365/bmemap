@@ -1,4 +1,23 @@
-const CACHE_NAME = 'bmemap-shell-v61';
+const CACHE_NAME = 'bmemap-shell-v66';
+const PHOTO_CACHE_NAME = 'bmemap-photos-v1';
+const MAX_CACHED_PHOTOS = 50;
+
+/**
+ * Limitálja a fotó cache méretét a legrégebbi elemek törlésével (FIFO/LRU).
+ * Megakadályozza, hogy a fotók gigabájtokat foglaljanak a felhasználó telefonján.
+ */
+async function trimPhotoCache(cache) {
+    try {
+        const keys = await cache.keys();
+        if (keys.length > MAX_CACHED_PHOTOS) {
+            const deleteCount = keys.length - MAX_CACHED_PHOTOS;
+            for (let i = 0; i < deleteCount; i++) {
+                await cache.delete(keys[i]);
+            }
+        }
+    } catch (e) {}
+}
+
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -31,6 +50,7 @@ const ASSETS_TO_CACHE = [
     './data/search_index.json',
     './data/campus_buildings.json',
     './data/announcements.json',
+    './data/photos.json',
     './manifest.json',
     './icon-192.png',
     'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css',
@@ -66,11 +86,11 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
     // Azonnali kliens átvétel
     e.waitUntil(self.clients.claim());
-    // Régi verziójú cache-ek automatikus felszabadítása
+    // Régi verziójú shell cache-ek felszabadítása (a fotó cache megmarad!)
     e.waitUntil(
         caches.keys().then((keyList) => {
             return Promise.all(keyList.map((key) => {
-                if (key !== CACHE_NAME) return caches.delete(key);
+                if (key !== CACHE_NAME && key !== PHOTO_CACHE_NAME) return caches.delete(key);
             }));
         })
     );
@@ -122,7 +142,42 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // 2. Statikus erőforrások (JS, CSS, SVG, képek, GeoJSON): Stale-While-Revalidate
+    // 2. FOTÓK KEZELÉSE (Cloudflare R2 képek): Külön fotó cache, SWR és szigorú 50 db-os méretlimit
+    const isPhotoRequest = url.hostname === 'photos.bmemap.hu' || (url.pathname.match(/\.(webp|jpg|jpeg|png)$/i) && url.origin !== location.origin);
+    if (isPhotoRequest) {
+        e.respondWith(
+            caches.open(PHOTO_CACHE_NAME).then(async (photoCache) => {
+                const cachedResponse = await photoCache.match(e.request, { ignoreSearch: true });
+
+                if (cachedResponse) {
+                    // Stale-While-Revalidate: háttérben frissítés ha szükséges
+                    fetch(e.request)
+                        .then(async (networkResponse) => {
+                            if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+                                await photoCache.put(e.request, networkResponse.clone());
+                                trimPhotoCache(photoCache);
+                            }
+                        })
+                        .catch(() => {});
+                    return cachedResponse;
+                }
+
+                // Cache miss (pl. friss betöltés vagy törölt fotó cache után):
+                // A { cache: 'reload' } megkerüli a böngésző belső HTTP Disk Cache-ét,
+                // így a törlés után valóban a hálózatról (Cloudflare Edge) kéri le a képet.
+                return fetch(e.request.url, { cache: 'reload' }).then(async (networkResponse) => {
+                    if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+                        await photoCache.put(e.request, networkResponse.clone());
+                        trimPhotoCache(photoCache);
+                    }
+                    return networkResponse;
+                });
+            })
+        );
+        return;
+    }
+
+    // 3. Statikus erőforrások (JS, CSS, SVG, egyéb GeoJSON): Stale-While-Revalidate
     e.respondWith(
         caches.match(e.request, { ignoreSearch: true }).then((cachedResponse) => {
             const fetchPromise = fetch(e.request)

@@ -77,6 +77,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com">
     <link rel="preconnect" href="https://tiles.openfreemap.org">
+    <link rel="preconnect" href="https://photos.bmemap.hu">
+    <link rel="dns-prefetch" href="https://photos.bmemap.hu">
 
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" />
@@ -224,17 +226,38 @@
                 </div>
 
                 <div class="settings-section">
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;" data-i18n="settings.cache">Gyorsítótár</div>
+                    
+                    <!-- 1. Térképek és adatok -->
                     <div class="cache-row">
                         <div class="cache-row-info">
                             <div class="cache-title-group">
-                                <label style="margin-bottom: 0;" data-i18n="settings.cache">Gyorsítótár</label>
-                                <span id="cache-size-display" class="cache-size-badge"></span>
+                                <label style="margin-bottom: 0;" data-i18n="settings.cache_maps">Térképek és adatok</label>
+                                <span id="cache-maps-size-display" class="cache-size-badge"></span>
                             </div>
-                            <div class="settings-hint" data-i18n="settings.cache_hint">Térképek offline tárolása.</div>
+                            <div class="settings-hint" data-i18n="settings.cache_maps_hint">Offline térképek és beltéri alaprajzok.</div>
                         </div>
-                        <button class="btn-cache-clear" onclick="clearAllCache()" data-i18n-aria="settings.cache_clear">
+                        <button class="btn-cache-clear" onclick="clearMapsCache()" data-i18n-aria="settings.cache_clear_maps">
                             <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-                            <span data-i18n="settings.cache_clear">Cache törlése</span>
+                            <span data-i18n="settings.cache_clear_short">Törlés</span>
+                        </button>
+                    </div>
+
+                    <!-- Elválasztó vonal -->
+                    <div style="height: 1px; background: var(--border-color); margin: 8px 0; opacity: 0.5;"></div>
+
+                    <!-- 2. Helyszíni fotók -->
+                    <div class="cache-row">
+                        <div class="cache-row-info">
+                            <div class="cache-title-group">
+                                <label style="margin-bottom: 0;" data-i18n="settings.cache_photos">Helyszíni fotók</label>
+                                <span id="cache-photos-size-display" class="cache-size-badge"></span>
+                            </div>
+                            <div class="settings-hint" data-i18n="settings.cache_photos_hint">Megtekintett termek és épületek képei.</div>
+                        </div>
+                        <button class="btn-cache-clear" onclick="clearPhotosCache()" data-i18n-aria="settings.cache_clear_photos">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+                            <span data-i18n="settings.cache_clear_short">Törlés</span>
                         </button>
                     </div>
                 </div>
