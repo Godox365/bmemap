@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bmemap-shell-v67';
+const CACHE_NAME = 'bmemap-shell-v68';
 const PHOTO_CACHE_NAME = 'bmemap-photos-v1';
 const MAX_CACHED_PHOTOS = 50;
 
@@ -163,9 +163,8 @@ self.addEventListener('fetch', (e) => {
                 }
 
                 // Cache miss (pl. friss betöltés vagy törölt fotó cache után):
-                // A { cache: 'reload' } megkerüli a böngésző belső HTTP Disk Cache-ét,
-                // így a törlés után valóban a hálózatról (Cloudflare Edge) kéri le a képet.
-                return fetch(e.request.url, { cache: 'reload' }).then(async (networkResponse) => {
+                // e.request-et adunk át, megőrizve a natív no-cors módot a külső szervereknél (pl. www.ttdh.bme.hu)
+                return fetch(e.request).then(async (networkResponse) => {
                     if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
                         await photoCache.put(e.request, networkResponse.clone());
                         trimPhotoCache(photoCache);
