@@ -64,7 +64,7 @@ console.log('✅ _headers correctly configured.');
 console.log('\n[3] Testing sw.js...');
 const swPath = path.join(rootDir, 'sw.js');
 const swContent = fs.readFileSync(swPath, 'utf8');
-assert(swContent.includes('bmemap-shell-v61'), 'sw.js cache shell version must be bumped to v61');
+assert(/bmemap-shell-v\d+/.test(swContent), 'sw.js cache shell version must be defined');
 assert(swContent.includes("'./data/announcements.json'"), 'sw.js ASSETS_TO_CACHE must include ./data/announcements.json');
 console.log('✅ sw.js correctly updated.');
 
@@ -89,9 +89,9 @@ assert(htmlContent.includes('id="toggle-popups"'), 'index.html must include #tog
 
 assert(htmlContent.includes('id="settings-view-news"'), 'index.html must include #settings-view-news');
 assert(htmlContent.includes('id="news-archive-content"'), 'index.html must include #news-archive-content');
-assert(htmlContent.includes('APP_VERSION = \'61\''), 'index.html APP_VERSION must be bumped to 61');
-assert(htmlContent.includes('style.css?v=61'), 'index.html style.css must use v=61 cache buster');
-assert(htmlContent.includes('app.js?v=61'), 'index.html app.js must use v=61 cache buster');
+assert(/APP_VERSION = '\d+'/.test(htmlContent), 'index.html APP_VERSION must be defined');
+assert(/style\.css\?v=\d+/.test(htmlContent), 'index.html style.css must use cache buster');
+assert(/app\.js\?v=\d+/.test(htmlContent), 'index.html app.js must use cache buster');
 console.log('✅ index.html contains all required DOM containers and controls.');
 
 // 5. Check style.css

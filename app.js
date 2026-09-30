@@ -633,7 +633,8 @@ function searchCampusBuildings(term) {
     let buildingList = [];
     if (globalSearchIndex && Array.isArray(globalSearchIndex)) {
         buildingList = globalSearchIndex.filter(item => item.isBuilding);
-    } else if (campusGeoJsonData && Array.isArray(campusGeoJsonData.features)) {
+    }
+    if (buildingList.length === 0 && campusGeoJsonData && Array.isArray(campusGeoJsonData.features)) {
         buildingList = campusGeoJsonData.features.map(f => {
             const p = f.properties || {};
             const code = (p.code || p.key || "").toUpperCase();
@@ -6312,7 +6313,7 @@ function openSheet(feature, skipFly = false) {
     }
     
     // --- 2. TÍPUS FORDÍTÁSA ÉS MAGYARÍTÁS ---
-    let typeName = toiletInfo ? toiletInfo.name : (isBuildingFeat ? (typeof t === 'function' ? (t('types.building') || 'Épület') : 'Épület') : getHungarianType(p));
+    let typeName = toiletInfo ? toiletInfo.name : (isBuildingFeat ? (typeof t === 'function' ? t('types.building', 'Épület') : 'Épület') : getHungarianType(p));
     typeName = typeName.charAt(0).toUpperCase() + typeName.slice(1);
 
     // --- 3. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
@@ -6366,7 +6367,7 @@ function openSheet(feature, skipFly = false) {
 
     if (isBuildingFeat) {
         const bAddress = (roomData && roomData.address) || p.address;
-        document.getElementById('sheet-sub').innerText = bAddress || (typeof t === 'function' ? (t('types.building') || 'BME Épület') : 'BME Épület');
+        document.getElementById('sheet-sub').innerText = bAddress || (typeof t === 'function' ? t('types.building', 'BME Épület') : 'BME Épület');
     } else if (toiletInfo) {
         // Mosdók esetén: ha van szobaszám, elválasztó ponttal írjuk ki utána (pl. "Szint: 0 • BF21"), nincs felesleges utótag
         const refPart = toiletInfo.ref ? ` • ${toiletInfo.ref}` : '';
@@ -7383,7 +7384,7 @@ function _executeSearch(e) {
                 
                 let levelBadge = "";
                 if (hit._isBuilding) {
-                    const bType = typeof t === 'function' ? (t('types.building') || 'Épület') : 'Épület';
+                    const bType = typeof t === 'function' ? t('types.building', 'Épület') : 'Épület';
                     levelBadge = `(${bType})`;
                     div.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; vertical-align:text-bottom; margin-right:5px; opacity:0.8;">apartment</span>${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 } else if (hit._isLocal) {

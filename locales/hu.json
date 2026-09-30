@@ -158,6 +158,7 @@
     "default": "Mosdó"
   },
   "types": {
+    "building": "Épület",
     "toilets": "Mosdó",
     "toilet": "Mosdó",
     "wc": "WC",

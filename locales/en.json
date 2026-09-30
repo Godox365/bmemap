@@ -158,6 +158,7 @@
     "default": "Restroom"
   },
   "types": {
+    "building": "Building",
     "toilets": "Restroom",
     "toilet": "Restroom",
     "wc": "Restroom",

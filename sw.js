@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bmemap-shell-v66';
+const CACHE_NAME = 'bmemap-shell-v67';
 const PHOTO_CACHE_NAME = 'bmemap-photos-v1';
 const MAX_CACHED_PHOTOS = 50;
 

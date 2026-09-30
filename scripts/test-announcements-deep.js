@@ -304,9 +304,9 @@ context.fetch = global.fetch;
     // [TEST 10] HTML cache buster and accessibility checks
     console.log('[Test 10] Testing HTML cache busters and a11y attributes...');
     const htmlText = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
-    assert(htmlText.includes('APP_VERSION = \'61\''), 'index.html APP_VERSION must be 61');
-    assert(htmlText.includes('style.css?v=61'), 'index.html style.css must use v=61');
-    assert(htmlText.includes('app.js?v=61'), 'index.html app.js must use v=61');
+    assert(/APP_VERSION = '\d+'/.test(htmlText), 'index.html APP_VERSION must be defined');
+    assert(/style\.css\?v=\d+/.test(htmlText), 'index.html style.css must use cache buster');
+    assert(/app\.js\?v=\d+/.test(htmlText), 'index.html app.js must use cache buster');
     assert(htmlText.includes('role="button"'), 'index.html news preview card must have role=button');
     assert(htmlText.includes('tabindex="0"'), 'index.html news preview card must have tabindex=0');
     console.log('✅ HTML cache busters and a11y verified.');

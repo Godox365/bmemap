@@ -1,5 +1,5 @@
 const fs = require('fs');
-const osmtogeojson = require('osmtogeojson');
+const path = require('path');
 
 // Az épületek koordinátái
 const BUILDINGS = {
@@ -211,7 +211,105 @@ function classifyFeatures(geoJson) {
     return separated;
 }
 
+/**
+ * Legenerálja a globális keresési indexet az épületek GeoJSON fájljaiból és a campus épületekből.
+ * @param {string} [dataDir='./data'] - Az adatfájlokat tartalmazó könyvtár elérési útja.
+ * @returns {Object[]} A generált keresési index tömbje.
+ */
+function generateSearchIndex(dataDir = './data') {
+    const indoorBuildings = ['k', 'i', 'q', 'e', 'r', 'kt', 'a', 'j'];
+    const searchIndex = [];
+
+    // Beltéri termek feldolgozása
+    for (const b of indoorBuildings) {
+        const filePath = path.join(dataDir, `${b}_epulet.json`);
+        if (!fs.existsSync(filePath)) continue;
+
+        let data;
+        try {
+            data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        } catch (e) {
+            console.warn(`Hiba a(z) ${filePath} olvasásakor: ${e.message}`);
+            continue;
+        }
+
+        const bKey = b.toUpperCase();
+        for (const f of data.features || []) {
+            const p = f.properties || {};
+
+            const isCorridor = p.highway === 'corridor' || p.indoor === 'corridor' || p.room === 'corridor';
+            const isStairs = p.highway === 'steps' || p.indoor === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase' || p.stairs === 'yes';
+            const isElevator = p.highway === 'elevator' || p.room === 'elevator' || p.indoor === 'elevator' || p.amenity === 'elevator';
+            if (isCorridor || isStairs || isElevator) continue;
+
+            if (p.building && !p.indoor && !p.room) continue;
+            if (p.indoor === 'level' || p.indoor === 'wall') continue;
+
+            if (p.name || p.ref || p.alt_name) {
+                searchIndex.push({
+                    id: f.id,
+                    b: bKey,
+                    ref: p.ref || undefined,
+                    name: p.name || undefined,
+                    alt: p.alt_name || undefined,
+                    lvl: p.level !== undefined ? String(p.level).split(';')[0].trim() : '0',
+                    lref: p['level:ref'] || undefined
+                });
+            }
+        }
+    }
+
+    // Kampusz épületek hozzáadása
+    const campusPath = path.join(dataDir, 'campus_buildings.json');
+    if (fs.existsSync(campusPath)) {
+        try {
+            const campusData = JSON.parse(fs.readFileSync(campusPath, 'utf8'));
+            for (const f of campusData.features || []) {
+                const p = f.properties || {};
+                const code = (p.code || p.key || '').toUpperCase();
+                if (!code) continue;
+
+                let alt = `${p.name || ''} ${code} épület`;
+                if (code === 'ÉL') {
+                    alt += ' BME Sportközpont sportcsarnok fitness terem fallabda küzdősport';
+                } else if (code === 'KT') {
+                    alt += ' Könyvtár OMIKK olvasóterem könyvtár';
+                } else if (code === 'SPORT') {
+                    alt += ' Sporttelep sportpálya tenisz atlétika futópálya foci';
+                }
+
+                searchIndex.push({
+                    id: f.id || `campus_${code.toLowerCase()}`,
+                    b: code,
+                    ref: code,
+                    name: p.name || `${code} épület`,
+                    alt: alt.trim(),
+                    lvl: '0',
+                    isBuilding: true,
+                    hasIndoor: p.hasIndoor === true || p.hasIndoor === 'true'
+                });
+            }
+        } catch (e) {
+            console.warn(`Hiba a campus_buildings.json olvasásakor: ${e.message}`);
+        }
+    }
+
+    const outputFile = path.join(dataDir, 'search_index.json');
+    const indexStr = JSON.stringify(searchIndex);
+    fs.writeFileSync(outputFile, indexStr, 'utf8');
+    const indexKb = (Buffer.byteLength(indexStr, 'utf8') / 1024).toFixed(1);
+    console.log(`Keresési index mentve: ${outputFile} (${searchIndex.length} elem, ${indexKb} KB)`);
+
+    return searchIndex;
+}
+
 async function updateMaps() {
+    if (process.argv.includes('--index-only')) {
+        console.log("Keresési index generálása a meglévő fájlokból (--index-only)...");
+        generateSearchIndex('./data');
+        return;
+    }
+
     const totalStart = Date.now();
 
     // Létrehozzuk a data mappát, ha nincs
@@ -228,6 +326,7 @@ async function updateMaps() {
 
         console.log(`⚙️  Konvertálás GeoJSON formátumba...`);
         const convStart = Date.now();
+        const osmtogeojson = require('osmtogeojson');
         const geoJson = osmtogeojson(osmData);
         console.log(`⏱️  Konvertálás kész (${((Date.now() - convStart) / 1000).toFixed(2)}s)`);
 
@@ -248,36 +347,7 @@ async function updateMaps() {
         }
 
         // Globális keresési index generálása
-        console.log(`🔍 Keresési index generálása az összes épületből...`);
-        const searchIndex = [];
-        for (const [key, features] of Object.entries(separated)) {
-            const bKey = key.toUpperCase();
-            for (const f of features) {
-                const p = f.properties || {};
-                const isCorridor = p.highway === 'corridor' || p.indoor === 'corridor' || p.room === 'corridor';
-                const isStairs = p.highway === 'steps' || p.indoor === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase' || p.stairs === 'yes';
-                const isElevator = p.highway === 'elevator' || p.room === 'elevator' || p.indoor === 'elevator' || p.amenity === 'elevator';
-                if (isCorridor || isStairs || isElevator) continue;
-                if (p.building && !p.indoor && !p.room) continue;
-                if (p.indoor === 'level' || p.indoor === 'wall') continue;
-
-                if (p.name || p.ref || p.alt_name) {
-                    searchIndex.push({
-                        id: f.id,
-                        b: bKey,
-                        ref: p.ref || undefined,
-                        name: p.name || undefined,
-                        alt: p.alt_name || undefined,
-                        lvl: p.level !== undefined ? String(p.level).split(';')[0].trim() : '0',
-                        lref: p['level:ref'] || undefined
-                    });
-                }
-            }
-        }
-        const indexStr = JSON.stringify(searchIndex);
-        fs.writeFileSync('./data/search_index.json', indexStr, 'utf8');
-        const indexKb = (Buffer.byteLength(indexStr, 'utf8') / 1024).toFixed(1);
-        console.log(`💾 Keresési index mentve: ./data/search_index.json (${searchIndex.length} terem, ${indexKb} KB)`);
+        generateSearchIndex('./data');
 
         const totalElapsed = ((Date.now() - totalStart) / 1000).toFixed(2);
         console.log(`\n🎉 A FRISSÍTÉSI CIKLUS SIKERESEN LEFUTOTT ${totalElapsed} MÁSODPERC ALATT!`);
@@ -288,4 +358,11 @@ async function updateMaps() {
     }
 }
 
-updateMaps();
+if (require.main === module) {
+    updateMaps();
+}
+
+module.exports = {
+    updateMaps,
+    generateSearchIndex
+};
