@@ -257,33 +257,33 @@ if (IS_EMBED_MODE && typeof document !== 'undefined') {
  */
 const TAG_CATALOG = {
     // --- Felszereltség / Infrastruktúra ---
-    "projector":        { icon: "videocam",         label: "Projektor" },
-    "key":              { icon: "vpn_key",          label: "Kulcsos" },
-    "ac":               { icon: "ac_unit",          label: "Légkondicionált" },
-    "print":            { icon: "print",            label: "Nyomtatás" },
-    "scan":             { icon: "scanner",          label: "Szkennelés" },
-    "pc":               { icon: "desktop_windows",  label: "Számítógép" },
-    "luggage":          { icon: "luggage",          label: "Csomagmegőrző" },
+    "projector":        { icon: "videocam",         label: "Projektor",          label_en: "Projector" },
+    "key":              { icon: "vpn_key",          label: "Kulcsos",            label_en: "Key required" },
+    "ac":               { icon: "ac_unit",          label: "Légkondicionált",    label_en: "Air conditioned" },
+    "print":            { icon: "print",            label: "Nyomtatás",          label_en: "Printing" },
+    "scan":             { icon: "scanner",          label: "Szkennelés",         label_en: "Scanning" },
+    "pc":               { icon: "desktop_windows",  label: "Számítógép",         label_en: "Computer" },
+    "luggage":          { icon: "luggage",          label: "Csomagmegőrző",      label_en: "Luggage storage" },
 
     // --- Szolgáltatások / Funkciók / Teremtípusok ---
-    "quiet_study":      { icon: "local_library",    label: "Csendes tanulás" },
-    "study":            { icon: "menu_book",        label: "Tanuló" },
-    "eat":              { icon: "restaurant",       label: "Étkezés" },
-    "reserve":          { icon: "event_available",  label: "Foglalható" },
-    "accessible":       { icon: "accessible",       label: "Akadálymentes" },
-    "social":           { icon: "groups_2",       label: "Közösségi tér" },
+    "quiet_study":      { icon: "local_library",    label: "Csendes tanulás",    label_en: "Quiet study" },
+    "study":            { icon: "menu_book",        label: "Tanuló",             label_en: "Study area" },
+    "eat":              { icon: "restaurant",       label: "Étkezés",            label_en: "Dining" },
+    "reserve":          { icon: "event_available",  label: "Foglalható",         label_en: "Bookable" },
+    "accessible":       { icon: "accessible",       label: "Akadálymentes",      label_en: "Accessible" },
+    "social":           { icon: "groups_2",         label: "Közösségi tér",      label_en: "Community space" },
 
     // --- Könyvtár ---
-    "szakirodalom":     { icon: "book",             label: "Szakirodalom" },
-    "szépirodalom":     { icon: "book",             label: "Szépirodalom" },
-    "útikönyvek":       { icon: "book",             label: "Útikönyvek" },
-    "szótárak":         { icon: "dictionary",       label: "Szótárak" },
-    "tankönyvek":       { icon: "book",             label: "Tankönyvek" },
-    "olvasójegy":       { icon: "person_book",      label: "Olvasójegy" },
-    "kölcsönzés":       { icon: "bookmark",         label: "Kölcsönzés" },
+    "szakirodalom":     { icon: "book",             label: "Szakirodalom",       label_en: "Academic literature" },
+    "szépirodalom":     { icon: "book",             label: "Szépirodalom",       label_en: "Fiction" },
+    "útikönyvek":       { icon: "book",             label: "Útikönyvek",         label_en: "Guidebooks" },
+    "szótárak":         { icon: "dictionary",       label: "Szótárak",           label_en: "Dictionaries" },
+    "tankönyvek":       { icon: "book",             label: "Tankönyvek",         label_en: "Textbooks" },
+    "olvasójegy":       { icon: "person_book",      label: "Olvasójegy",         label_en: "Library card" },
+    "kölcsönzés":       { icon: "bookmark",         label: "Kölcsönzés",         label_en: "Borrowing" },
 
     // --- Általános ---
-    "info":             { icon: "info",             label: "Információ" }
+    "info":             { icon: "info",             label: "Információ",         label_en: "Information" }
 };
 
 const TAG_CATALOG_FALLBACK = { icon: "label", label: null };
@@ -297,6 +297,110 @@ function getTagLabel(cleanKey, fallbackLabel) {
         if (trans && trans !== `tags.${cleanKey}`) return trans;
     }
     return fallbackLabel || cleanKey;
+}
+
+/**
+ * Kikeresi a keresőkifejezésre illeszkedő teremcímkéket a TAG_CATALOG-ból és a szótárakból.
+ * Kizárólag emberi megnevezésekre (magyar és angol címkenevek) illeszt, belső snake_case kulcsokat nem vizsgál.
+ * @param {string} term - A felhasználó által begépelt keresési kifejezés.
+ * @returns {Array<{key: string, label: string, icon: string, score: number}>}
+ */
+function getMatchingTags(term) {
+    if (!term || typeof term !== 'string' || term.includes('_')) return [];
+    const cleanTerm = normalizeRoomId(term);
+    if (cleanTerm.length < 2) return [];
+
+    const matches = [];
+    const enDict = (typeof i18n !== 'undefined' && (
+        (i18n.currentLanguage === 'en' && i18n.translations && i18n.translations.tags) ||
+        (i18n.translations && i18n.translations['en'] && i18n.translations['en'].tags)
+    )) || null;
+
+    for (const [key, conf] of Object.entries(TAG_CATALOG)) {
+        const huLabel = conf.label || key;
+        const cleanHu = normalizeRoomId(huLabel);
+        const enLabel = (enDict && enDict[key]) || conf.label_en || '';
+        const cleanEn = normalizeRoomId(enLabel);
+
+        let score = 0;
+        // Pontos egyezés magyar vagy angol névvel
+        if (cleanTerm === cleanHu || (cleanEn && cleanTerm === cleanEn)) {
+            score = 920;
+        } else {
+            // Prefix egyezés gépelés közben (pl. "nyomt", "csend", "print")
+            if (cleanHu.startsWith(cleanTerm)) {
+                score = Math.max(score, 800 - (cleanHu.length - cleanTerm.length) * 5);
+            }
+            if (cleanEn && cleanEn.startsWith(cleanTerm)) {
+                score = Math.max(score, 800 - (cleanEn.length - cleanTerm.length) * 5);
+            }
+            // Részleges tartalmazás (legalább 3 karakteres keresőszónál)
+            if (score === 0 && cleanTerm.length >= 3 && (cleanHu.includes(cleanTerm) || (cleanEn && cleanEn.includes(cleanTerm)))) {
+                score = 650;
+            }
+        }
+
+        if (score > 0) {
+            const displayLabel = getTagLabel(key, huLabel);
+            matches.push({
+                key: key,
+                label: displayLabel,
+                icon: conf.icon || 'label',
+                score: score
+            });
+        }
+    }
+
+    matches.sort((a, b) => b.score - a.score);
+    return matches;
+}
+
+/**
+ * Ellenőrzi, hogy egy adott szoba rendelkezik-e a megadott címkével.
+ * @param {Object|null} roomData - A szoba bejegyzése a ROOM_DATABASE-ben.
+ * @param {string} tagKey - A címke belső azonosítója a TAG_CATALOG-ban.
+ * @param {Object} [feature] - A térképi feature elem (OSM akadálymentességhez).
+ * @returns {boolean}
+ */
+function roomHasTag(roomData, tagKey, feature) {
+    if (!roomData && !feature) return false;
+    const cleanKey = (tagKey || '').toLowerCase();
+    if (!cleanKey) return false;
+
+    if (roomData) {
+        if (Array.isArray(roomData.tags)) {
+            for (const t of roomData.tags) {
+                if (!t) continue;
+                if (typeof t === 'string') {
+                    const ct = t.toLowerCase().trim();
+                    if (ct === cleanKey) return true;
+                    if (TAG_CATALOG[cleanKey]) {
+                        const normT = normalizeRoomId(ct);
+                        if (normT === normalizeRoomId(TAG_CATALOG[cleanKey].label)) return true;
+                        if (TAG_CATALOG[cleanKey].label_en && normT === normalizeRoomId(TAG_CATALOG[cleanKey].label_en)) return true;
+                    }
+                } else if (typeof t === 'object') {
+                    if (t.key && t.key.toLowerCase() === cleanKey) return true;
+                    const objLabel = t.label || t.name;
+                    if (objLabel && TAG_CATALOG[cleanKey]) {
+                        const normL = normalizeRoomId(objLabel);
+                        if (normL === normalizeRoomId(TAG_CATALOG[cleanKey].label)) return true;
+                        if (TAG_CATALOG[cleanKey].label_en && normL === normalizeRoomId(TAG_CATALOG[cleanKey].label_en)) return true;
+                    }
+                }
+            }
+        }
+        if (cleanKey === 'key' && (roomData.key === true || roomData.key === 'true')) return true;
+        if (cleanKey === 'projector' && (roomData.projector === true || roomData.projector === 'true')) return true;
+    }
+
+    if (cleanKey === 'accessible') {
+        const p = feature ? (feature.properties || feature) : null;
+        if (p && (p.wheelchair === 'yes' || p.wheelchair === 'limited' || p.wheelchair === 'designated')) return true;
+        if (roomData && (roomData.wheelchair === 'yes' || roomData.wheelchair === 'limited')) return true;
+    }
+
+    return false;
 }
 
 /**
@@ -384,8 +488,28 @@ function renderRoomMeta(roomData, isAccessible) {
 
         if (label) {
             const chip = document.createElement('div');
-            chip.className = 'meta-tag';
+            chip.className = 'meta-tag clickable';
+            chip.tabIndex = 0;
+            chip.setAttribute('role', 'button');
             chip.innerHTML = `<span class="material-symbols-outlined">${escapeHTML(icon)}</span> ${escapeHTML(label)}`;
+            const onActivate = () => {
+                if (typeof closeSheet === 'function') closeSheet();
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) {
+                    searchInput.value = label;
+                    searchInput.focus();
+                    if (typeof handleSearch === 'function') {
+                        handleSearch({ target: searchInput });
+                    }
+                }
+            };
+            chip.onclick = onActivate;
+            chip.onkeydown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onActivate();
+                }
+            };
             metaContainer.appendChild(chip);
             hasAnyChip = true;
         }
@@ -467,12 +591,17 @@ function smartFilter(term) {
     const cleanTerm = normalizeRoomId(term); 
     if (cleanTerm.length < 2) return [];
 
+    const matchedTags = getMatchingTags(term);
+
     const bKey = currentBuildingKey.toLowerCase();
     const words = term.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[\s.\-_/()]+/).filter(w => w.length > 1);
 
     const scored = [];
 
     for (const f of geoJsonData.features) {
+        delete f._matchedTag;
+        delete f._matchedTagIcon;
+
         const p = f.properties || {};
 
         // 1. Kizárjuk a folyosókat, lépcsőket és lifteket (ezek nem kereshető szobák/célpontok)
@@ -579,6 +708,29 @@ function smartFilter(term) {
                     bestScore = Math.max(bestScore, 300);
                     break;
                 }
+            }
+        }
+
+        // 5. Prioritás: Teremcímkék (Tags) vizsgálata
+        if (matchedTags.length > 0) {
+            if (f._roomData === undefined) {
+                f._roomData = (typeof findBestRoomMatch === 'function')
+                    ? findBestRoomMatch(p.name, p.ref, rawLvl, currentBuildingKey, p.alt_name)
+                    : null;
+            }
+            const roomData = f._roomData;
+            let bestTag = null;
+            for (const tag of matchedTags) {
+                if (roomHasTag(roomData, tag.key, f)) {
+                    if (!bestTag || tag.score > bestTag.score) {
+                        bestTag = tag;
+                    }
+                }
+            }
+            if (bestTag) {
+                f._matchedTag = bestTag.label;
+                f._matchedTagIcon = bestTag.icon;
+                bestScore = Math.max(bestScore, bestTag.score);
             }
         }
 
@@ -730,10 +882,15 @@ function searchOtherBuildings(term) {
     const cleanTerm = normalizeRoomId(term);
     if (cleanTerm.length < 2) return [];
 
+    const matchedTags = getMatchingTags(term);
+
     const words = term.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[\s.\-_/()]+/).filter(w => w.length > 1);
     const scored = [];
 
     for (const item of globalSearchIndex) {
+        delete item._matchedTag;
+        delete item._matchedTagIcon;
+
         if (item.isBuilding) continue; // Épületeket a searchCampusBuildings kezeli
         // Kizárólag más épületekben keresünk (nincs duplikáció a jelenlegi épülettel!)
         if (item.b === currentBuildingKey) continue;
@@ -834,6 +991,29 @@ function searchOtherBuildings(term) {
             }
         }
 
+        // 5. Prioritás: Teremcímkék (Tags) vizsgálata
+        if (matchedTags.length > 0) {
+            if (item._roomData === undefined) {
+                item._roomData = (typeof findBestRoomMatch === 'function')
+                    ? findBestRoomMatch(item.name, item.ref, rawLvl, item.b, item.alt)
+                    : null;
+            }
+            const roomData = item._roomData;
+            let bestTag = null;
+            for (const tag of matchedTags) {
+                if (roomHasTag(roomData, tag.key, item)) {
+                    if (!bestTag || tag.score > bestTag.score) {
+                        bestTag = tag;
+                    }
+                }
+            }
+            if (bestTag) {
+                item._matchedTag = bestTag.label;
+                item._matchedTagIcon = bestTag.icon;
+                bestScore = Math.max(bestScore, bestTag.score);
+            }
+        }
+
         if (bestScore > 0) {
             // Enyhe pontszám-levonás (-150) a más épületbeli találatoknak,
             // hogy az aktuális épület azonos szintű egyezései mindig előrébb végezzenek
@@ -850,7 +1030,9 @@ function searchOtherBuildings(term) {
                     },
                     _buildingKey: item.b,
                     _isLocal: false,
-                    _score: adjustedScore
+                    _score: adjustedScore,
+                    _matchedTag: item._matchedTag,
+                    _matchedTagIcon: item._matchedTagIcon
                 },
                 score: adjustedScore
             });
@@ -7383,18 +7565,21 @@ function _executeSearch(e) {
                 const lvl = hit.properties['level:ref'] || (hit._isLocal && typeof levelAliases !== 'undefined' && levelAliases[rawLvl]) || rawLvl;
                 
                 let levelBadge = "";
+                const tagBadge = hit._matchedTag 
+                    ? ` · <span class="material-symbols-outlined" style="font-size:13px; vertical-align:text-bottom; margin-right:2px; opacity:0.85;">${hit._matchedTagIcon}</span>${escapeHTML(hit._matchedTag)}`
+                    : "";
                 if (hit._isBuilding) {
                     const bType = typeof t === 'function' ? t('types.building', 'Épület') : 'Épület';
                     levelBadge = `(${bType})`;
                     div.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; vertical-align:text-bottom; margin-right:5px; opacity:0.8;">apartment</span>${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
                 } else if (hit._isLocal) {
                     levelBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `(Szint: ${escapeHTML(lvl)})`;
-                    div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
+                    div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}${tagBadge}</span>`;
                 } else {
                     const bName = getBuildingName(hit._buildingKey);
                     const rawBadge = typeof t === 'function' ? t('search.level_badge', { level: escapeHTML(lvl) }) : `Szint: ${escapeHTML(lvl)}`;
                     levelBadge = `(${escapeHTML(bName)}, ${rawBadge.replace(/^\(|\)$/g, '')})`;
-                    div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}</span>`;
+                    div.innerHTML = `${escapeHTML(displayName)} <span style="opacity:0.6; font-size:12px; margin-left:5px;">${levelBadge}${tagBadge}</span>`;
                 }
                 
                 // Kattintás esemény egy specifikus javaslatra: Fókuszálás, panel megnyitása és lista elrejtése
