@@ -138,7 +138,9 @@
     "step_stairs_down": "Take stairs DOWN to Floor {level}",
     "step_transition": "Take {type} {direction} to Floor {level}",
     "dir_up": "UP",
-    "dir_down": "DOWN"
+    "dir_down": "DOWN",
+    "cross_bridge": "Walk across {name}",
+    "generic_bridge": "the connecting bridge"
   },
   "poi": {
     "nearby_title": "What are you looking for nearby?",

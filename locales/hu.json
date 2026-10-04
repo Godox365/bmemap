@@ -138,7 +138,9 @@
     "step_stairs_down": "Lépcső LE a(z) {level}. szintre",
     "step_transition": "{type} {direction} a(z) {level}. szintre",
     "dir_up": "FEL",
-    "dir_down": "LE"
+    "dir_down": "LE",
+    "cross_bridge": "Sétálj át a(z) {name}",
+    "generic_bridge": "összekötő hídon"
   },
   "poi": {
     "nearby_title": "Mit keresel a közelben?",

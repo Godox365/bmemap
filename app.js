@@ -604,15 +604,21 @@ function smartFilter(term) {
 
         const p = f.properties || {};
 
-        // 1. Kizárjuk a folyosókat, lépcsőket és lifteket (ezek nem kereshető szobák/célpontok)
+        // 1. Kizárjuk a folyosókat, lépcsőket és lifteket (kivéve a nevesített hidakat / átjárókat)
         const isCorridor = p.highway === 'corridor' || p.indoor === 'corridor' || p.room === 'corridor';
         const isStairs = p.highway === 'steps' || p.indoor === 'steps' || p.room === 'stairs' || p.indoor === 'staircase' || p.room === 'staircase' || p.stairs === 'yes';
         const isElevator = p.highway === 'elevator' || p.room === 'elevator' || p.indoor === 'elevator' || p.amenity === 'elevator';
-        if (isCorridor || isStairs || isElevator) continue;
+        const isNamedBridge = (p.bridge === 'yes' || p.indoor === 'bridge' || (p.name && /híd|bridge/i.test(p.name))) && p.name;
+        if ((isCorridor || isStairs || isElevator) && !isNamedBridge) continue;
 
         // Épület körvonal és szint/fal elemek kizárása
         if (p.building && !p.indoor && !p.room) continue;
         if (p.indoor === 'level' || p.indoor === 'wall') continue;
+
+        // A Könyvtárhoz csatolt, kizárólag a híd felől elérhető termeket (access: 'bridge') a K épületben
+        // kizárjuk a helyi találatok közül (a KT keresési indexéből b: 'KT' érhetők el).
+        // Az access: 'k' és 'both' termek (pl. KF53, KMF51) helyi találatok maradnak!
+        if (currentBuildingKey === 'K' && typeof getLibraryRoomAccess === 'function' && getLibraryRoomAccess(f) === 'bridge') continue;
 
         const name = normalizeRoomId(p.name);
         const ref = normalizeRoomId(p.ref);
@@ -630,6 +636,13 @@ function smartFilter(term) {
         const cleanCanon = normalizeRoomId(canonRef);
         if (cleanCanon) {
             aliases.add(cleanCanon);
+            if (cleanCanon.startsWith("kmf")) {
+                aliases.add("k" + cleanCanon.slice(3));
+                aliases.add("mf" + cleanCanon.slice(3));
+            } else if (cleanCanon.startsWith("kf")) {
+                aliases.add("k" + cleanCanon.slice(2));
+                aliases.add("f" + cleanCanon.slice(2));
+            }
         }
         if (ref) {
             aliases.add(ref);
@@ -910,6 +923,13 @@ function searchOtherBuildings(term) {
         const cleanCanon = normalizeRoomId(canonRef);
         if (cleanCanon) {
             aliases.add(cleanCanon);
+            if (cleanCanon.startsWith("kmf")) {
+                aliases.add("k" + cleanCanon.slice(3));
+                aliases.add("mf" + cleanCanon.slice(3));
+            } else if (cleanCanon.startsWith("kf")) {
+                aliases.add("k" + cleanCanon.slice(2));
+                aliases.add("f" + cleanCanon.slice(2));
+            }
         }
         if (ref) {
             aliases.add(ref);
@@ -1091,6 +1111,63 @@ function normalizeRoomId(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\s.\-_/()]/g, '').toLowerCase();
 }
 
+/** A Könyvtárhoz csatolt K épületi olvasótermek és összekötő híd OSM azonosítói. */
+const LIBRARY_EXTENSION_OSM_IDS = [
+    'way/1564033986', // Sóhajok Hídja (folyosóvonal)
+    'way/1530062494', // Sóhajok Hídja (poligon)
+    'way/1467348484', // KMF50 Gazdaság- és Társadalomtudományi Olvasó
+    'way/1467348447', // KMF51 Emeleti közösségi terem
+    'way/1467348448', // KMF51 Emeleti közösségi terem
+    'way/1465997021', // KF53 Tankönyvolvasó
+    'way/1465997085'  // KF53 Tankönyvolvasó
+];
+
+/**
+ * Meghatározza, hogy egy térképelem a Könyvtárhoz csatolt K épületi könyvtári terekhez tartozik-e.
+ * @param {Object} f - GeoJSON elem vagy properties objektum.
+ * @returns {boolean}
+ */
+function isLibraryRoomFeature(f) {
+    if (!f) return false;
+    const featId = f.id || f._originalId || (f.properties && (f.properties.id || f.properties.osm_id));
+    if (featId && typeof LIBRARY_EXTENSION_OSM_IDS !== 'undefined' && LIBRARY_EXTENSION_OSM_IDS.includes(featId)) return true;
+    if (f.properties && (f.properties.isLibraryExtension || f.properties._libraryExtension)) return true;
+    if (f.isLibraryExtension || f._libraryExtension) return true;
+    const p = f.properties || f;
+    const ref = (p.ref ? String(p.ref).trim().replace(/^k[.\-_/]?/i, "") : '');
+    const lvl = String(p.level !== undefined ? p.level : (p.lvl !== undefined ? p.lvl : '')).split(';')[0].trim();
+    const lref = String(p['level:ref'] || p.lref || '').trim().toUpperCase();
+    if ((ref === '50' || ref === '51') && (lvl === '1' || lref === 'MF')) return true;
+    if (ref === '53' && (lvl === '0' || lref === '0')) return true;
+    return false;
+}
+
+/**
+ * Visszaadja a könyvtári bővítmény terének hozzáférési típusát ('bridge' | 'k' | 'both').
+ * @param {Object} f - GeoJSON feature vagy properties objektum.
+ * @returns {string} 'bridge' | 'k' | 'both' (vagy üres string ha nem könyvtári terem).
+ */
+function getLibraryRoomAccess(f) {
+    if (!f) return '';
+    const p = f.properties || f;
+    if (p.libraryAccess) return p.libraryAccess;
+    if (f.libraryAccess) return f.libraryAccess;
+    const featId = f.id || f._originalId || p.id || p.osm_id;
+    if (featId === 'way/1530062494' || featId === 'way/1564033986' || featId === 'way/1467348484') return 'bridge';
+    if (featId === 'way/1467348447' || featId === 'way/1467348448') return 'both';
+    if (featId === 'way/1465997085' || featId === 'way/1465997021') return 'k';
+
+    const clean = p.ref ? String(p.ref).trim().replace(/^k[.\-_/]?/i, "") : '';
+    const lvl = String(p.level !== undefined ? p.level : (p.lvl !== undefined ? p.lvl : '')).split(';')[0].trim();
+    const lref = String(p['level:ref'] || p.lref || '').trim().toUpperCase();
+    if (clean === '50' && (lvl === '1' || lref === 'MF')) return 'bridge';
+    if (clean === '51' && (lvl === '1' || lref === 'MF')) return 'both';
+    if (clean === '53' && (lvl === '0' || lref === '0')) return 'k';
+    if (p.name && /sóhajok\s*hídja|bridge/i.test(p.name)) return 'bridge';
+
+    return '';
+}
+
 /**
  * Generálja a terem hivatalos, kánonikus szobakódját (pl. KMF50, KF51, K150, K234, IB028, QBF08, E407, R117, KT026).
  * Ha a kód hiányos az OSM-ben (pl. csak "50" vagy "407"), az épület és szint séma alapján kiegészíti azt.
@@ -1110,40 +1187,55 @@ function getCanonicalRoomCode(p, buildingKey) {
     const b = (buildingKey || p._buildingKey || (p.properties && p.properties._buildingKey) || currentBuildingKey || "").trim().toUpperCase();
     const clean = String(props.ref).trim();
     const norm = clean.toLowerCase().replace(/[\s.\-_/()]/g, "");
-    const rawLvl = String(props.level !== undefined ? props.level : (props.lvl !== undefined ? props.lvl : "0")).split(";")[0].trim();
+    let rawLvl = String(props.level !== undefined ? props.level : (props.lvl !== undefined ? props.lvl : "")).split(";")[0].trim();
     const lref = (props['level:ref'] || props.lref || "").trim().toUpperCase();
 
     if (b === "K") {
         if (norm.startsWith("kmf")) return "KMF" + clean.replace(/^k[.\-_/]?mf[.\-_/]?/i, "").toUpperCase();
         if (norm.startsWith("kf")) return "KF" + clean.replace(/^k[.\-_/]?f[.\-_/]?/i, "").toUpperCase();
-        if (norm.startsWith("k")) return "K" + clean.replace(/^k[.\-_/]?/i, "").toUpperCase();
+        if (norm.startsWith("ka")) return "KA" + clean.replace(/^k[.\-_/]?a[.\-_/]?/i, "").toUpperCase();
+
+        const cleanNum = clean.replace(/^k[.\-_/]?/i, "").trim();
+        const normNum = cleanNum.toLowerCase().replace(/[\s.\-_/()]/g, "");
+
+        if (normNum.startsWith("mf")) return "KMF" + cleanNum.replace(/^mf[.\-_/]?/i, "").toUpperCase();
+        if (normNum.startsWith("f")) return "KF" + cleanNum.replace(/^f[.\-_/]?/i, "").toUpperCase();
+        if (normNum.startsWith("a")) return "KA" + cleanNum.replace(/^a[.\-_/]?/i, "").toUpperCase();
+        if (/^[1-4]/.test(normNum)) return "K" + cleanNum.toUpperCase();
+
+        if (!rawLvl) {
+            if (cleanNum === "50" || cleanNum === "51" || (props.id && (props.id === 'way/1467348484' || props.id === 'way/1467348447' || props.id === 'way/1467348448'))) {
+                rawLvl = "1";
+            } else if (cleanNum === "53" || (props.id && (props.id === 'way/1465997021' || props.id === 'way/1465997085'))) {
+                rawLvl = "0";
+            } else {
+                rawLvl = "0";
+            }
+        }
 
         if (rawLvl === "0" || lref === "0") {
-            if (norm.startsWith("mf")) return "K" + clean.toUpperCase();
-            if (norm.startsWith("f")) return "K" + clean.toUpperCase();
-            return "KF" + clean.toUpperCase();
+            return "KF" + cleanNum.toUpperCase();
         }
         if (rawLvl === "1" || lref === "MF") {
-            if (norm.startsWith("mf")) return "K" + clean.toUpperCase();
-            return "KMF" + clean.toUpperCase();
+            return "KMF" + cleanNum.toUpperCase();
         }
         if (rawLvl === "2" || lref === "1") {
-            if (clean.startsWith("1")) return "K" + clean.toUpperCase();
-            return "K1" + clean.toUpperCase();
+            if (cleanNum.startsWith("1")) return "K" + cleanNum.toUpperCase();
+            return "K1" + cleanNum.toUpperCase();
         }
         if (rawLvl === "3" || lref === "2") {
-            if (clean.startsWith("2")) return "K" + clean.toUpperCase();
-            return "K2" + clean.toUpperCase();
+            if (cleanNum.startsWith("2")) return "K" + cleanNum.toUpperCase();
+            return "K2" + cleanNum.toUpperCase();
         }
         if (rawLvl === "4" || lref === "3") {
-            if (clean.startsWith("3")) return "K" + clean.toUpperCase();
-            return "K3" + clean.toUpperCase();
+            if (cleanNum.startsWith("3")) return "K" + cleanNum.toUpperCase();
+            return "K3" + cleanNum.toUpperCase();
         }
         if (rawLvl === "-1" || lref === "-1") {
-            if (clean.toUpperCase().startsWith("A")) return "K" + clean.toUpperCase();
-            return "KA" + clean.toUpperCase();
+            if (cleanNum.toUpperCase().startsWith("A")) return "K" + cleanNum.toUpperCase();
+            return "KA" + cleanNum.toUpperCase();
         }
-        return "K" + clean.toUpperCase();
+        return "K" + cleanNum.toUpperCase();
     }
 
     if (b === "I") {
@@ -1175,6 +1267,14 @@ function getCanonicalRoomCode(p, buildingKey) {
     }
 
     if (b === "KT") {
+        const featId = props.id || p.id;
+        const cleanNum = clean.replace(/^k[.\-_/]?/i, "").trim();
+        const isLib = (typeof isLibraryRoomFeature === 'function')
+            ? (isLibraryRoomFeature(p) || isLibraryRoomFeature(props))
+            : (featId && typeof LIBRARY_EXTENSION_OSM_IDS !== 'undefined' && LIBRARY_EXTENSION_OSM_IDS.includes(featId)) || (props.isLibraryExtension || props._libraryExtension) || ((cleanNum === '50' || cleanNum === '51') && (rawLvl === '1' || lref === 'MF' || !rawLvl)) || (cleanNum === '53' && (rawLvl === '0' || lref === '0' || !rawLvl));
+        if (isLib) {
+            return getCanonicalRoomCode(p, 'K');
+        }
         if (norm.startsWith("kt")) {
             return "KT" + clean.replace(/^kt[.\-_/]?/i, "").toUpperCase();
         }
@@ -2261,6 +2361,8 @@ let pendingNavSource = null;
 let pendingSearchTerm = null;
 /** Automatikus célelem azonosító (feature ID), amelyet épületváltás után közvetlenül meg kell nyitni. */
 let pendingTargetId = null;
+/** Jelző: épületváltás után automatikusan indítandó-e a navigáció a célteremhez (pl. K -> KT könyvtári átirányításkor). */
+let pendingAutoStartNav = false;
 /** Függőben lévő épület feature, amelyet loadOsmData befejezése után nyit meg az openSheet. */
 let _pendingBuildingOpenFeature = null;
 /** Jelző: animált kampuszközi vagy keresőből indított épületváltási repülés van folyamatban, az automata felismerő ne avatkozzon be. */
@@ -2586,11 +2688,6 @@ function updateDynamicVisibility() {
     // Kampusz címkék dinamikus szűrése (aktív épület címkéjének elrejtése beltéri nézetben)
     updateCampusLabelsFilter();
 
-    // Automatikus épületfelismerés azonnal a zoomolás közben (ha zoom >= CAMPUS_OVERVIEW_ZOOM)
-    if (zoom >= CAMPUS_OVERVIEW_ZOOM) {
-        checkBuildingAutoSwitch();
-    }
-
     // GPS kék pötty figyelő életciklusának frissítése a zoom függvényében
     if (typeof CampusGPS !== 'undefined') {
         CampusGPS.handleZoomChange(zoom);
@@ -2681,8 +2778,17 @@ function _clearRoomLabelMarkers() {
     _roomLabelMarkers = [];
 }
 
-function _resetMapPadding() {
+function _resetMapPadding(preserveCamera = false) {
     if (_mapLayersInitialized && map) {
+        if (preserveCamera || (typeof _preserveCameraOnBuildingChange !== 'undefined' && _preserveCameraOnBuildingChange) || (typeof _isBuildingSwitching !== 'undefined' && _isBuildingSwitching)) {
+            if (typeof map.setPadding === 'function') {
+                const curPad = (typeof map.getPadding === 'function') ? map.getPadding() : null;
+                if (!curPad || curPad.top !== 0 || curPad.bottom !== 0 || curPad.left !== 0 || curPad.right !== 0) {
+                    map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+                }
+            }
+            return;
+        }
         try {
             const container = map.getContainer();
             if (container && typeof map.unproject === 'function' && typeof map.jumpTo === 'function') {
@@ -3202,6 +3308,13 @@ function checkBuildingAutoSwitch() {
     if (_isCampusTransitionActive) return;
     if (_pendingBuildingOpenFeature) return;
     if (_isBuildingSwitching) return;
+    // Building switch must NEVER interrupt active panning or dragging!
+    if (typeof map.isMoving === 'function' && map.isMoving()) return;
+    if (map.dragPan && typeof map.dragPan.isActive === 'function' && map.dragPan.isActive()) return;
+    if (map.touchZoomRotate && typeof map.touchZoomRotate.isActive === 'function' && map.touchZoomRotate.isActive()) return;
+    if (typeof map.isZooming === 'function' && map.isZooming()) return;
+    if (typeof map.isRotating === 'function' && map.isRotating()) return;
+
     const zoom = map.getZoom();
     if (zoom < CAMPUS_OVERVIEW_ZOOM) return;
     if (activeRouteData) return; // Ne szakítsuk meg az aktív navigációt
@@ -3211,6 +3324,14 @@ function checkBuildingAutoSwitch() {
 
     const center = (typeof getEffectiveMapCenter === 'function') ? getEffectiveMapCenter() : map.getCenter();
     if (!center) return;
+
+    // Asymmetric Hysteresis:
+    // When currentBuildingKey === 'KT', do not auto-switch to K while panning over the bridge and library wing
+    // (extend the boundary eastward to lng > 19.0553, towards K's inner courtyard/Aula).
+    if (currentBuildingKey === 'KT' && center.lng <= 19.0553 && center.lat >= 47.4805 && center.lat <= 47.4816) {
+        return;
+    }
+
     const matchedBuilding = findCampusBuildingAt(center.lng, center.lat, true);
     if (!matchedBuilding) return;
 
@@ -3485,6 +3606,16 @@ function _initMapEventListeners() {
             if (neighborMatch) {
                 const bKey = (neighborMatch.properties && (neighborMatch.properties.key || neighborMatch.properties.code || neighborMatch.properties.ref || "")).toUpperCase();
                 if (bKey && bKey !== currentBuildingKey) {
+                    // Click dead-zone: When in KT view, clicking on the K outer wall/contour directly adjacent to the library rooms
+                    // should not trigger switching to K building (it should just close the bottom sheet like clicking empty space).
+                    if (currentBuildingKey === 'KT' && bKey === 'K') {
+                        if (e.lngLat.lng <= 19.0553 && e.lngLat.lat >= 47.4807 && e.lngLat.lat <= 47.48135) {
+                            if (!activeRouteData) {
+                                closeSheet();
+                            }
+                            return;
+                        }
+                    }
                     handleCampusBuildingClick(neighborMatch);
                     return;
                 }
@@ -5083,12 +5214,14 @@ if (typeof window !== 'undefined') {
  * @param {string|null} [autoSearchTerm=null] - Opcionális keresési kifejezés, amely a betöltés után automatikusan lefut.
  * @param {string|null} [targetId=null] - Opcionális célterem azonosító (feature ID), amely azonnal fókuszba kerül betöltés után.
  * @param {boolean} [preserveCamera=false] - Ha true, nem ugrik az épület közepére (pl. finom benagyításkor).
+ * @param {boolean} [autoStartNav=false] - Ha true, az épület betöltése után automatikusan elindul a navigáció a célteremhez.
  */
-function changeBuilding(key, autoSearchTerm = null, targetId = null, preserveCamera = false) {
+function changeBuilding(key, autoSearchTerm = null, targetId = null, preserveCamera = false, autoStartNav = false) {
     if (!key) return;
     key = String(key).trim().toUpperCase();
     if (!BUILDINGS[key]) return;
 
+    pendingAutoStartNav = autoStartNav;
     _isCampusTransitionActive = true;
     _isBuildingSwitching = true;
 
@@ -5113,7 +5246,7 @@ function changeBuilding(key, autoSearchTerm = null, targetId = null, preserveCam
         settingsModal.classList.remove('visible');
     }
     if (typeof closeSheet === 'function') closeSheet();
-    _resetMapPadding();
+    _resetMapPadding(preserveCamera);
 
     // Rejtsük el a korábbi szintválasztót, hogy ne villanjon be az új épület betöltése előtt
     const existingLevelCtrl = document.querySelector('.level-control');
@@ -5299,7 +5432,26 @@ function alignMapToBuildingCenter() {
 
     try {
         _resetMapPadding();
-        const bbox = turf.bbox(geoJsonData); 
+
+        // Alapértelmezetten a teljes adathalmaz alkotja a kamerakeretet (K, I, Q, E, R épületekben 100%-ban ez marad):
+        let targetFeatures = geoJsonData.features;
+
+        // KIZÁRÓLAG a Könyvtár (KT) nézetben szűrjük ki a K épületből átvett teljes szintkontúrokat (indoor=level),
+        // hogy ne tágítsák ki a Könyvtár fitBounds kameráját a teljes K épület 500 méteres kiterjedésére:
+        if (currentBuildingKey === 'KT') {
+            targetFeatures = geoJsonData.features.filter(f => {
+                const p = f.properties || {};
+                const isForeignLevel = (p.indoor === 'level' || p.building) && 
+                    (p.isForeignLevelOutline === true || p.isLibraryExtension === true || f.id === 'way/1463760597' || f.id === 'way/1463760598');
+                return !isForeignLevel;
+            });
+            // Ha valamiért üres lenne a lista, biztonsági tartalékként az eredetit használjuk
+            if (!targetFeatures || targetFeatures.length === 0) {
+                targetFeatures = geoJsonData.features;
+            }
+        }
+
+        const bbox = turf.bbox({ type: 'FeatureCollection', features: targetFeatures }); 
         
         if (bbox) {
             const sheet = document.getElementById('bottom-sheet');
@@ -5310,16 +5462,27 @@ function alignMapToBuildingCenter() {
 
             if (window.innerWidth < 768) {
                 // --- TELEFONOS NÉZET ---
-                const centerLon = (bbox[0] + bbox[2]) / 2;
-                const centerLat = (bbox[1] + bbox[3]) / 2;
-                
-                const targetZoom = (currentBuilding.zoom || 19) - 0.5;
-                
-                map.jumpTo({
-                    center: [centerLon, centerLat],
-                    zoom: targetZoom,
-                    padding: { top: 40, bottom: bottomPadding, left: 10, right: 10 }
-                });
+                if (currentBuildingKey === 'KT') {
+                    map.fitBounds(
+                        [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+                        {
+                            padding: { top: 40, bottom: bottomPadding, left: 15, right: 15 },
+                            maxZoom: 19.3,
+                            animate: false
+                        }
+                    );
+                } else {
+                    const centerLon = (bbox[0] + bbox[2]) / 2;
+                    const centerLat = (bbox[1] + bbox[3]) / 2;
+                    
+                    const targetZoom = (currentBuilding.zoom || 19) - 0.5;
+                    
+                    map.jumpTo({
+                        center: [centerLon, centerLat],
+                        zoom: targetZoom,
+                        padding: { top: 40, bottom: bottomPadding, left: 10, right: 10 }
+                    });
+                }
                 
 
             } else {
@@ -5327,12 +5490,16 @@ function alignMapToBuildingCenter() {
                 const sheetEl = document.getElementById('bottom-sheet');
                 const panelOpen = sheetEl && sheetEl.classList.contains('open');
                 const panelW = panelOpen ? (sheetEl.getBoundingClientRect().width || 390) : 0;
+                const fitOptions = {
+                    padding: { top: 50, bottom: 50, left: panelW + 50, right: 50 },
+                    animate: false
+                };
+                if (currentBuildingKey === 'KT') {
+                    fitOptions.maxZoom = 19.3;
+                }
                 map.fitBounds(
                     [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
-                    {
-                        padding: { top: 50, bottom: 50, left: panelW + 50, right: 50 },
-                        animate: false
-                    }
+                    fitOptions
                 );
                 
             }
@@ -5510,23 +5677,31 @@ async function loadOsmData() {
             setTimeout(() => {
                 if (pendingTargetId && geoJsonData && geoJsonData.features) {
                     const target = geoJsonData.features.find(f => 
-                        f.id === pendingTargetId || 
-                        String(f.id) === String(pendingTargetId) || 
                         f._originalId === pendingTargetId || 
-                        (f.properties && (f.properties.id === pendingTargetId || f.properties.osm_id === pendingTargetId))
+                        (f.properties && (f.properties.id === pendingTargetId || f.properties.osm_id === pendingTargetId)) ||
+                        (typeof f.id === 'string' && f.id === pendingTargetId) ||
+                        f.id === pendingTargetId || 
+                        String(f.id) === String(pendingTargetId)
                     );
                     if (target) {
                         const lvls = getLevelsFromFeature(target);
                         if (lvls.length > 0 && currentLevel !== lvls[0]) switchLevel(lvls[0]);
-                        openSheet(target);
+                        const shouldStartNav = pendingAutoStartNav;
+                        openSheet(target, shouldStartNav);
                         const tVal = formatFeatureName(target.properties, currentBuildingKey) || pendingSearchTerm || "";
                         document.getElementById('search-input').value = tVal;
                         updateRightButtonState();
                         pendingTargetId = null;
                         pendingSearchTerm = null;
+                        pendingAutoStartNav = false;
+                        if (shouldStartNav) {
+                            startNavigation(target);
+                        }
                         return;
                     }
                 }
+                pendingAutoStartNav = false;
+                pendingTargetId = null;
                 if (pendingSearchTerm) {
                     document.getElementById('search-input').value = pendingSearchTerm;
                     handleSearch({ target: { value: pendingSearchTerm }, key: 'Enter' });
@@ -5539,6 +5714,7 @@ async function loadOsmData() {
         processUrlParams();
 
     } catch (localError) {
+        pendingAutoStartNav = false;
         console.warn("⚠️ Hiba a térképadatok betöltésekor:", localError);
         document.getElementById('loader-status').innerText = "FAILED.";
         alert(typeof t === 'function' ? t('alerts.download_error') : "Hiba a letöltéskor: A térképfájl nem érhető el.\n(Ellenőrizd az internetkapcsolatot!)");
@@ -8051,7 +8227,7 @@ function buildRoutingGraph() {
      * @param {Object} node2 - Végpont (lat, lon, level).
      * @param {string} type - A kapcsolat típusa ('walk', 'stairs_inter', 'elevator').
      */
-    const addEdge = (node1, node2, type) => {
+    const addEdge = (node1, node2, type, edgeMeta = null) => {
         // Valós földrajzi távolság kiszámítása a két pont között méterben (gyors, síkbeli)
         let dist = fastDistMeters(node1.lat, node1.lon, node2.lat, node2.lon);
         
@@ -8080,8 +8256,14 @@ function buildRoutingGraph() {
         if (!navigationGraph.has(k2)) navigationGraph.set(k2, []);
         
         // Kétirányú kapcsolat (él) hozzáadása a gráfhoz az adott költséggel (dist)
-        navigationGraph.get(k1).push({ key: k2, dist: dist, lat: node2.lat, lon: node2.lon, level: node2.level });
-        navigationGraph.get(k2).push({ key: k1, dist: dist, lat: node1.lat, lon: node1.lon, level: node1.level });
+        const edge1 = { key: k2, dist: dist, lat: node2.lat, lon: node2.lon, level: node2.level };
+        const edge2 = { key: k1, dist: dist, lat: node1.lat, lon: node1.lon, level: node1.level };
+        if (edgeMeta) {
+            Object.assign(edge1, edgeMeta);
+            Object.assign(edge2, edgeMeta);
+        }
+        navigationGraph.get(k1).push(edge1);
+        navigationGraph.get(k2).push(edge2);
     };
 
     // ==========================================
@@ -8105,9 +8287,11 @@ function buildRoutingGraph() {
         if (p.highway === 'corridor' && f.geometry.type === 'LineString') {
             const level = getLevelsFromFeature(f)[0] || "0"; 
             const coords = f.geometry.coordinates; 
+            const isBridge = (p.bridge === 'yes' || p.indoor === 'bridge' || (p.name && /híd|bridge/i.test(p.name)));
+            const edgeMeta = isBridge ? { isBridge: true, bridgeName: p.name || '' } : null;
             // A vonal szegmenseinek (töréspontjainak) összekötése lépésről lépésre
             for (let i = 0; i < coords.length - 1; i++) {
-                addEdge({ lat: coords[i][1], lon: coords[i][0], level }, { lat: coords[i+1][1], lon: coords[i+1][0], level }, 'walk');
+                addEdge({ lat: coords[i][1], lon: coords[i][0], level }, { lat: coords[i+1][1], lon: coords[i+1][0], level }, isBridge ? 'bridge' : 'walk', edgeMeta);
             }
         }
 
@@ -8459,16 +8643,25 @@ function injectNodeIntoGraph(targetLat, targetLon, targetLevel, maxDistanceMeter
             
             // A kapcsolat típusa alapértelmezetten gyalogos séta.
             const type = 'walk'; 
+            const segProps = bestConnection.segment ? bestConnection.segment.properties : null;
+            const isBridge = segProps && (segProps.bridge === 'yes' || segProps.indoor === 'bridge' || (segProps.name && /híd|bridge/i.test(segProps.name)));
+            const edgeMeta = isBridge ? { isBridge: true, bridgeName: segProps.name || '' } : null;
 
             // A kétirányú élek (kapcsolatok) felépítése az új pont és a folyosó megszakított szakaszai között.
             if (navigationGraph.has(k1)) {
-                navigationGraph.get(newKey).push({ key: k1, dist: d1, lat: p1.lat, lon: p1.lon, level: targetLevel });
-                navigationGraph.get(k1).push({ key: newKey, dist: d1, lat: newLat, lon: newLon, level: targetLevel });
+                const e1 = { key: k1, dist: d1, lat: p1.lat, lon: p1.lon, level: targetLevel };
+                const e2 = { key: newKey, dist: d1, lat: newLat, lon: newLon, level: targetLevel };
+                if (edgeMeta) { Object.assign(e1, edgeMeta); Object.assign(e2, edgeMeta); }
+                navigationGraph.get(newKey).push(e1);
+                navigationGraph.get(k1).push(e2);
             }
             
             if (navigationGraph.has(k2)) {
-                navigationGraph.get(newKey).push({ key: k2, dist: d2, lat: p2.lat, lon: p2.lon, level: targetLevel });
-                navigationGraph.get(k2).push({ key: newKey, dist: d2, lat: newLat, lon: newLon, level: targetLevel });
+                const e1 = { key: k2, dist: d2, lat: p2.lat, lon: p2.lon, level: targetLevel };
+                const e2 = { key: newKey, dist: d2, lat: newLat, lon: newLon, level: targetLevel };
+                if (edgeMeta) { Object.assign(e1, edgeMeta); Object.assign(e2, edgeMeta); }
+                navigationGraph.get(newKey).push(e1);
+                navigationGraph.get(k2).push(e2);
             }
             
             // Visszatérünk a sikeresen beillesztett csomópont adataival.
@@ -8682,6 +8875,28 @@ function findNearestPOI(typeKey) {
  * @param {Object|null} [fromFeature=null] - A kiindulópontot reprezentáló GeoJSON elem. Ha null, a főbejárat lesz a kezdőpont.
  */
 function startNavigation(targetFeature = null, fromFeature = null) {
+    // A célpont meghatározása (prioritás: paraméter > globális kiválasztás)
+    const target = targetFeature || selectedFeature;
+    if (!target) return;
+
+    // Okos átirányítás a terem hozzáférési iránya (access: 'bridge' | 'k' | 'both') alapján:
+    const roomAccess = typeof getLibraryRoomAccess === 'function' ? getLibraryRoomAccess(target) : '';
+    if (roomAccess) {
+        // Mindig a valódi OSM ID-t (string) adjuk át, SOHA ne a felülírt numerikus tömbindexet (target.id)!
+        const targetId = target._originalId || (target.properties && (target.properties.id || target.properties.osm_id)) || (typeof target.id === 'string' ? target.id : null);
+        if (roomAccess === 'bridge' && currentBuildingKey === 'K') {
+            // Csak a hídon (KT) keresztül érhető el -> átváltunk a Könyvtár nézetre, és ott indítunk navigációt a célteremre
+            changeBuilding('KT', null, targetId, false, true);
+            return;
+        }
+        if (roomAccess === 'k' && currentBuildingKey === 'KT') {
+            // Csak a K épület felől érhető el (pl. KF53) -> átváltunk a K épület nézetre, és ott indítunk navigációt a célteremre
+            changeBuilding('K', null, targetId, false, true);
+            return;
+        }
+        // Ha roomAccess === 'both' vagy már a megfelelő épületben van a felhasználó, helyi útvonalat tervezünk átirányítás nélkül!
+    }
+
     console.clear();
     
     // A navigációs gráf frissítése az útvonaltervezés előtt (pl. beállítások változása miatt)
@@ -8693,10 +8908,6 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     activePoiCategory = null;
     // A Bottom Sheet "Közelben" radar menüjét is bezárjuk, ha nyitva lenne
     if (typeof resetNearbyMenu === 'function') resetNearbyMenu();
-    
-    // A célpont meghatározása (prioritás: paraméter > globális kiválasztás)
-    const target = targetFeature || selectedFeature;
-    if (!target) return;
 
     // --- ÁLLAPOT MENTÉSE ---
     // Az aktív navigációs adatok eltárolása a globális objektumban (pl. URL megosztáshoz)
@@ -9023,6 +9234,7 @@ function generateItinerary(pathKeys) {
 
     // Az indulási szint inicializálása az első csomópont adatai alapján
     let lastLevel = pathKeys[0].split(',')[2];
+    let currentBridgeId = null;
 
     /**
      * Belső segédfüggvény: Térbeli (geometriai) adatalapú elemzés a vertikális közlekedő
@@ -9081,6 +9293,25 @@ function generateItinerary(pathKeys) {
         const currParts = currKey.split(',');
         const currLevel = currParts[2];
         
+        // Ellenőrizzük, hogy az él egy összekötő híd része-e
+        const edge = (navigationGraph.get(prevKey) || []).find(n => n.key === currKey);
+        if (edge && edge.isBridge) {
+            const bridgeId = edge.bridgeName || '__bridge__';
+            if (currentBridgeId !== bridgeId) {
+                currentBridgeId = bridgeId;
+                const bName = edge.bridgeName || (typeof t === 'function' ? t('nav.generic_bridge') : 'összekötő hídon');
+                const bridgeText = typeof t === 'function' ? t('nav.cross_bridge', { name: bName }) : ('Sétálj át a(z) ' + bName);
+                steps.push({
+                    type: 'bridge',
+                    icon: 'alt_route',
+                    text: bridgeText,
+                    level: currLevel
+                });
+            }
+        } else {
+            currentBridgeId = null;
+        }
+
         // Ha a jelenlegi csomópont szintje eltér az előzőtől, szintváltást detektáltunk
         if (currLevel !== lastLevel) {
             // Az irány meghatározása a szintek numerikus összehasonlításával
@@ -9804,12 +10035,12 @@ function processLevels() {
             // amely automatikusan kiszűri a duplikátumokat.
             feats.forEach(l => levels.add(l));
 
-            // --- ALIASOK (Megnevezések) GYŰJTÉSE ---
             // Szigorú logika: Az alternatív szintmegnevezéseket (pl. 'level:ref') 
             // kizárólag olyan elemekből nyerjük ki, amelyek pontosan egy szinten helyezkednek el.
             // Ezzel elkerülhető, hogy a többszintes elemek (pl. lépcsőházak, 'level=2-3') 
             // hibás adatokat generáljanak a szintválasztó gombok számára.
-            if (p['level:ref'] && feats.length === 1) {
+            // KT épület esetén nem engedjük felülírni a szintgombokat az átvett K terek 'MF' szintjével!
+            if (p['level:ref'] && feats.length === 1 && currentBuildingKey !== 'KT') {
                 levelAliases[feats[0]] = p['level:ref'];
             }
         }
