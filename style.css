@@ -2709,3 +2709,930 @@ body:not(.embed-mode) .embed-info-bar {
     color: var(--text-sub);
     font-size: 13.5px;
 }
+
+/* ==========================================================================
+   SVG ILLUSZTRÁCIÓK TÉMASZÍNEI (SCOPED CSS CUSTOM PROPERTIES)
+   ========================================================================== */
+
+/* 1. Alapértelmezett (Sötét) Téma */
+.art-default-room {
+    --art-bg: #1b2826;
+    --art-floor: #14201e;
+    --art-floor-line: #253b38;
+    --art-board: #243834;
+    --art-board-frame: #35524c;
+    --art-chalk-tray: #4d736b;
+    --art-chalk: #4d736b;
+    --art-chalk-bright: #68988e;
+    --art-teacher-desk: #29423d;
+    --art-teacher-top: #3d635a;
+    --art-laptop-screen: #4d736b;
+    --art-laptop-base: #3d635a;
+    --art-desk-front: #29423d;
+    --art-desk-leg: #243834;
+    --art-desk-back: #35544e;
+    --art-desk-leg-back: #29423d;
+    --art-chair: #3d635a;
+    --art-lamp-cord: #253b38;
+}
+
+.art-lecture-hall {
+    --art-bg: #1b2826;
+    --art-floor: #14201e;
+    --art-floor-line: #253b38;
+    --art-screen-frame: #243834;
+    --art-screen-border: #35524c;
+    --art-screen-axis: #4d736b;
+    --art-chart-line: #4d736b;
+    --art-chart-accent: #68988e;
+    --art-pulpit: #29423d;
+    --art-pulpit-top: #3d635a;
+    --art-row-1: #29423d;
+    --art-row-2: #35544e;
+    --art-row-2-leg: #29423d;
+    --art-row-3: #3d635a;
+    --art-row-3-seat: #2e4c44;
+}
+
+.art-building {
+    --art-bg: #1b2826;
+    --art-ground: #14201e;
+    --art-ground-line: #253b38;
+    --art-tree-crown-1: #20332f;
+    --art-tree-crown-2: #253c37;
+    --art-tree-trunk: #182724;
+    --art-wing-facade: #223632;
+    --art-wing-cornice: #2d4842;
+    --art-window: #1b2826;
+    --art-window-frame: #3d635a;
+    --art-main-facade: #29423d;
+    --art-main-cornice: #35544e;
+    --art-pediment: #2d4842;
+    --art-pediment-stroke: #3d635a;
+    --art-oculus: #243834;
+    --art-oculus-stroke: #4d736b;
+    --art-spire: #4d736b;
+    --art-banner: #68988e;
+    --art-column: #3d635a;
+    --art-column-base: #4d736b;
+    --art-door: #1b2826;
+    --art-arch: #4d736b;
+    --art-door-line: #35524c;
+    --art-step-top: #35544e;
+    --art-step-mid: #2d4842;
+    --art-step-base: #243834;
+    --art-lamp-post: #3d635a;
+    --art-lamp-globe: #68988e;
+}
+
+.art-restroom {
+    --art-bg: #172331;
+    --art-floor: #111b27;
+    --art-floor-line: #22354a;
+    --art-stall: #24364c;
+    --art-stall-stroke: #334d6d;
+    --art-stall-inner: #1d2c3e;
+    --art-handle: #4a6d96;
+    --art-indicator: #38bdf8;
+    --art-stall-foot: #334d6d;
+    --art-mirror: #203044;
+    --art-mirror-stroke: #3b577a;
+    --art-mirror-sheen: #38bdf8;
+    --art-counter-top: #2c425c;
+    --art-counter-body: #1b2a3a;
+    --art-basin: #131e2b;
+    --art-basin-stroke: #4a6d96;
+    --art-faucet: #7aa2cf;
+}
+
+.art-elevator {
+    --art-bg: #201b2e;
+    --art-floor: #15121f;
+    --art-floor-line: #322b47;
+    --art-portal: #2d2540;
+    --art-portal-stroke: #433761;
+    --art-door-recess: #1c1729;
+    --art-display-bg: #151121;
+    --art-display-stroke: #3b3054;
+    --art-display-glow: #c084fc;
+    --art-door-leaf: #29223b;
+    --art-door-trim: #362d4e;
+    --art-door-gap: #151121;
+    --art-panel: #2d2540;
+    --art-panel-stroke: #3b3054;
+    --art-btn-up: #a855f7;
+    --art-btn-up-icon: #ffffff;
+    --art-btn-down: #1f192d;
+    --art-btn-down-stroke: #4c3d6d;
+    --art-btn-down-icon: #9ca3af;
+}
+
+.art-stairs {
+    --art-bg: #18261e;
+    --art-floor: #121d17;
+    --art-floor-line: #253b2f;
+    --art-guideline: #22362a;
+    --art-step-0: #253e30;
+    --art-step-0-stroke: #325442;
+    --art-step-1: #2d4a3a;
+    --art-step-1-stroke: #3b634e;
+    --art-step-2: #325442;
+    --art-step-2-stroke: #427058;
+    --art-step-3: #3b634e;
+    --art-step-3-stroke: #4a7d63;
+    --art-step-4: #427058;
+    --art-step-4-stroke: #568f71;
+    --art-step-5: #4a7d63;
+    --art-step-5-stroke: #609e7d;
+    --art-landing: #568f71;
+    --art-landing-stroke: #6eb38f;
+    --art-landing-pillar: #1b2e24;
+    --art-handrail: #6eb38f;
+    --art-baluster: #4a7d63;
+}
+
+.art-coffee-machine {
+    --art-bg: #241710;
+    --art-floor: #180f0a;
+    --art-floor-line: #362217;
+    --art-body: #352218;
+    --art-body-stroke: #4d3122;
+    --art-feet: #20150f;
+    --art-branding: #20140e;
+    --art-branding-stroke: #42291c;
+    --art-bean: #854d0e;
+    --art-bean-crease: #20140e;
+    --art-screen: #1b110b;
+    --art-button: #523221;
+    --art-button-active: #713f12;
+    --art-alcove: #140d08;
+    --art-alcove-stroke: #362217;
+    --art-grate: #4d3122;
+    --art-cup: #d97706;
+    --art-cup-rim: #fef3c7;
+    --art-steam: #f59e0b;
+    --art-payment: #352218;
+    --art-payment-stroke: #4d3122;
+    --art-led: #22c55e;
+    --art-slot: #140d08;
+}
+
+.art-vending-machine {
+    --art-bg: #20152b;
+    --art-floor: #150e1c;
+    --art-floor-line: #311f42;
+    --art-body: #321e42;
+    --art-body-stroke: #4a2d61;
+    --art-feet: #1c1126;
+    --art-cabinet: #190e24;
+    --art-cabinet-stroke: #432657;
+    --art-shelf: #372047;
+    --art-snack-1: #c084fc;
+    --art-snack-2: #a855f7;
+    --art-snack-3: #9333ea;
+    --art-snack-4: #e9d5ff;
+    --art-snack-5: #d8b4fe;
+    --art-keypad-col: #241433;
+    --art-display: #100717;
+    --art-display-text: #22c55e;
+    --art-button: #6b468a;
+    --art-slot-1: #a855f7;
+    --art-slot-bg: #100717;
+    --art-slot-2: #c084fc;
+    --art-flap-outer: #190e24;
+    --art-flap-stroke: #4a2d61;
+    --art-flap-inner: #281738;
+    --art-flap-handle: #6b468a;
+}
+
+.art-microwave {
+    --art-bg: #241e12;
+    --art-floor: #17130b;
+    --art-floor-line: #382e1c;
+    --art-body: #362c1b;
+    --art-body-stroke: #524329;
+    --art-feet: #1f1910;
+    --art-door-frame: #241d12;
+    --art-door-stroke: #453823;
+    --art-glass: #17120a;
+    --art-plate: #2a2113;
+    --art-food-dish: #ca8a04;
+    --art-food-warm: #eab308;
+    --art-steam: #fef08a;
+    --art-handle: #715d38;
+    --art-panel: #241d12;
+    --art-display-bg: #140f08;
+    --art-digits: #facc15;
+    --art-knob: #362c1b;
+    --art-knob-stroke: #524329;
+    --art-knob-indicator: #ca8a04;
+    --art-button: #524329;
+    --art-start-btn: #854d0e;
+    --art-start-icon: #fef08a;
+}
+
+.art-atm {
+    --art-bg: #082318;
+    --art-floor: #04150e;
+    --art-floor-line: #123828;
+    --art-cabinet: #0d3826;
+    --art-cabinet-stroke: #165b3e;
+    --art-feet: #062015;
+    --art-header: #047857;
+    --art-header-stroke: #10b981;
+    --art-header-stripes: #34d399;
+    --art-header-dot: #6ee7b7;
+    --art-screen-recess: #062519;
+    --art-screen-stroke: #114731;
+    --art-screen: #021c13;
+    --art-screen-elem-1: #10b981;
+    --art-screen-elem-2: #059669;
+    --art-screen-btn: #34d399;
+    --art-console: #0b2e1f;
+    --art-console-stroke: #155338;
+    --art-card-slot: #042015;
+    --art-card-stroke: #10b981;
+    --art-card-glow: #34d399;
+    --art-receipt-slot: #02170f;
+    --art-pinpad: #052015;
+    --art-pin-dots: #34d399;
+    --art-cash-slot: #041b12;
+    --art-cash-stroke: #145338;
+    --art-note: #10b981;
+    --art-note-line: #047857;
+}
+
+.art-buffet {
+    --art-bg: #291e17;
+    --art-floor: #1c140f;
+    --art-floor-line: #3d2a1f;
+    --art-counter-top: #4d3527;
+    --art-counter-front: #2d1e16;
+    --art-saucer: #3d2a1f;
+    --art-cup: #6d4b37;
+    --art-cup-rim: #4d3527;
+    --art-coffee: #332117;
+    --art-cup-handle: #6d4b37;
+    --art-steam: #b08466;
+    --art-plate: #3d2a1f;
+    --art-croissant: #b47444;
+    --art-croissant-line: #8c532b;
+    --art-grinder-body: #3d2a1f;
+    --art-grinder-top: #543a2b;
+    --art-grinder-dial: #b08466;
+    --art-lamp-cord: #3d2a1f;
+    --art-lamp-shade: #6d4b37;
+}
+
+.art-cloakroom {
+    --art-bg: #251b22;
+    --art-floor: #1a1218;
+    --art-floor-line: #3d2a37;
+    --art-rod: #523649;
+    --art-post: #3a2534;
+    --art-coat-1: #4d2f44;
+    --art-coat-1-stroke: #663e5b;
+    --art-hanger-1: #8a537a;
+    --art-coat-2: #663e5b;
+    --art-coat-2-stroke: #804e72;
+    --art-hanger-2: #a36592;
+    --art-coat-3: #3f2737;
+    --art-coat-3-stroke: #57364d;
+    --art-hanger-3: #754867;
+    --art-coat-bme: #8A2432;
+    --art-coat-bme-stroke: #a83244;
+    --art-hanger-bme: #c44357;
+    --art-coat-5: #523649;
+    --art-coat-5-stroke: #6b4660;
+    --art-hanger-5: #8a537a;
+    --art-coat-6: #42293b;
+    --art-coat-6-stroke: #5c3952;
+    --art-hanger-6: #7a4c6d;
+    --art-counter-top: #54374c;
+    --art-counter-stroke: #6e4763;
+    --art-counter-front: #2d1c28;
+    --art-counter-line: #402839;
+    --art-tag-1: #d48a97;
+    --art-tag-1-stroke: #b36473;
+    --art-tag-hole: #54374c;
+    --art-tag-2: #c44357;
+    --art-tag-2-stroke: #8A2432;
+}
+
+.art-computer {
+    --art-bg: #141c2b;
+    --art-floor: #0e131d;
+    --art-floor-line: #212c40;
+    --art-desk-back-top: #293750;
+    --art-bg-mon-body: #1c2638;
+    --art-bg-mon-border: #334563;
+    --art-bg-mon-screen: #273752;
+    --art-bg-mon-stand: #334563;
+    --art-desk-top: #27364e;
+    --art-desk-stroke: #384c6e;
+    --art-desk-front: #1a2434;
+    --art-drawer: #212c3e;
+    --art-mon-stand: #3b5073;
+    --art-mon-base: #4d6794;
+    --art-mon-frame: #1e293c;
+    --art-mon-stroke: #3b5073;
+    --art-mon-screen: #162030;
+    --art-code-1: #60a5fa;
+    --art-code-2: #38bdf8;
+    --art-code-3: #93c5fd;
+    --art-keyboard: #3b5073;
+    --art-mouse: #4d6794;
+}
+
+.art-lab {
+    --art-bg: #142125;
+    --art-floor: #0e171a;
+    --art-floor-line: #1f3339;
+    --art-bench-top: #243c43;
+    --art-bench-body: #18272c;
+    --art-bench-leg: #1f3339;
+    --art-scope-body: #1a2d33;
+    --art-scope-stroke: #2c4c55;
+    --art-scope-screen: #101c20;
+    --art-scope-grid: #1c363e;
+    --art-wave: #22d3ee;
+    --art-scope-knob: #355b66;
+    --art-scope-jack: #22d3ee;
+    --art-micro-base: #2c4c55;
+    --art-micro-arm-base: #355b66;
+    --art-micro-arm: #355b66;
+    --art-micro-stage: #477380;
+    --art-micro-tube: #5b8f9e;
+    --art-glass: #1c333a;
+    --art-glass-stroke: #477380;
+    --art-liquid-1: #0891b2;
+    --art-rack: #1f353d;
+    --art-rack-stroke: #2e4f5a;
+    --art-liquid-2: #22d3ee;
+    --art-liquid-3: #06b6d4;
+    --art-liquid-4: #38bdf8;
+}
+
+.art-office {
+    --art-bg: #1b222a;
+    --art-floor: #12171d;
+    --art-floor-line: #26303b;
+    --art-shelf: #2d3744;
+    --art-book-1: #475569;
+    --art-book-2: #64748b;
+    --art-book-3: #3b82f6;
+    --art-folder-1: #334155;
+    --art-folder-2: #475569;
+    --art-chair-back: #334155;
+    --art-chair-stroke: #475569;
+    --art-chair-cushion: #242e3b;
+    --art-chair-arm: #475569;
+    --art-desk-top: #334155;
+    --art-desk-stroke: #475569;
+    --art-drawer: #242e3b;
+    --art-drawer-line: #334155;
+    --art-handle: #64748b;
+    --art-desk-leg: #242e3b;
+    --art-laptop-body: #1e293b;
+    --art-laptop-stroke: #475569;
+    --art-laptop-screen: #0f172a;
+    --art-laptop-line: #60a5fa;
+    --art-laptop-base: #475569;
+    --art-lamp-stem: #64748b;
+    --art-lamp-shade: #94a3b8;
+    --art-lamp-beam: #f8fafc;
+    --art-plant-leaf-1: #10b981;
+    --art-plant-leaf-2: #059669;
+}
+
+.art-door {
+    --art-bg: #1b1e24;
+    --art-floor: #121418;
+    --art-floor-line: #2a2e38;
+    --art-guideline: #252a33;
+    --art-portal: #252a34;
+    --art-portal-stroke: #373e4d;
+    --art-transom-frame: #181c22;
+    --art-transom-stroke: #373e4d;
+    --art-transom-rib: #2d3340;
+    --art-transom-sheen: #94a3b8;
+    --art-door-recess: #20242d;
+    --art-threshold: #373e4d;
+    --art-door-leaf: #282e3a;
+    --art-door-stroke: #373e4d;
+    --art-door-panel: #212630;
+    --art-door-panel-stroke: #373e4d;
+    --art-rosette: #373e4d;
+    --art-handle: #94a3b8;
+    --art-keyhole: #14171d;
+    --art-lamp-arm: #373e4d;
+    --art-lamp-shade: #64748b;
+    --art-lamp-light: #f8fafc;
+}
+
+.art-corridor {
+    --art-bg: #1b2028;
+    --art-ceiling: #161a21;
+    --art-light: #303846;
+    --art-floor: #13161c;
+    --art-floor-edge: #252c38;
+    --art-floor-center: #202630;
+    --art-end-wall: #202631;
+    --art-end-wall-stroke: #2d3545;
+    --art-end-portal: #161a21;
+    --art-end-portal-stroke: #374254;
+    --art-end-opening: #27303d;
+    --art-side-wall: #252c37;
+    --art-door-frame-near: #1b2028;
+    --art-door-stroke-near: #3a4556;
+    --art-door-leaf-near: #2e3745;
+    --art-door-handle-near: #5b6c85;
+    --art-door-frame-far: #1b2028;
+    --art-door-stroke-far: #343e4f;
+    --art-door-leaf-far: #2a323f;
+}
+
+.art-storage {
+    --art-bg: #241e17;
+    --art-floor: #18140f;
+    --art-floor-line: #362b21;
+    --art-rack-upright: #423528;
+    --art-rack-brace: #2e251c;
+    --art-rack-shelf: #524233;
+    --art-box-kraft-1: #755a41;
+    --art-box-tape-1: #5c4531;
+    --art-box-kraft-2: #8c6c4f;
+    --art-box-tape-2: #69513a;
+    --art-box-kraft-3: #6e543c;
+    --art-box-kraft-4: #634c37;
+    --art-box-tape-3: #4d3b2b;
+}
+
+/* 2. Világos Téma (body.light-mode) */
+body.light-mode .art-default-room {
+    --art-bg: #f4f9f6;
+    --art-floor: #e2e8f0;
+    --art-floor-line: #cbd5e1;
+    --art-board: #1b4332;
+    --art-board-frame: #2d6a4f;
+    --art-chalk-tray: #40916c;
+    --art-chalk: #74c69d;
+    --art-chalk-bright: #b7e4c7;
+    --art-teacher-desk: #cbd5e1;
+    --art-teacher-top: #94a3b8;
+    --art-laptop-screen: #38bdf8;
+    --art-laptop-base: #64748b;
+    --art-desk-front: #e2e8f0;
+    --art-desk-leg: #94a3b8;
+    --art-desk-back: #cbd5e1;
+    --art-desk-leg-back: #94a3b8;
+    --art-chair: #64748b;
+    --art-lamp-cord: #94a3b8;
+}
+
+body.light-mode .art-lecture-hall {
+    --art-bg: #f4f9f6;
+    --art-floor: #e2e8f0;
+    --art-floor-line: #cbd5e1;
+    --art-screen-frame: #e2e8f0;
+    --art-screen-border: #94a3b8;
+    --art-screen-axis: #cbd5e1;
+    --art-chart-line: #0d9488;
+    --art-chart-accent: #0284c7;
+    --art-pulpit: #cbd5e1;
+    --art-pulpit-top: #64748b;
+    --art-row-1: #cbd5e1;
+    --art-row-2: #94a3b8;
+    --art-row-2-leg: #cbd5e1;
+    --art-row-3: #64748b;
+    --art-row-3-seat: #475569;
+}
+
+body.light-mode .art-building {
+    --art-bg: #eef5f3;
+    --art-ground: #dce8e4;
+    --art-ground-line: #b8cdc7;
+    --art-tree-crown-1: #75968d;
+    --art-tree-crown-2: #85a49c;
+    --art-tree-trunk: #5a7770;
+    --art-wing-facade: #cadad5;
+    --art-wing-cornice: #b1c5bf;
+    --art-window: #eef5f3;
+    --art-window-frame: #7a9a92;
+    --art-main-facade: #d4e3de;
+    --art-main-cornice: #b1c5bf;
+    --art-pediment: #c0d2cc;
+    --art-pediment-stroke: #8ba9a1;
+    --art-oculus: #a8c0ba;
+    --art-oculus-stroke: #698b82;
+    --art-spire: #698b82;
+    --art-banner: #4f7269;
+    --art-column: #97b4ad;
+    --art-column-base: #7a9a92;
+    --art-door: #698b82;
+    --art-arch: #8ba9a1;
+    --art-door-line: #5a7770;
+    --art-step-top: #c0d2cc;
+    --art-step-mid: #b1c5bf;
+    --art-step-base: #a1b7b0;
+    --art-lamp-post: #7a9a92;
+    --art-lamp-globe: #a8c0ba;
+}
+
+body.light-mode .art-restroom {
+    --art-bg: #f0f7ff;
+    --art-floor: #e0f2fe;
+    --art-floor-line: #bae6fd;
+    --art-stall: #dbeafe;
+    --art-stall-stroke: #93c5fd;
+    --art-stall-inner: #eff6ff;
+    --art-handle: #64748b;
+    --art-indicator: #0284c7;
+    --art-stall-foot: #64748b;
+    --art-mirror: #e0f2fe;
+    --art-mirror-stroke: #7dd3fc;
+    --art-mirror-sheen: #0284c7;
+    --art-counter-top: #94a3b8;
+    --art-counter-body: #cbd5e1;
+    --art-basin: #ffffff;
+    --art-basin-stroke: #94a3b8;
+    --art-faucet: #475569;
+}
+
+body.light-mode .art-elevator {
+    --art-bg: #f6f3fb;
+    --art-floor: #e2e8f0;
+    --art-floor-line: #cbd5e1;
+    --art-portal: #cbd5e1;
+    --art-portal-stroke: #94a3b8;
+    --art-door-recess: #64748b;
+    --art-display-bg: #1e1b2e;
+    --art-display-stroke: #4c3d6d;
+    --art-display-glow: #c084fc;
+    --art-door-leaf: #f1f5f9;
+    --art-door-trim: #e2e8f0;
+    --art-door-gap: #94a3b8;
+    --art-panel: #cbd5e1;
+    --art-panel-stroke: #94a3b8;
+    --art-btn-up: #9333ea;
+    --art-btn-up-icon: #ffffff;
+    --art-btn-down: #f1f5f9;
+    --art-btn-down-stroke: #94a3b8;
+    --art-btn-down-icon: #64748b;
+}
+
+body.light-mode .art-stairs {
+    --art-bg: #e8f2eb;
+    --art-floor: #d0e4d6;
+    --art-floor-line: #9fcaa9;
+    --art-guideline: #bddbb7;
+    --art-step-0: #b8d9c0;
+    --art-step-0-stroke: #9ec6a7;
+    --art-step-1: #9ec6a7;
+    --art-step-1-stroke: #84b48f;
+    --art-step-2: #84b48f;
+    --art-step-2-stroke: #6aa177;
+    --art-step-3: #6aa177;
+    --art-step-3-stroke: #528e60;
+    --art-step-4: #528e60;
+    --art-step-4-stroke: #3d7b4b;
+    --art-step-5: #3d7b4b;
+    --art-step-5-stroke: #2b6837;
+    --art-landing: #2b6837;
+    --art-landing-stroke: #1d5328;
+    --art-landing-pillar: #b8d9c0;
+    --art-handrail: #1d5328;
+    --art-baluster: #3d7b4b;
+}
+
+body.light-mode .art-coffee-machine {
+    --art-bg: #fdfbf7;
+    --art-floor: #f1ede6;
+    --art-floor-line: #e6d7c3;
+    --art-body: #593c2b;
+    --art-body-stroke: #3d261a;
+    --art-feet: #2c1b12;
+    --art-branding: #432b1e;
+    --art-branding-stroke: #6d4530;
+    --art-bean: #d97706;
+    --art-bean-crease: #432b1e;
+    --art-screen: #1f140e;
+    --art-button: #6d4530;
+    --art-button-active: #b45309;
+    --art-alcove: #1c120c;
+    --art-alcove-stroke: #4a2e1f;
+    --art-grate: #6d4530;
+    --art-cup: #b45309;
+    --art-cup-rim: #fef3c7;
+    --art-steam: #d97706;
+    --art-payment: #593c2b;
+    --art-payment-stroke: #3d261a;
+    --art-led: #16a34a;
+    --art-slot: #1c120c;
+}
+
+body.light-mode .art-vending-machine {
+    --art-bg: #faf5ff;
+    --art-floor: #f3e8ff;
+    --art-floor-line: #e9d5ff;
+    --art-body: #6b21a8;
+    --art-body-stroke: #581c87;
+    --art-feet: #3b0764;
+    --art-cabinet: #ffffff;
+    --art-cabinet-stroke: #d8b4fe;
+    --art-shelf: #e9d5ff;
+    --art-snack-1: #a855f7;
+    --art-snack-2: #7e22ce;
+    --art-snack-3: #9333ea;
+    --art-snack-4: #c084fc;
+    --art-snack-5: #ec4899;
+    --art-keypad-col: #581c87;
+    --art-display: #1e1b2e;
+    --art-display-text: #22c55e;
+    --art-button: #c084fc;
+    --art-slot-1: #c084fc;
+    --art-slot-bg: #1e1b2e;
+    --art-slot-2: #a855f7;
+    --art-flap-outer: #581c87;
+    --art-flap-stroke: #3b0764;
+    --art-flap-inner: #7e22ce;
+    --art-flap-handle: #c084fc;
+}
+
+body.light-mode .art-microwave {
+    --art-bg: #fefce8;
+    --art-floor: #fef08a;
+    --art-floor-line: #fde047;
+    --art-body: #475569;
+    --art-body-stroke: #334155;
+    --art-feet: #1e293b;
+    --art-door-frame: #334155;
+    --art-door-stroke: #1e293b;
+    --art-glass: #0f172a;
+    --art-plate: #334155;
+    --art-food-dish: #ca8a04;
+    --art-food-warm: #eab308;
+    --art-steam: #fde047;
+    --art-handle: #cbd5e1;
+    --art-panel: #334155;
+    --art-display-bg: #0f172a;
+    --art-digits: #facc15;
+    --art-knob: #475569;
+    --art-knob-stroke: #64748b;
+    --art-knob-indicator: #facc15;
+    --art-button: #64748b;
+    --art-start-btn: #ca8a04;
+    --art-start-icon: #fef08a;
+}
+
+body.light-mode .art-atm {
+    --art-bg: #f0fdf4;
+    --art-floor: #dcfce7;
+    --art-floor-line: #86efac;
+    --art-cabinet: #065f46;
+    --art-cabinet-stroke: #047857;
+    --art-feet: #064e3b;
+    --art-header: #059669;
+    --art-header-stroke: #10b981;
+    --art-header-stripes: #a7f3d0;
+    --art-header-dot: #ffffff;
+    --art-screen-recess: #064e3b;
+    --art-screen-stroke: #047857;
+    --art-screen: #022c22;
+    --art-screen-elem-1: #34d399;
+    --art-screen-elem-2: #10b981;
+    --art-screen-btn: #6ee7b7;
+    --art-console: #047857;
+    --art-console-stroke: #059669;
+    --art-card-slot: #064e3b;
+    --art-card-stroke: #10b981;
+    --art-card-glow: #34d399;
+    --art-receipt-slot: #022c22;
+    --art-pinpad: #064e3b;
+    --art-pin-dots: #34d399;
+    --art-cash-slot: #064e3b;
+    --art-cash-stroke: #059669;
+    --art-note: #10b981;
+    --art-note-line: #047857;
+}
+
+body.light-mode .art-buffet {
+    --art-bg: #fdf8f4;
+    --art-floor: #f6ebe2;
+    --art-floor-line: #edd8c7;
+    --art-counter-top: #b45309;
+    --art-counter-front: #d97706;
+    --art-saucer: #edd8c7;
+    --art-cup: #ffffff;
+    --art-cup-rim: #e2e8f0;
+    --art-coffee: #451a03;
+    --art-cup-handle: #ffffff;
+    --art-steam: #b45309;
+    --art-plate: #edd8c7;
+    --art-croissant: #d97706;
+    --art-croissant-line: #92400e;
+    --art-grinder-body: #475569;
+    --art-grinder-top: #64748b;
+    --art-grinder-dial: #cbd5e1;
+    --art-lamp-cord: #64748b;
+    --art-lamp-shade: #b45309;
+}
+
+body.light-mode .art-cloakroom {
+    --art-bg: #faf5f8;
+    --art-floor: #f3e8ee;
+    --art-floor-line: #e5d1dd;
+    --art-rod: #9d7894;
+    --art-post: #785370;
+    --art-coat-1: #a855f7;
+    --art-coat-1-stroke: #9333ea;
+    --art-hanger-1: #7e22ce;
+    --art-coat-2: #6366f1;
+    --art-coat-2-stroke: #4f46e5;
+    --art-hanger-2: #4338ca;
+    --art-coat-3: #0284c7;
+    --art-coat-3-stroke: #0369a1;
+    --art-hanger-3: #075985;
+    --art-coat-bme: #8a2432;
+    --art-coat-bme-stroke: #a83244;
+    --art-hanger-bme: #c44357;
+    --art-coat-5: #0d9488;
+    --art-coat-5-stroke: #0f766e;
+    --art-hanger-5: #115e59;
+    --art-coat-6: #d97706;
+    --art-coat-6-stroke: #b45309;
+    --art-hanger-6: #92400e;
+    --art-counter-top: #cbd5e1;
+    --art-counter-stroke: #94a3b8;
+    --art-counter-front: #f1f5f9;
+    --art-counter-line: #cbd5e1;
+    --art-tag-1: #f472b6;
+    --art-tag-1-stroke: #db2777;
+    --art-tag-hole: #ffffff;
+    --art-tag-2: #c44357;
+    --art-tag-2-stroke: #8a2432;
+}
+
+body.light-mode .art-computer {
+    --art-bg: #f1f5f9;
+    --art-floor: #e2e8f0;
+    --art-floor-line: #cbd5e1;
+    --art-desk-back-top: #cbd5e1;
+    --art-bg-mon-body: #cbd5e1;
+    --art-bg-mon-border: #94a3b8;
+    --art-bg-mon-screen: #0f172a;
+    --art-bg-mon-stand: #64748b;
+    --art-desk-top: #cbd5e1;
+    --art-desk-stroke: #94a3b8;
+    --art-desk-front: #94a3b8;
+    --art-drawer: #e2e8f0;
+    --art-mon-stand: #64748b;
+    --art-mon-base: #475569;
+    --art-mon-frame: #1e293c;
+    --art-mon-stroke: #475569;
+    --art-mon-screen: #090d16;
+    --art-code-1: #3b82f6;
+    --art-code-2: #06b6d4;
+    --art-code-3: #60a5fa;
+    --art-keyboard: #64748b;
+    --art-mouse: #475569;
+}
+
+body.light-mode .art-lab {
+    --art-bg: #f0fdfa;
+    --art-floor: #ccfbf1;
+    --art-floor-line: #99f6e4;
+    --art-bench-top: #cbd5e1;
+    --art-bench-body: #94a3b8;
+    --art-bench-leg: #64748b;
+    --art-scope-body: #e2e8f0;
+    --art-scope-stroke: #94a3b8;
+    --art-scope-screen: #042f2e;
+    --art-scope-grid: #115e59;
+    --art-wave: #22d3ee;
+    --art-scope-knob: #64748b;
+    --art-scope-jack: #06b6d4;
+    --art-micro-base: #475569;
+    --art-micro-arm-base: #334155;
+    --art-micro-arm: #334155;
+    --art-micro-stage: #64748b;
+    --art-micro-tube: #0d9488;
+    --art-glass: #e0f2fe;
+    --art-glass-stroke: #38bdf8;
+    --art-liquid-1: #0284c7;
+    --art-rack: #cbd5e1;
+    --art-rack-stroke: #94a3b8;
+    --art-liquid-2: #06b6d4;
+    --art-liquid-3: #0891b2;
+    --art-liquid-4: #3b82f6;
+}
+
+body.light-mode .art-office {
+    --art-bg: #f8fafc;
+    --art-floor: #e2e8f0;
+    --art-floor-line: #cbd5e1;
+    --art-shelf: #cbd5e1;
+    --art-book-1: #64748b;
+    --art-book-2: #059669;
+    --art-book-3: #2563eb;
+    --art-folder-1: #e2e8f0;
+    --art-folder-2: #cbd5e1;
+    --art-chair-back: #cbd5e1;
+    --art-chair-stroke: #94a3b8;
+    --art-chair-cushion: #e2e8f0;
+    --art-chair-arm: #64748b;
+    --art-desk-top: #cbd5e1;
+    --art-desk-stroke: #94a3b8;
+    --art-drawer: #f1f5f9;
+    --art-drawer-line: #cbd5e1;
+    --art-handle: #475569;
+    --art-desk-leg: #64748b;
+    --art-laptop-body: #334155;
+    --art-laptop-stroke: #475569;
+    --art-laptop-screen: #0f172a;
+    --art-laptop-line: #38bdf8;
+    --art-laptop-base: #64748b;
+    --art-lamp-stem: #475569;
+    --art-lamp-shade: #64748b;
+    --art-lamp-beam: #fef08a;
+    --art-plant-leaf-1: #10b981;
+    --art-plant-leaf-2: #059669;
+}
+
+body.light-mode .art-door {
+    --art-bg: #f8fafc;
+    --art-floor: #e2e8f0;
+    --art-floor-line: #cbd5e1;
+    --art-guideline: #e2e8f0;
+    --art-portal: #cbd5e1;
+    --art-portal-stroke: #94a3b8;
+    --art-transom-frame: #e0f2fe;
+    --art-transom-stroke: #94a3b8;
+    --art-transom-rib: #7dd3fc;
+    --art-transom-sheen: #38bdf8;
+    --art-door-recess: #475569;
+    --art-threshold: #64748b;
+    --art-door-leaf: #334155;
+    --art-door-stroke: #1e293b;
+    --art-door-panel: #1e293b;
+    --art-door-panel-stroke: #334155;
+    --art-rosette: #94a3b8;
+    --art-handle: #f1f5f9;
+    --art-keyhole: #0f172a;
+    --art-lamp-arm: #64748b;
+    --art-lamp-shade: #475569;
+    --art-lamp-light: #facc15;
+}
+
+body.light-mode .art-corridor {
+    --art-bg: #f8fafc;
+    --art-ceiling: #f1f5f9;
+    --art-light: #ffffff;
+    --art-floor: #e2e8f0;
+    --art-floor-edge: #cbd5e1;
+    --art-floor-center: #94a3b8;
+    --art-end-wall: #e2e8f0;
+    --art-end-wall-stroke: #cbd5e1;
+    --art-end-portal: #cbd5e1;
+    --art-end-portal-stroke: #94a3b8;
+    --art-end-opening: #64748b;
+    --art-side-wall: #f8fafc;
+    --art-door-frame-near: #e2e8f0;
+    --art-door-stroke-near: #cbd5e1;
+    --art-door-leaf-near: #94a3b8;
+    --art-door-handle-near: #475569;
+    --art-door-frame-far: #e2e8f0;
+    --art-door-stroke-far: #cbd5e1;
+    --art-door-leaf-far: #94a3b8;
+}
+
+body.light-mode .art-storage {
+    --art-bg: #faf8f5;
+    --art-floor: #f1ede6;
+    --art-floor-line: #e3d7c7;
+    --art-rack-upright: #64748b;
+    --art-rack-brace: #94a3b8;
+    --art-rack-shelf: #475569;
+    --art-box-kraft-1: #d97706;
+    --art-box-tape-1: #b45309;
+    --art-box-kraft-2: #b45309;
+    --art-box-tape-2: #92400e;
+    --art-box-kraft-3: #f59e0b;
+    --art-box-kraft-4: #d97706;
+    --art-box-tape-3: #78350f;
+}
+
+/* Galéria felületének stílusa világos témában */
+body.light-mode #bottom-sheet .room-gallery-container,
+body.light-mode #bottom-sheet #room-gallery {
+    background: var(--bg-surface);
+}
+
+#bottom-sheet #room-gallery svg.gallery-default-art {
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    display: block;
+    cursor: default;
+    user-select: none;
+}

@@ -6222,6 +6222,148 @@ function getDefaultIllustration(feature) {
     return 'assets/illustrations/default_room.svg';
 }
 
+const _illustrationCache = new Map();
+
+/**
+ * Térképelemhez tartozó SVG illusztráció biztonságos, inline beillesztése.
+ * DOMParser, parsererror ellenőrzés és replaceChildren() használatával.
+ */
+async function renderDefaultIllustration(galleryEl, feature, typeName, isBuildingFeat) {
+    if (!galleryEl) return;
+    const artSrc = getDefaultIllustration(feature);
+    const renderToken = Symbol();
+    galleryEl._currentArtSrc = artSrc;
+    galleryEl._currentRenderToken = renderToken;
+
+    let svgText = _illustrationCache.get(artSrc);
+
+    if (!svgText) {
+        try {
+            const resp = await fetch(artSrc);
+            if (resp.ok) {
+                svgText = await resp.text();
+                _illustrationCache.set(artSrc, svgText);
+            }
+        } catch (err) {
+            console.warn('[Illustration] Nem sikerült letölteni:', artSrc, err);
+        }
+    }
+
+    // Ha időközben másik elemre váltottunk, ne módosítsuk a DOM-ot
+    if (galleryEl._currentArtSrc !== artSrc || galleryEl._currentRenderToken !== renderToken) return;
+
+    // Hálózati hiba / offline fallback: ha nem sikerült szövegként letölteni, szabványos img elemmel próbálkozunk
+    if (!svgText) {
+        if (galleryEl._currentArtSrc === artSrc && galleryEl._currentRenderToken === renderToken) {
+            const fallbackImg = document.createElement('img');
+            fallbackImg.src = artSrc;
+            fallbackImg.className = 'gallery-img gallery-default-art';
+            fallbackImg.alt = typeName || (isBuildingFeat ? (typeof t === 'function' ? t('types.building', 'Épület') : 'Épület') : (typeof t === 'function' ? t('types.room', 'Terem') : 'Terem'));
+            fallbackImg.draggable = false;
+            fallbackImg.onerror = () => {
+                const container = document.getElementById('gallery-container');
+                if (container) container.style.display = 'none';
+                galleryEl.style.display = 'none';
+                setupGalleryCarousel(0);
+            };
+            galleryEl.replaceChildren(fallbackImg);
+            setupGalleryCarousel(1);
+        }
+        return;
+    }
+
+    try {
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+
+        // XML-hiba csekkolás: ha sérült vagy hibás az XML, nem szemetelünk a DOM-ba
+        const parseError = svgDoc.querySelector('parsererror');
+        if (parseError) {
+            console.error('[Illustration] XML feldolgozási hiba:', parseError.textContent);
+            if (galleryEl._currentArtSrc === artSrc && galleryEl._currentRenderToken === renderToken) {
+                const fallbackImg = document.createElement('img');
+                fallbackImg.src = artSrc;
+                fallbackImg.className = 'gallery-img gallery-default-art';
+                fallbackImg.alt = typeName || (isBuildingFeat ? 'Épület' : 'Terem');
+                fallbackImg.draggable = false;
+                galleryEl.replaceChildren(fallbackImg);
+                setupGalleryCarousel(1);
+            }
+            return;
+        }
+
+        const svgEl = svgDoc.querySelector('svg');
+        if (svgEl) {
+            // Pontos osztálynév generálás (pl. 'assets/illustrations/coffee_machine.svg' -> 'art-coffee-machine')
+            const baseName = artSrc.split('/').pop().replace('.svg', '').replace(/_/g, '-');
+            const typeClass = `art-${baseName}`;
+
+            svgEl.classList.add('gallery-img', 'gallery-default-art', typeClass);
+            svgEl.setAttribute('role', 'img');
+            svgEl.setAttribute('aria-label', typeName || (isBuildingFeat ? (typeof t === 'function' ? t('types.building', 'Épület') : 'Épület') : (typeof t === 'function' ? t('types.room', 'Terem') : 'Terem')));
+            svgEl.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+
+            if (galleryEl._currentArtSrc === artSrc && galleryEl._currentRenderToken === renderToken) {
+                galleryEl.replaceChildren(svgEl);
+                setupGalleryCarousel(1);
+            }
+        }
+    } catch (err) {
+        console.error('[Illustration] Hiba az illusztráció renderelésekor:', err);
+    }
+}
+
+/**
+ * Illusztrációk előtöltése a memóriába:
+ * - Mobilon kihagyjuk (ott a panel helyhiány miatt nem jeleníti meg a default illusztrációt).
+ * - Desktopon a térkép betöltése után legalább 3 másodperccel, idle üresjáratban futtatjuk.
+ */
+function preloadIllustrations() {
+    // Mobilon szükségtelen a hálózatot és memóriát terhelni
+    if (!isDesktopSidePanel()) return;
+
+    const list = [
+        'assets/illustrations/atm.svg',
+        'assets/illustrations/buffet.svg',
+        'assets/illustrations/building.svg',
+        'assets/illustrations/cloakroom.svg',
+        'assets/illustrations/coffee_machine.svg',
+        'assets/illustrations/computer.svg',
+        'assets/illustrations/corridor.svg',
+        'assets/illustrations/default_room.svg',
+        'assets/illustrations/door.svg',
+        'assets/illustrations/elevator.svg',
+        'assets/illustrations/lab.svg',
+        'assets/illustrations/lecture_hall.svg',
+        'assets/illustrations/microwave.svg',
+        'assets/illustrations/office.svg',
+        'assets/illustrations/restroom.svg',
+        'assets/illustrations/stairs.svg',
+        'assets/illustrations/storage.svg',
+        'assets/illustrations/vending_machine.svg'
+    ];
+
+    // Böngészőbiztos idle futtató: kötés window-hoz az 'Illegal invocation' kivédésére
+    const idleRunner = (typeof window !== 'undefined' && window.requestIdleCallback)
+        ? window.requestIdleCallback.bind(window)
+        : ((cb) => setTimeout(cb, 500));
+
+    // 3 másodperces késleltetés a térkép és csempék teljes betöltése után
+    setTimeout(() => {
+        idleRunner(async () => {
+            for (const url of list) {
+                if (_illustrationCache.has(url)) continue;
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        _illustrationCache.set(url, await res.text());
+                    }
+                } catch (_) {}
+            }
+        });
+    }, 3000);
+}
+
 /**
  * Szinkronizálja az információs panel belső DOM elemeinek elrendezését
  * a képernyőméret (Desktop vs. Mobil) alapján:
@@ -6254,6 +6396,12 @@ function syncSheetLayoutForViewport() {
         // 1. Képek a legtetejére (a header elé)
         if (galleryWrapper.parentElement !== sheet) {
             sheet.insertBefore(galleryWrapper, header);
+        }
+        const defaultArt = galleryWrapper.querySelector('.gallery-default-art');
+        if (defaultArt) {
+            galleryWrapper.style.display = 'block';
+            const galleryEl = document.getElementById('room-gallery');
+            if (galleryEl) galleryEl.style.display = 'flex';
         }
         // 2. Cím (header) marad utána
         // 3. Navigációs gombok közvetlenül a cím alá (külön sáv)
@@ -6878,6 +7026,8 @@ function openSheet(feature, skipFly = false) {
     if (galleryEl) {
         galleryEl.innerHTML = ""; 
         if (allImages.length > 0) {
+            galleryEl._currentArtSrc = null;
+            galleryEl._currentRenderToken = null;
             if (galleryContainer) galleryContainer.style.display = 'block';
             galleryEl.style.display = 'flex';
             allImages.forEach((url, idx) => {
@@ -6896,15 +7046,11 @@ function openSheet(feature, skipFly = false) {
             // Kizárólag desktop nézetben (oldalsó panel), ha nincs saját fotó: SVG illusztráció a típusa alapján
             if (galleryContainer) galleryContainer.style.display = 'block';
             galleryEl.style.display = 'flex';
-            const defaultArtSrc = getDefaultIllustration(feature);
-            const img = document.createElement('img');
-            img.src = defaultArtSrc;
-            img.className = 'gallery-img gallery-default-art';
-            img.alt = typeName || (isBuildingFeat ? 'Épület' : 'Terem');
-            img.draggable = false;
-            galleryEl.appendChild(img);
             setupGalleryCarousel(1);
+            renderDefaultIllustration(galleryEl, feature, typeName, isBuildingFeat);
         } else {
+            galleryEl._currentArtSrc = null;
+            galleryEl._currentRenderToken = null;
             if (galleryContainer) galleryContainer.style.display = 'none';
             galleryEl.style.display = 'none';
             setupGalleryCarousel(0);
@@ -7405,6 +7551,12 @@ function closeSheet() {
         }, 350);
     }
     
+    const galleryEl = document.getElementById('room-gallery');
+    if (galleryEl) {
+        galleryEl._currentArtSrc = null;
+        galleryEl._currentRenderToken = null;
+    }
+
     document.querySelectorAll('.selected-poi').forEach(el => el.classList.remove('selected-poi'));
 
     if (_mapLayersInitialized && map.getSource('highlight-geojson')) {
@@ -11923,6 +12075,7 @@ map.on('load', async () => {
     renderThemeSelector();
     applyTheme();
     syncSheetLayoutForViewport();
+    preloadIllustrations();
 
     // Az i18n inicializálása a térkép és UI elkészülése UTÁN történik,
     // így a languageChanged esemény már minden elemet és réteget készen talál.
