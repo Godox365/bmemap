@@ -131,6 +131,26 @@ global.turf = {
 // Mock MapLibre Map and Marker
 const mockMapInstance = {
     getZoom: () => 19,
+    _padding: { top: 0, bottom: 0, left: 0, right: 0 },
+    getPadding: function() { return this._padding; },
+    setPadding: function(p) { this._padding = { ...p }; return this; },
+    getContainer: () => ({ clientWidth: 1024, clientHeight: 768 }),
+    cameraForBounds: (bounds, options) => {
+        const minLng = bounds[0][0];
+        const minLat = bounds[0][1];
+        const maxLng = bounds[1][0];
+        const maxLat = bounds[1][1];
+        const spanLng = Math.abs(maxLng - minLng);
+        const spanLat = Math.abs(maxLat - minLat);
+        let z = 19.0;
+        if (spanLng > 0.01 || spanLat > 0.01) z = 14.0;
+        else if (spanLng > 0.002 || spanLat > 0.002) z = 16.5;
+        if (options && options.maxZoom && z > options.maxZoom) z = options.maxZoom;
+        return {
+            center: { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 },
+            zoom: z
+        };
+    },
     flyTo: (opts) => { global._lastFlyTo = opts; },
     getCanvas: () => global.document.createElement('canvas'),
     on: () => {},
@@ -486,6 +506,55 @@ await it('getDefaultIllustration maps custom pin feature to selected_point.svg',
     const art = context.getDefaultIllustration(pin);
     assert.strictEqual(art, 'assets/illustrations/selected_point.svg');
     assert(fs.existsSync(path.join(rootDir, art)), 'assets/illustrations/selected_point.svg must exist');
+});
+
+// ============================================================================
+console.log('\n[Suite 8] Route Safe Camera & Zoom Stability');
+// ============================================================================
+
+await it('computeSafeRouteCamera resets MapLibre residual padding', () => {
+    context.map.setPadding({ top: 100, bottom: 250, left: 60, right: 60 });
+    assert.strictEqual(context.map.getPadding().top, 100);
+    const cam = context.window.computeSafeRouteCamera([[19.056, 47.481], [19.057, 47.482]]);
+    assert(cam !== null);
+    assert.deepStrictEqual(context.map.getPadding(), { top: 0, bottom: 0, left: 0, right: 0 }, 'map.getPadding() must be reset to 0');
+});
+
+await it('computeSafeRouteCamera clamps zoom >= 17.2 even for large campus spans', () => {
+    const widePoints = [[19.050, 47.470], [19.065, 47.485]];
+    const cam = context.window.computeSafeRouteCamera(widePoints);
+    assert(cam !== null);
+    assert(cam.zoom >= 17.2, `Calculated zoom ${cam.zoom} must be >= 17.2 minRouteComfortZoom`);
+    assert(cam.zoom <= 19.4, `Calculated zoom ${cam.zoom} must be <= 19.4 maxRouteComfortZoom`);
+});
+
+await it('computeSafeRouteCamera supports options.minZoom and clamps properly', () => {
+    const cam = context.window.computeSafeRouteCamera([[19.050, 47.470], [19.065, 47.485]], null, { minZoom: 17.5, maxZoom: 19.8 });
+    assert(cam !== null);
+    assert(cam.zoom >= 17.5, `Segment zoom ${cam.zoom} must be >= 17.5`);
+    assert(cam.zoom <= 19.8, `Segment zoom ${cam.zoom} must be <= 19.8`);
+});
+
+await it('repeated calls to drawRoute maintain zoom >= 17.2 and never compound padding', () => {
+    let capturedFlyTo = null;
+    context.map.flyTo = (opts) => { capturedFlyTo = opts; };
+    const pathKeys = ['47.4810,19.0560,1', '47.4815,19.0565,1', '47.4820,19.0570,1'];
+    
+    for (let i = 0; i < 5; i++) {
+        context.window.drawRoute(pathKeys);
+        assert(capturedFlyTo !== null, 'map.flyTo must be called');
+        assert(capturedFlyTo.zoom >= 17.2, `Repeated call ${i + 1}: zoom ${capturedFlyTo.zoom} must not degrade below 17.2`);
+        assert.deepStrictEqual(context.map.getPadding(), { top: 0, bottom: 0, left: 0, right: 0 }, `Padding must not accumulate on call ${i + 1}`);
+    }
+});
+
+await it('focusOnRouteSegment uses safe route camera with minZoom 17.5', () => {
+    let segmentFlyTo = null;
+    context.map.flyTo = (opts) => { segmentFlyTo = opts; };
+    context.window.setCurrentRoutePath(['47.4810,19.0560,1', '47.4815,19.0565,1']);
+    context.window.focusOnRouteSegment('1');
+    assert(segmentFlyTo !== null, 'focusOnRouteSegment must call flyTo');
+    assert(segmentFlyTo.zoom >= 17.5, `focusOnRouteSegment zoom ${segmentFlyTo.zoom} must be >= 17.5`);
 });
 
 console.log('\n================================================================');

@@ -7466,9 +7466,6 @@ function focusOnRouteSegment(level) {
     const validPoints = routePoints.filter(p => Array.isArray(p) && p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]));
     if (validPoints.length === 0) return;
 
-    const lons = validPoints.map(p => p[0]);
-    const lats = validPoints.map(p => p[1]);
-
     const isMobile = window.innerWidth <= 600;
     const sheet = document.getElementById('bottom-sheet');
     let padding;
@@ -7476,33 +7473,23 @@ function focusOnRouteSegment(level) {
         const panelW = sheet ? (sheet.getBoundingClientRect().width || 390) : 390;
         padding = { top: 80, bottom: 50, left: panelW + 45, right: 75 };
     } else {
-        const peekH = (typeof getPeekHeight === 'function') ? getPeekHeight() : 110;
-        padding = { top: isMobile ? 125 : 80, bottom: peekH + 35, left: 30, right: 65 };
+        const currentSheetH = (sheet && sheet.classList.contains('open')) 
+            ? Math.min(sheet.getBoundingClientRect().height, window.innerHeight * 0.45) 
+            : ((typeof getPeekHeight === 'function') ? getPeekHeight() : 110);
+        padding = { top: isMobile ? 120 : 75, bottom: currentSheetH + 30, left: 25, right: 60 };
     }
 
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
+    const targetCam = typeof computeSafeRouteCamera === 'function'
+        ? computeSafeRouteCamera(validPoints, padding, { minZoom: 17.5, maxZoom: 19.8, isSegment: true })
+        : null;
 
-    if (minLon === maxLon && minLat === maxLat) {
+    if (targetCam) {
         map.flyTo({
-            center: [minLon, minLat],
-            zoom: 20,
-            padding: padding,
-            animate: true,
-            duration: 1000
+            center: targetCam.center,
+            zoom: targetCam.zoom,
+            duration: 800,
+            essential: true
         });
-    } else {
-        map.fitBounds(
-            [[minLon, minLat], [maxLon, maxLat]],
-            {
-                padding: padding,
-                maxZoom: 20.2,
-                animate: true,
-                duration: 1000
-            }
-        );
     }
 }
 
@@ -8899,6 +8886,10 @@ if (typeof window !== 'undefined') {
     window.getActiveCustomPinFeature = () => activeCustomPinFeature;
     window.setGeoJsonData = (data) => { geoJsonData = data; };
     window.setSelectedFeature = (f) => { selectedFeature = f; };
+    window.computeSafeRouteCamera = computeSafeRouteCamera;
+    window.drawRoute = drawRoute;
+    window.focusOnRouteSegment = focusOnRouteSegment;
+    window.setCurrentRoutePath = (path) => { currentRoutePath = path; };
 }
 
 /**
@@ -9616,7 +9607,11 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     }
 
     setNavigationTarget(target);
-    if (fromFeature) setNavigationSource(fromFeature);
+    if (fromFeature) {
+        setNavigationSource(fromFeature);
+    } else {
+        pendingNavSource = null;
+    }
 
     // Okos átirányítás a terem hozzáférési iránya (access: 'bridge' | 'k' | 'both') alapján:
     const roomAccess = typeof getLibraryRoomAccess === 'function' ? getLibraryRoomAccess(target) : '';
@@ -10540,6 +10535,118 @@ function _addFeatureCoordsToBounds(feature, boundsPoints) {
 }
 
 /**
+ * Safely computes camera center and bounded zoom level for route coordinates
+ * without mutating or compounding MapLibre's persistent padding.
+ * @param {Array<[number, number]>} points - Array of [lon, lat] coordinates.
+ * @param {Object} [customPadding] - Optional custom padding override.
+ * @param {Object} [options] - Options: minZoom, maxZoom, isSegment.
+ * @returns {{center: [number, number], zoom: number}|null}
+ */
+function computeSafeRouteCamera(points, customPadding = null, options = {}) {
+    if (!map || !Array.isArray(points) || points.length === 0) return null;
+
+    const validPoints = points.filter(p => Array.isArray(p) && p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]));
+    if (validPoints.length === 0) return null;
+
+    const lons = validPoints.map(p => p[0]);
+    const lats = validPoints.map(p => p[1]);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+
+    // Reset MapLibre internal padding to 0 so cameraForBounds does not add padding on top of existing padding
+    if (typeof map.setPadding === 'function') {
+        const cur = typeof map.getPadding === 'function' ? map.getPadding() : null;
+        if (cur && (cur.top !== 0 || cur.bottom !== 0 || cur.left !== 0 || cur.right !== 0)) {
+            map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+        }
+    }
+
+    const container = typeof map.getContainer === 'function' ? map.getContainer() : null;
+    const cWidth = container ? container.clientWidth : (typeof window !== 'undefined' ? window.innerWidth : 800);
+    const cHeight = container ? container.clientHeight : (typeof window !== 'undefined' ? window.innerHeight : 600);
+    const isDesktop = typeof isDesktopSidePanel === 'function' && isDesktopSidePanel();
+
+    let computedPadding;
+    if (customPadding) {
+        computedPadding = { ...customPadding };
+    } else if (IS_EMBED_MODE) {
+        const embedBar = document.getElementById('embed-info-bar');
+        const bPad = (embedBar && embedBar.classList.contains('visible')) ? 95 : 35;
+        computedPadding = { top: 30, bottom: bPad, left: 30, right: 65 };
+    } else if (isDesktop) {
+        const sheetEl = document.getElementById('bottom-sheet');
+        const panelW = sheetEl ? (sheetEl.getBoundingClientRect().width || 390) : 390;
+        computedPadding = { top: 75, bottom: 45, left: panelW + 40, right: 70 };
+    } else {
+        const peekH = (typeof getPeekHeight === 'function') ? getPeekHeight() : 110;
+        computedPadding = { top: 110, bottom: peekH + 30, left: 25, right: 55 };
+    }
+
+    // Clamp padding safely to never exceed 45% of width or 50% of height
+    const maxHorizPad = cWidth * 0.45;
+    const maxVertPad = cHeight * 0.50;
+    if (computedPadding.left + computedPadding.right > maxHorizPad) {
+        const scale = maxHorizPad / (computedPadding.left + computedPadding.right);
+        computedPadding.left = Math.round(computedPadding.left * scale);
+        computedPadding.right = Math.round(computedPadding.right * scale);
+    }
+    if (computedPadding.top + computedPadding.bottom > maxVertPad) {
+        const scale = maxVertPad / (computedPadding.top + computedPadding.bottom);
+        computedPadding.top = Math.round(computedPadding.top * scale);
+        computedPadding.bottom = Math.round(computedPadding.bottom * scale);
+    }
+
+    // Bounds check: if single point (or identical bounds)
+    if (minLon === maxLon && minLat === maxLat) {
+        let center = [minLon, minLat];
+        try {
+            if (typeof map.cameraForBounds === 'function') {
+                const cam = map.cameraForBounds([[minLon, minLat], [maxLon, maxLat]], {
+                    padding: computedPadding,
+                    maxZoom: 19.4
+                });
+                if (cam && cam.center) center = [cam.center.lng, cam.center.lat];
+            }
+        } catch (e) {}
+        return {
+            center: center,
+            zoom: options.maxZoom || 19.3
+        };
+    }
+
+    const bounds = [[minLon, minLat], [maxLon, maxLat]];
+    const minRouteComfortZoom = options.minZoom || 17.2;
+    const maxRouteComfortZoom = options.maxZoom || (IS_EMBED_MODE ? 18.5 : 19.4);
+
+    let camera = null;
+    try {
+        if (typeof map.cameraForBounds === 'function') {
+            camera = map.cameraForBounds(bounds, {
+                padding: computedPadding,
+                maxZoom: maxRouteComfortZoom
+            });
+        }
+    } catch (e) {
+        console.warn("cameraForBounds error in computeSafeRouteCamera:", e);
+    }
+
+    if (camera && camera.center) {
+        const finalZoom = Math.max(minRouteComfortZoom, Math.min(maxRouteComfortZoom, camera.zoom));
+        return {
+            center: [camera.center.lng, camera.center.lat],
+            zoom: finalZoom
+        };
+    }
+
+    return {
+        center: [(minLon + maxLon) / 2, (minLat + maxLat) / 2],
+        zoom: Math.max(minRouteComfortZoom, 18.0)
+    };
+}
+
+/**
  * Megjeleníti a kiszámított útvonalat a térképen.
  * Kirajzolja a vízszintes és függőleges szakaszokat, elhelyezi a szintváltásokat
  * jelző vizuális markereket (lift, lépcső), felrajzolja az irányjelző nyilakat,
@@ -10628,65 +10735,18 @@ function drawRoute(pathKeys, sourceFeature = null, targetFeature = null) {
 
     drawDirectionArrows(pathKeys);
 
-    // 4. fitBounds a teljes útvonal befoglalására
-    const validPoints = boundsPoints.filter(p => Array.isArray(p) && p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]));
-    if (validPoints.length > 0) {
-        const lons = validPoints.map(p => p[0]);
-        const lats = validPoints.map(p => p[1]);
+    // 4. Biztonságos kamerabeállítás az útvonal befoglalására
+    const targetCam = typeof computeSafeRouteCamera === 'function'
+        ? computeSafeRouteCamera(boundsPoints)
+        : null;
 
-        const isMobile = window.innerWidth <= 600;
-        let routePadding;
-        
-        if (IS_EMBED_MODE) {
-            const embedBar = document.getElementById('embed-info-bar');
-            const bPad = (embedBar && embedBar.classList.contains('visible')) ? 95 : 35;
-            routePadding = { top: 30, bottom: bPad, left: 30, right: 65 };
-        } else if (isDesktopSidePanel()) {
-            const sheetEl = document.getElementById('bottom-sheet');
-            const panelW = sheetEl ? (sheetEl.getBoundingClientRect().width || 390) : 390;
-            // Desktopon a bal oldali panel szélessége + margó védi a látványt
-            routePadding = { 
-                top: 80, 
-                bottom: 50, 
-                left: panelW + 45, 
-                right: 75 
-            };
-        } else {
-            // Mobilon a felső top-bar és az alsó betekintő sáv magassága
-            const peekH = (typeof getPeekHeight === 'function') ? getPeekHeight() : 110;
-            routePadding = { 
-                top: isMobile ? 125 : 80, 
-                bottom: peekH + 35, 
-                left: 30, 
-                right: 65 
-            };
-        }
-
-        const routeMaxZoom = IS_EMBED_MODE ? 18.5 : 20.2;
-        const minLon = Math.min(...lons);
-        const maxLon = Math.max(...lons);
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-
-        if (minLon === maxLon && minLat === maxLat) {
-            map.flyTo({
-                center: [minLon, minLat],
-                zoom: 19.5,
-                padding: routePadding,
-                animate: true,
-                duration: 1000
-            });
-        } else {
-            map.fitBounds(
-                [[minLon, minLat], [maxLon, maxLat]],
-                {
-                    padding: routePadding,
-                    maxZoom: routeMaxZoom,
-                    animate: true,
-                    duration: 1000
-                }
-            );
-        }
+    if (targetCam && typeof map.flyTo === 'function') {
+        map.flyTo({
+            center: targetCam.center,
+            zoom: targetCam.zoom,
+            duration: 900,
+            essential: true
+        });
     }
     
     switchLevel(latlngs[0].level);
