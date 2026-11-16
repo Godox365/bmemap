@@ -1861,7 +1861,7 @@ async function clearMapsCache() {
         console.warn("Hiba a térkép gyorsítótár törlésekor:", e);
     }
     await updateCacheSizeDisplay();
-    showToast(typeof t === 'function' ? (t('toasts.maps_cache_cleared') || "Térképadatok gyorsítótára törölve! 🧹") : "Térképadatok gyorsítótára törölve! 🧹");
+    showToast(typeof t === 'function' ? (t('toasts.maps_cache_cleared') || "Térképadatok gyorsítótára törölve!") : "Térképadatok gyorsítótára törölve!");
 }
 
 /**
@@ -1883,7 +1883,7 @@ async function clearPhotosCache() {
         console.warn("Hiba a fotó gyorsítótár törlésekor:", e);
     }
     await updateCacheSizeDisplay();
-    showToast(typeof t === 'function' ? (t('toasts.photos_cache_cleared') || "Helyszíni fotók gyorsítótára törölve! 🧹") : "Helyszíni fotók gyorsítótára törölve! 🧹");
+    showToast(typeof t === 'function' ? (t('toasts.photos_cache_cleared') || "Helyszíni fotók gyorsítótára törölve!") : "Helyszíni fotók gyorsítótára törölve!");
 }
 
 /**
@@ -1902,7 +1902,7 @@ async function clearAllCache() {
         console.warn("Hiba a gyorsítótár törlésekor:", e);
     }
     await updateCacheSizeDisplay();
-    showToast(typeof t === 'function' ? t('toasts.cache_cleared') : "Sikeres nagytakarítás! 🧹");
+    showToast(typeof t === 'function' ? t('toasts.cache_cleared') : "Sikeres nagytakarítás!");
 }
 
 /**
@@ -1967,7 +1967,7 @@ function toggleFavoriteCurrent() {
                 fav.id !== bId &&
                 fav.id !== `campus_${bKey}`
             );
-            showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből! 🗑️");
+            showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből!");
         } else {
             userFavorites.push({
                 id: bId,
@@ -1978,7 +1978,7 @@ function toggleFavoriteCurrent() {
                 building: bKey,
                 level: null
             });
-            showToast(typeof t === 'function' ? t('toasts.fav_added') : "Hozzáadva a kedvencekhez! ⭐");
+            showToast(typeof t === 'function' ? t('toasts.fav_added') : "Hozzáadva a kedvencekhez!");
         }
         saveFavorites();
         updateFavoriteUI();
@@ -2007,7 +2007,7 @@ function toggleFavoriteCurrent() {
     if (isFavorite(selectedFeature)) {
         // Eltávolítás a kedvencek listájából az azonosító (id) alapján.
         userFavorites = userFavorites.filter(fav => fav.id !== id && fav.id !== selectedFeature.id && (!origId || fav.id !== origId));
-        showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből! 🗑️");
+        showToast(typeof t === 'function' ? t('toasts.fav_removed') : "Eltávolítva a kedvencekből!");
     } else {
         // Új bejegyzés hozzáadása a kedvencekhez az összegyűjtött adatokkal.
         userFavorites.push({ 
@@ -2017,7 +2017,7 @@ function toggleFavoriteCurrent() {
             level: level,
             building: currentBuildingKey 
         });
-        showToast(typeof t === 'function' ? t('toasts.fav_added') : "Hozzáadva a kedvencekhez! ⭐");
+        showToast(typeof t === 'function' ? t('toasts.fav_added') : "Hozzáadva a kedvencekhez!");
     }
     
     // Változások perzisztens mentése és a nézetek (UI, térkép) frissítése.
@@ -2380,6 +2380,11 @@ let currentRoutePath = [];
 let activeNavSource = null;
 /** Az aktuális navigáció célpontja (feature objektum). */
 let activeNavTarget = null;
+
+let activeCustomPinMarker = null;
+let activeCustomPinFeature = null;
+let pendingCustomPin = null;
+let _lastPinDropTime = 0;
 
 
 
@@ -3556,8 +3561,92 @@ function _initMapEventListeners() {
         });
     });
 
+    map.on('contextmenu', (e) => {
+        if (window.isMapInteractionLocked) return;
+        if (e.originalEvent && typeof e.originalEvent.preventDefault === 'function') {
+            e.originalEvent.preventDefault();
+        }
+        _lastPinDropTime = Date.now();
+        handleCoordinateSelection(e.lngLat.lng, e.lngLat.lat);
+    });
+
+    const mapCanvasEl = map.getCanvas();
+    if (mapCanvasEl) {
+        let touchTimer = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let pendingSafePanCoords = null;
+
+        mapCanvasEl.addEventListener('touchstart', (e) => {
+            if (window.isMapInteractionLocked) return;
+            if (e.touches.length !== 1) {
+                if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+                pendingSafePanCoords = null;
+                return;
+            }
+            const t = e.touches[0];
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+
+            if (touchTimer) clearTimeout(touchTimer);
+            touchTimer = setTimeout(() => {
+                touchTimer = null;
+                _lastPinDropTime = Date.now();
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(40); } catch (err) {}
+                }
+                const rect = mapCanvasEl.getBoundingClientRect();
+                const pt = [touchStartX - rect.left, touchStartY - rect.top];
+                const lngLat = map.unproject(pt);
+                pendingSafePanCoords = [lngLat.lng, lngLat.lat];
+                handleCoordinateSelection(lngLat.lng, lngLat.lat, { fromTouch: true });
+            }, 500);
+        }, { passive: true });
+
+        mapCanvasEl.addEventListener('touchmove', (e) => {
+            if (!touchTimer) return;
+            if (e.touches.length !== 1) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+                pendingSafePanCoords = null;
+                return;
+            }
+            const t = e.touches[0];
+            const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+            if (dist > 8) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+                pendingSafePanCoords = null;
+            }
+        }, { passive: true });
+
+        const cancelTouch = () => {
+            if (touchTimer) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+            }
+            if (pendingSafePanCoords) {
+                const [pLng, pLat] = pendingSafePanCoords;
+                pendingSafePanCoords = null;
+
+                const currentZoom = (typeof map !== 'undefined' && map && typeof map.getZoom === 'function') ? map.getZoom() : 19;
+                const shouldMove = currentZoom < 18.5 || (typeof isPointInSafeView === 'function' && !isPointInSafeView(pLng, pLat));
+                if (shouldMove) {
+                    setTimeout(() => {
+                        if (typeof moveCameraToSafeView === 'function') {
+                            moveCameraToSafeView(pLng, pLat);
+                        }
+                    }, 40);
+                }
+            }
+        };
+        mapCanvasEl.addEventListener('touchend', cancelTouch, { passive: true });
+        mapCanvasEl.addEventListener('touchcancel', cancelTouch, { passive: true });
+    }
+
     map.on('click', (e) => {
         if (window.isMapInteractionLocked) return;
+        if (Date.now() - _lastPinDropTime < 450) return;
 
         // 1. Kampusz átnézetben az épületkontúrok kattintása elsőbbséget kap
         if (map.getZoom() < CAMPUS_OVERVIEW_ZOOM) {
@@ -3649,6 +3738,7 @@ function _initMapEventListeners() {
             window.clickTimeout = null;
         }
 
+        clearCustomPin();
         openSheet(featToOpen);
     });
 }
@@ -5093,7 +5183,7 @@ function detectClosestBuilding() {
             if (closestKey && closestKey !== currentBuildingKey && minDist < 1000) {
                 
                 // --- Vizuális visszajelzés a felhasználónak a GPS alapú váltásról ---
-                showToast(typeof t === 'function' ? t('toasts.building_detected', { building: getBuildingName(closestKey) }) : `✨ ${getBuildingName(closestKey)} észlelve`);
+                showToast(typeof t === 'function' ? t('toasts.building_detected', { building: getBuildingName(closestKey) }) : `${getBuildingName(closestKey)} észlelve`);
                 
                 // Globális funkció meghívása a közelebbi épület betöltésére
                 changeBuilding(closestKey);
@@ -5710,6 +5800,17 @@ async function loadOsmData() {
             }, 120);
         }
 
+        if (pendingCustomPin) {
+            const pData = pendingCustomPin;
+            pendingCustomPin = null;
+            setTimeout(() => {
+                if (pData.lvl !== null && typeof switchLevel === 'function' && currentLevel !== pData.lvl) {
+                    switchLevel(pData.lvl);
+                }
+                handleCoordinateSelection(pData.lon, pData.lat, { fromDeepLink: true, nearRoom: pData.near });
+            }, 150);
+        }
+
         // URL paraméterek (pl. Deep Link megosztás) feldolgozása a betöltés befejezésekor
         processUrlParams();
 
@@ -6131,6 +6232,10 @@ function isDesktopSidePanel() {
 function getDefaultIllustration(feature) {
     if (!feature || !feature.properties) return 'assets/illustrations/default_room.svg';
     const p = feature.properties;
+    const isCustomPin = Boolean(feature._isCustomPin || p._isCustomPin);
+    if (isCustomPin) {
+        return 'assets/illustrations/selected_point.svg';
+    }
     const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
     if (isBuilding) {
         return 'assets/illustrations/building.svg';
@@ -6338,6 +6443,7 @@ function preloadIllustrations() {
         'assets/illustrations/microwave.svg',
         'assets/illustrations/office.svg',
         'assets/illustrations/restroom.svg',
+        'assets/illustrations/selected_point.svg',
         'assets/illustrations/stairs.svg',
         'assets/illustrations/storage.svg',
         'assets/illustrations/vending_machine.svg'
@@ -6799,11 +6905,12 @@ function openSheet(feature, skipFly = false) {
     const header = document.querySelector('.sheet-header');
     if (header) header.classList.remove('nav-mode');
     
-    const p = feature.properties;
+    const p = feature.properties || {};
     const isBuildingFeat = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || feature._isBuilding;
+    const isCustomPin = Boolean(feature._isCustomPin || p._isCustomPin);
 
     const footer = document.querySelector('.sheet-footer');
-    if (footer) footer.style.display = isBuildingFeat ? 'none' : 'flex';
+    if (footer) footer.style.display = (isBuildingFeat || (isCustomPin && p._isOutsideCampus)) ? 'none' : 'flex';
     const toiletInfo = getToiletInfo(feature);
 
     // --- 1. KÜLSŐ ADATBÁZIS (ROOM_DATABASE / BUILDING_DATABASE) LEKÉRDEZÉSE ---
@@ -6814,7 +6921,7 @@ function openSheet(feature, skipFly = false) {
         if (typeof getBuildingData === 'function') {
             roomData = getBuildingData(bKey);
         }
-    } else {
+    } else if (!isCustomPin) {
         roomData = findBestRoomMatch(p.name, p.ref, rawLevel, currentBuildingKey, p.alt_name);
     }
     
@@ -6824,7 +6931,9 @@ function openSheet(feature, skipFly = false) {
 
     // --- 3. MEGJELENÍTENDŐ NÉV (DISPLAY NAME) MEGHATÁROZÁSA ---
     let displayName = "";
-    if (toiletInfo) {
+    if (isCustomPin) {
+        displayName = p.name || (typeof t === 'function' ? t('sheet.custom_pin_title') : 'Kijelölt pont');
+    } else if (toiletInfo) {
         displayName = toiletInfo.name;
     } else if (isBuildingFeat) {
         const lang = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.language) || (typeof currentLanguage !== 'undefined' ? currentLanguage : 'hu');
@@ -6871,7 +6980,9 @@ function openSheet(feature, skipFly = false) {
     
     const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
 
-    if (isBuildingFeat) {
+    if (isCustomPin) {
+        document.getElementById('sheet-sub').innerText = p._subTitle || '';
+    } else if (isBuildingFeat) {
         const bAddress = (roomData && roomData.address) || p.address;
         document.getElementById('sheet-sub').innerText = bAddress || (typeof t === 'function' ? t('types.building', 'BME Épület') : 'BME Épület');
     } else if (toiletInfo) {
@@ -6905,6 +7016,23 @@ function openSheet(feature, skipFly = false) {
             document.getElementById('sheet-sub').innerText = `${lvlPrefix}: ${displayLevelString} | ${typeName}`;
         }
     }
+
+    const coordsContainer = document.getElementById('custom-pin-coords-container');
+    const coordsText = document.getElementById('custom-pin-coords-text');
+    if (coordsContainer && coordsText) {
+        if (isCustomPin) {
+            coordsText.innerText = `${Number(p._lat).toFixed(6)}, ${Number(p._lng).toFixed(6)}`;
+            coordsContainer.style.display = 'block';
+        } else {
+            coordsContainer.style.display = 'none';
+        }
+    }
+
+    const starBtn = document.getElementById('btn-favorite');
+    if (starBtn) starBtn.style.display = (isBuildingFeat || isCustomPin) ? 'none' : 'flex';
+
+    const nearbyBtn = document.querySelector('.btn-nearby');
+    if (nearbyBtn) nearbyBtn.style.display = (isBuildingFeat || isCustomPin) ? 'none' : 'flex';
     
     const dataContainer = document.getElementById('room-data-container');
 
@@ -7088,7 +7216,7 @@ function openSheet(feature, skipFly = false) {
         // hogy a frissen betöltött belső alaprajz (szintek, termek, folyosók) azonnal látható és használható legyen.
         targetHeight = getPeekHeight();
     } else {
-        targetHeight = (roomData || hasPoiData || hasNote || hasImages || hasIllustration) ? autoH : (getPeekHeight() + 20);
+        targetHeight = (roomData || hasPoiData || hasNote || hasImages || hasIllustration || isCustomPin) ? autoH : (getPeekHeight() + 20);
     }
 
     // Az információs panel (Sheet) végleges magasságának és nyitott állapotának azonnali beállítása
@@ -7130,7 +7258,7 @@ function openSheet(feature, skipFly = false) {
     drawSelectedHighlight(feature);
     
     // Kamera mozgatása a célmagasság (targetHeight) alapján
-    if (!skipFly) {
+    if (!skipFly && !isCustomPin) {
         smartFlyTo(feature, targetHeight);
     }
 }
@@ -7387,6 +7515,11 @@ function startNavigationToHere() {
     if (!selectedFeature) return;
     const p = selectedFeature.properties || {};
     if (p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding) return;
+    if (p._isOutsideCampus) {
+        showToast(typeof t === 'function' ? t('toasts.pin_too_far_for_nav') : "A kijelölt pont túl messze van a folyosóktól az útvonaltervezéshez.");
+        return;
+    }
+    setNavigationTarget(selectedFeature);
     startNavigation(selectedFeature, null); 
 }
 
@@ -7400,23 +7533,24 @@ function startNavigationFromHere() {
     if (!selectedFeature) return;
     const p = selectedFeature.properties || {};
     if (p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding) return;
-    // A kiválasztott elem regisztrálása várakozó indulási pontként
-    pendingNavSource = selectedFeature; 
+    if (p._isOutsideCampus) {
+        showToast(typeof t === 'function' ? t('toasts.pin_too_far_for_nav') : "A kijelölt pont túl messze van a folyosóktól az útvonaltervezéshez.");
+        return;
+    }
     
-    // Az információs panel (Bottom Sheet) bezárása
+    setNavigationSource(selectedFeature); 
     closeSheet(); 
     
-    // A keresőmező manipulálása a célpont megadásának ösztönzésére
     const input = document.getElementById('search-input');
     input.value = "";
     
-    // Dinamikus placeholder szöveg beállítása a kiválasztott elem referenciája alapján
-    const targetRef = selectedFeature.properties.ref || "...";
+    const targetRef = selectedFeature._isCustomPin
+        ? (p.name || (typeof t === 'function' ? t('sheet.custom_pin_title') : "Kijelölt pont"))
+        : (p.ref || "...");
     input.placeholder = (typeof t === 'function'
         ? t('search.nav_from_prompt', { target: targetRef })
         : `Hova mész innen: ${targetRef}?`);
     
-    // Fókuszálás a keresőmezőre, hogy azonnal gépelni lehessen
     input.focus();
 }
 
@@ -7432,7 +7566,7 @@ function drawSelectedHighlight(feature) {
 
     document.querySelectorAll('.selected-poi').forEach(el => el.classList.remove('selected-poi'));
 
-    if (!feature) {
+    if (!feature || feature._isCustomPin || (feature.properties && feature.properties._isCustomPin)) {
         map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
         return;
     }
@@ -7558,6 +7692,19 @@ function closeSheet() {
     }
 
     document.querySelectorAll('.selected-poi').forEach(el => el.classList.remove('selected-poi'));
+
+    const coordsContainer = document.getElementById('custom-pin-coords-container');
+    if (coordsContainer) coordsContainer.style.display = 'none';
+
+    const starBtn = document.getElementById('btn-favorite');
+    if (starBtn) starBtn.style.display = 'flex';
+
+    const nearbyBtn = document.querySelector('.btn-nearby');
+    if (nearbyBtn) nearbyBtn.style.display = 'flex';
+
+    if (typeof clearCustomPin === 'function') {
+        clearCustomPin();
+    }
 
     if (_mapLayersInitialized && map.getSource('highlight-geojson')) {
         map.getSource('highlight-geojson').setData({ type: 'FeatureCollection', features: [] });
@@ -8157,7 +8304,7 @@ function showPoiCategory(typeKey) {
     if (allPois.length === 0) {
         const poiName = typeof getPoiName === 'function' ? getPoiName(typeKey) : (POI_TYPES[typeKey] ? POI_TYPES[typeKey].name : typeKey);
         const currentBName = getBuildingName(currentBuildingKey);
-        showToast(typeof t === 'function' ? t('toasts.poi_not_in_building', { poi: poiName.toLowerCase(), building: currentBName }) : `Nincs ${poiName.toLowerCase()} a(z) ${currentBName}-ben! 🚫`);
+        showToast(typeof t === 'function' ? t('toasts.poi_not_in_building', { poi: poiName.toLowerCase(), building: currentBName }) : `Nincs ${poiName.toLowerCase()} a(z) ${currentBName}-ben!`);
         
         activePoiCategory = null;
         
@@ -8320,6 +8467,438 @@ function renderPoiMarker(poi) {
     el.addEventListener('click', handleClick);
 
     _poiMarkers.push(marker);
+}
+
+// === CUSTOM PIN & NAV ENDPOINT SUBSYSTEM (#1 & #6) ===
+
+/**
+ * Creates a normalized navigation endpoint model for uniform routing handling.
+ * @param {Object} feature - GeoJSON feature or custom pin object.
+ * @returns {Object|null}
+ */
+function toNavEndpoint(feature) {
+    if (!feature) return null;
+    const p = feature.properties || {};
+    const isCustomPin = Boolean(feature._isCustomPin || p._isCustomPin);
+    const b = (feature._buildingKey || p._buildingKey || currentBuildingKey || "").toUpperCase();
+    const lvl = (typeof getLevelsFromFeature === 'function' ? getLevelsFromFeature(feature)[0] : null) || p.level || currentLevel || "0";
+    let lat, lng;
+    if (feature.geometry && feature.geometry.type === 'Point') {
+        lng = feature.geometry.coordinates[0];
+        lat = feature.geometry.coordinates[1];
+    } else if (typeof turf !== 'undefined' && turf.centroid) {
+        try {
+            const c = turf.centroid(feature);
+            lng = c.geometry.coordinates[0];
+            lat = c.geometry.coordinates[1];
+        } catch (e) {}
+    }
+    const name = isCustomPin 
+        ? (p.name || (typeof t === 'function' ? t('sheet.custom_pin_title') : 'Kijelölt pont'))
+        : (typeof formatFeatureName === 'function' ? formatFeatureName(feature, b) : (p.ref || p.name || 'Helyszín'));
+
+    return {
+        id: feature.id || (p && (p.osm_id || p.id)) || `endpoint_${Date.now()}`,
+        type: isCustomPin ? 'coord' : (p._isBuilding ? 'building' : 'room'),
+        name: name,
+        subTitle: isCustomPin ? (p._subTitle || '') : `${b} épület, ${lvl}. szint`,
+        buildingKey: b,
+        level: lvl,
+        lat: lat,
+        lng: lng,
+        feature: feature,
+        isCustomPin: isCustomPin
+    };
+}
+
+/**
+ * Sets the active navigation source endpoint.
+ * @param {Object|null} endpointOrFeature
+ * @returns {Object|null}
+ */
+function setNavigationSource(endpointOrFeature) {
+    if (!endpointOrFeature) {
+        activeNavSource = null;
+        pendingNavSource = null;
+        return null;
+    }
+    const endpoint = (endpointOrFeature.type && endpointOrFeature.feature) ? endpointOrFeature : toNavEndpoint(endpointOrFeature);
+    activeNavSource = endpoint.feature;
+    pendingNavSource = endpoint.feature;
+    return endpoint;
+}
+
+/**
+ * Sets the active navigation target endpoint.
+ * @param {Object|null} endpointOrFeature
+ * @returns {Object|null}
+ */
+function setNavigationTarget(endpointOrFeature) {
+    if (!endpointOrFeature) {
+        activeNavTarget = null;
+        return null;
+    }
+    const endpoint = (endpointOrFeature.type && endpointOrFeature.feature) ? endpointOrFeature : toNavEndpoint(endpointOrFeature);
+    activeNavTarget = endpoint.feature;
+    return endpoint;
+}
+
+/**
+ * Resolves nearby room context using spatial containment or proximity search.
+ * @param {number} lng
+ * @param {number} lat
+ * @param {string|null} lvl
+ * @returns {{type: 'inside'|'near', name: string}|null}
+ */
+function resolveNearbyRoomContext(lng, lat, lvl) {
+    if (typeof turf === 'undefined' || !geoJsonData || !Array.isArray(geoJsonData.features)) return null;
+    const pt = turf.point([lng, lat]);
+    const candidates = geoJsonData.features.filter(f => {
+        const p = f.properties || {};
+        if (p.indoor === 'level' || p.indoor === 'wall') return false;
+        if (p.building && !p.indoor && !p.room) return false;
+        if (lvl && typeof getLevelsFromFeature === 'function') {
+            return getLevelsFromFeature(f).includes(String(lvl));
+        }
+        return true;
+    });
+
+    for (const f of candidates) {
+        if (f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
+            try {
+                if (turf.booleanPointInPolygon(pt, f)) {
+                    const name = typeof formatFeatureName === 'function' ? formatFeatureName(f, currentBuildingKey) : (f.properties && (f.properties.name || f.properties.ref));
+                    if (name) {
+                        return { type: 'inside', name };
+                    }
+                }
+            } catch (err) {}
+        }
+    }
+
+    let closest = null;
+    let minDistanceKm = Infinity;
+    for (const f of candidates) {
+        if (!f.geometry) continue;
+        const name = typeof formatFeatureName === 'function' ? formatFeatureName(f, currentBuildingKey) : (f.properties && (f.properties.name || f.properties.ref));
+        if (!name) continue;
+        try {
+            const centroid = turf.centroid(f);
+            const dist = turf.distance(pt, centroid);
+            if (dist < minDistanceKm) {
+                minDistanceKm = dist;
+                closest = { name, distKm: dist };
+            }
+        } catch (err) {}
+    }
+
+    if (closest && closest.distKm <= 0.03) {
+        return { type: 'near', name: closest.name };
+    }
+
+    return null;
+}
+
+/**
+ * Creates a synthetic GeoJSON Point feature for a custom dropped pin.
+ * @param {number} lng
+ * @param {number} lat
+ * @param {string|null} bKey
+ * @param {string|null} lvl
+ * @param {{type: string, name: string}|null} [nearInfo]
+ * @returns {Object}
+ */
+function createCustomPinFeature(lng, lat, bKey, lvl, nearInfo = null) {
+    const title = typeof t === 'function' ? t('sheet.custom_pin_title') : 'Kijelölt pont';
+    let subTitle = '';
+    const distCampus = typeof fastDistMeters === 'function' ? fastDistMeters(lat, lng, 47.478, 19.057) : 0;
+    const isOutsideCampus = !bKey && distCampus > 2500;
+    
+    if (isOutsideCampus) {
+        subTitle = typeof t === 'function' ? (t('sheet.outside_campus') || 'BME területén kívül') : 'BME területén kívül';
+    } else if (bKey && lvl !== null && lvl !== undefined) {
+        const mappedLvl = (typeof levelAliases !== 'undefined' && levelAliases[lvl]) ? levelAliases[lvl] : lvl;
+        const lvlPrefix = typeof t === 'function' ? (t('sheet.level_prefix') || 'Szint') : 'Szint';
+        const baseSub = `${bKey} épület, ${lvlPrefix}: ${mappedLvl}`;
+        if (nearInfo && nearInfo.name) {
+            const nearText = nearInfo.type === 'inside'
+                ? (typeof t === 'function' ? t('sheet.inside_room', { room: nearInfo.name }) : `${nearInfo.name} területén`)
+                : (typeof t === 'function' ? t('sheet.near_room', { room: nearInfo.name }) : `${nearInfo.name} közelében`);
+            subTitle = `${baseSub} • ${nearText}`;
+        } else {
+            subTitle = baseSub;
+        }
+    } else {
+        const campusTitle = typeof t === 'function' ? t('sheet.campus_overview_title') : 'BME Kampusz';
+        if (bKey) {
+            subTitle = `${campusTitle} • ${bKey} épület`;
+        } else {
+            subTitle = campusTitle;
+        }
+    }
+
+    return {
+        type: 'Feature',
+        id: `custom_pin_${Date.now()}`,
+        _isCustomPin: true,
+        _buildingKey: bKey || currentBuildingKey,
+        geometry: {
+            type: 'Point',
+            coordinates: [lng, lat]
+        },
+        properties: {
+            name: title,
+            ref: `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`,
+            level: lvl !== null && lvl !== undefined ? String(lvl) : null,
+            _isCustomPin: true,
+            _isOutsideCampus: isOutsideCampus,
+            _lat: lat,
+            _lng: lng,
+            _subTitle: subTitle,
+            _nearRoom: nearInfo ? nearInfo.name : null
+        }
+    };
+}
+
+/**
+ * Renders SVG markup for the custom pin with a minimally rounded tip.
+ * @returns {string}
+ */
+function getCustomPinSvgHtml() {
+    return `<svg class="custom-pin-svg" viewBox="0 0 28 36" width="28" height="36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path class="custom-pin-body" d="M14 1C6.82 1 1 6.82 1 14c0 9.2 11.2 19.3 12.28 20.25a1.1 1.1 0 0 0 1.44 0C15.8 33.3 27 23.2 27 14 27 6.82 21.18 1 14 1z" />
+        <circle class="custom-pin-dot" cx="14" cy="13" r="4.2" />
+    </svg>`;
+}
+
+/**
+ * Drops or updates the visual custom pin marker on the map.
+ * @param {Object} feature
+ */
+function dropCustomPinMarker(feature) {
+    if (!feature || !feature.geometry) return;
+    clearCustomPin(true);
+
+    const coords = feature.geometry.coordinates;
+    const el = document.createElement('div');
+    el.className = 'custom-pin-marker';
+    el.innerHTML = `<div class="custom-pin-icon anim-pop">${getCustomPinSvgHtml()}</div>`;
+
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openSheet(feature, true);
+        const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : 19;
+        if (currentZoom < 18.5 || !isPointInSafeView(coords[0], coords[1])) {
+            moveCameraToSafeView(coords[0], coords[1]);
+        }
+    });
+
+    activeCustomPinMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([coords[0], coords[1]])
+        .addTo(map);
+
+    activeCustomPinFeature = feature;
+    updateCustomPinVisibility();
+}
+
+/**
+ * Removes active custom pin from map unless protected by active navigation.
+ * @param {boolean} [force=false]
+ */
+function clearCustomPin(force = false) {
+    if (!activeCustomPinMarker) return;
+    const isNavWaypoint = activeRouteData && (activeRouteData.start === activeCustomPinFeature || activeRouteData.end === activeCustomPinFeature);
+    if (!force && isNavWaypoint) return;
+
+    try {
+        activeCustomPinMarker.remove();
+    } catch (e) {}
+
+    activeCustomPinMarker = null;
+    activeCustomPinFeature = null;
+}
+
+/**
+ * Updates pin marker visibility according to active floor level.
+ */
+function updateCustomPinVisibility() {
+    if (!activeCustomPinMarker || !activeCustomPinFeature) return;
+    const pinLvl = activeCustomPinFeature.properties ? activeCustomPinFeature.properties.level : null;
+    const el = activeCustomPinMarker.getElement();
+    if (!el) return;
+
+    if (pinLvl === null || pinLvl === undefined || String(pinLvl) === String(currentLevel)) {
+        el.style.display = '';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+/**
+ * Checks whether the given coordinate and pin marker are currently inside
+ * the safe visible viewport (not covered by the bottom sheet, top bar, or screen edges).
+ * @param {number} lng
+ * @param {number} lat
+ * @returns {boolean}
+ */
+function isPointInSafeView(lng, lat) {
+    if (!map || typeof map.project !== 'function') return true;
+    const pt = map.project([lng, lat]);
+    const container = (typeof map.getContainer === 'function') ? map.getContainer() : null;
+    const w = container ? (container.clientWidth || window.innerWidth) : (typeof window !== 'undefined' ? window.innerWidth : 800);
+    const h = container ? (container.clientHeight || window.innerHeight) : (typeof window !== 'undefined' ? window.innerHeight : 600);
+
+    const isDesktop = typeof isDesktopSidePanel === 'function' && isDesktopSidePanel();
+    let topMargin = 85;
+    let bottomMargin = 40;
+    let leftMargin = 40;
+    let rightMargin = 60;
+
+    if (isDesktop) {
+        const sheetEl = document.getElementById('bottom-sheet');
+        if (sheetEl && sheetEl.classList.contains('visible')) {
+            leftMargin = 420;
+        }
+    } else {
+        const sheetH = typeof getSheetTargetHeight === 'function' ? getSheetTargetHeight() : 180;
+        bottomMargin = sheetH + 50;
+    }
+
+    const pinTop = pt.y - 36;
+    return (
+        pt.x >= leftMargin &&
+        pt.x <= (w - rightMargin) &&
+        pinTop >= topMargin &&
+        pt.y <= (h - bottomMargin)
+    );
+}
+
+/**
+ * Moves the camera gently to bring the given coordinate into the safe viewport.
+ * Automatically zooms in if map is currently zoomed out (zoom < 18.5).
+ * @param {number} lng
+ * @param {number} lat
+ * @param {number} [targetZoom]
+ */
+function moveCameraToSafeView(lng, lat, targetZoom) {
+    if (!map) return;
+    const isDesktop = typeof isDesktopSidePanel === 'function' && isDesktopSidePanel();
+    const sheetH = typeof getSheetTargetHeight === 'function' ? getSheetTargetHeight() : 180;
+    const padding = {
+        top: 85,
+        bottom: isDesktop ? 40 : (sheetH + 50),
+        left: isDesktop ? 420 : 40,
+        right: 60
+    };
+
+    const currentZoom = (typeof map.getZoom === 'function') ? map.getZoom() : 19;
+    const finalZoom = targetZoom || (currentZoom < 18.5 ? 19.0 : currentZoom);
+
+    if (typeof map.flyTo === 'function') {
+        map.flyTo({
+            center: [lng, lat],
+            zoom: finalZoom,
+            padding: padding,
+            duration: 500,
+            essential: true
+        });
+    }
+}
+
+/**
+ * Legacy compatibility alias for safe viewport checks.
+ * @param {number} lng
+ * @param {number} lat
+ */
+function ensurePointInSafeView(lng, lat) {
+    const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : 19;
+    if (currentZoom < 18.5 || !isPointInSafeView(lng, lat)) {
+        moveCameraToSafeView(lng, lat);
+    }
+}
+
+/**
+ * Handles coordinate selection from long-press, contextmenu, or deep-link.
+ * @param {number} lng
+ * @param {number} lat
+ * @param {{skipFly?: boolean, fromTouch?: boolean, fromDeepLink?: boolean, nearRoom?: string}} [options]
+ * @returns {Object}
+ */
+function handleCoordinateSelection(lng, lat, options = {}) {
+    const isIndoor = map && typeof map.getZoom === 'function' && map.getZoom() >= CAMPUS_OVERVIEW_ZOOM && Boolean(currentBuildingKey);
+    let bKey = isIndoor ? currentBuildingKey : null;
+    let lvl = isIndoor ? currentLevel : null;
+    let nearInfo = null;
+
+    if (!isIndoor && typeof findCampusBuildingAt === 'function') {
+        const campusB = findCampusBuildingAt(lng, lat, false);
+        if (campusB) {
+            const props = campusB.properties || {};
+            bKey = (props.key || props.code || props.ref || "").toUpperCase();
+        }
+    }
+
+    if (options.nearRoom) {
+        nearInfo = { type: 'near', name: options.nearRoom };
+    } else if (isIndoor && geoJsonData && Array.isArray(geoJsonData.features)) {
+        nearInfo = resolveNearbyRoomContext(lng, lat, lvl);
+    }
+
+    const feature = createCustomPinFeature(lng, lat, bKey, lvl, nearInfo);
+    dropCustomPinMarker(feature);
+
+    openSheet(feature, true);
+
+    if (options.fromDeepLink && map && typeof map.flyTo === 'function') {
+        map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 19) });
+    } else if (!options.skipFly && !options.fromTouch) {
+        const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : 19;
+        if (currentZoom < 18.5 || !isPointInSafeView(lng, lat)) {
+            setTimeout(() => moveCameraToSafeView(lng, lat), 40);
+        }
+    }
+
+    return feature;
+}
+
+/**
+ * Copies coordinates of current custom pin to clipboard.
+ */
+function copyCustomPinCoords() {
+    if (!selectedFeature || !selectedFeature._isCustomPin) return;
+    const p = selectedFeature.properties || {};
+    const coordsStr = `${Number(p._lat).toFixed(6)}, ${Number(p._lng).toFixed(6)}`;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(coordsStr).then(() => {
+            showToast(typeof t === 'function' ? t('toasts.coords_copied') : 'Koordináták másolva!');
+        }).catch(() => {
+            prompt(typeof t === 'function' ? t('alerts.copy_coords_prompt', 'Másold ki a koordinátákat:') : 'Másold ki a koordinátákat:', coordsStr);
+        });
+    } else {
+        prompt(typeof t === 'function' ? t('alerts.copy_coords_prompt', 'Másold ki a koordinátákat:') : 'Másold ki a koordinátákat:', coordsStr);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.toNavEndpoint = toNavEndpoint;
+    window.setNavigationSource = setNavigationSource;
+    window.setNavigationTarget = setNavigationTarget;
+    window.resolveNearbyRoomContext = resolveNearbyRoomContext;
+    window.createCustomPinFeature = createCustomPinFeature;
+    window.getCustomPinSvgHtml = getCustomPinSvgHtml;
+    window.dropCustomPinMarker = dropCustomPinMarker;
+    window.clearCustomPin = clearCustomPin;
+    window.updateCustomPinVisibility = updateCustomPinVisibility;
+    window.isPointInSafeView = isPointInSafeView;
+    window.moveCameraToSafeView = moveCameraToSafeView;
+    window.ensurePointInSafeView = ensurePointInSafeView;
+    window.handleCoordinateSelection = handleCoordinateSelection;
+    window.copyCustomPinCoords = copyCustomPinCoords;
+    window.getActiveCustomPinMarker = () => activeCustomPinMarker;
+    window.getActiveCustomPinFeature = () => activeCustomPinFeature;
+    window.setGeoJsonData = (data) => { geoJsonData = data; };
+    window.setSelectedFeature = (f) => { selectedFeature = f; };
 }
 
 /**
@@ -9031,6 +9610,14 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     const target = targetFeature || selectedFeature;
     if (!target) return;
 
+    if ((target.properties && target.properties._isOutsideCampus) || (fromFeature && fromFeature.properties && fromFeature.properties._isOutsideCampus)) {
+        showToast(typeof t === 'function' ? t('toasts.pin_too_far_for_nav') : "A kijelölt pont túl messze van a folyosóktól az útvonaltervezéshez.");
+        return;
+    }
+
+    setNavigationTarget(target);
+    if (fromFeature) setNavigationSource(fromFeature);
+
     // Okos átirányítás a terem hozzáférési iránya (access: 'bridge' | 'k' | 'both') alapján:
     const roomAccess = typeof getLibraryRoomAccess === 'function' ? getLibraryRoomAccess(target) : '';
     if (roomAccess) {
@@ -9118,7 +9705,11 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     }
 
     if (startNodes.length === 0) { 
-        alert(typeof t === 'function' ? t('alerts.no_start_point') : "Nem található start útvonalpont!"); 
+        if (fromFeature && fromFeature._isCustomPin) {
+            showToast(typeof t === 'function' ? t('toasts.pin_too_far_for_nav') : "A kijelölt pont túl messze van a folyosóktól az útvonaltervezéshez.");
+        } else {
+            alert(typeof t === 'function' ? t('alerts.no_start_point') : "Nem található start útvonalpont!"); 
+        }
         return; 
     }
 
@@ -9179,7 +9770,11 @@ function startNavigation(targetFeature = null, fromFeature = null) {
     }
 
     if (endNodes.length === 0) { 
-        alert(typeof t === 'function' ? t('alerts.no_target_point') : "Nem található cél útvonalpont!"); 
+        if (target && target._isCustomPin) {
+            showToast(typeof t === 'function' ? t('toasts.pin_too_far_for_nav') : "A kijelölt pont túl messze van a folyosóktól az útvonaltervezéshez.");
+        } else {
+            alert(typeof t === 'function' ? t('alerts.no_target_point') : "Nem található cél útvonalpont!"); 
+        }
         return; 
     }
 
@@ -10300,6 +10895,10 @@ function switchLevel(level) {
     // 2. A szintválasztó gombok állapotának (aktív kijelölés) frissítése a felületen
     updateLevelUI();
     
+    if (typeof updateCustomPinVisibility === 'function') {
+        updateCustomPinVisibility();
+    }
+    
     // A szintváltás tényének és paramétereinek naplózása hibakeresési célból
 }
 
@@ -11106,7 +11705,7 @@ function showToast(message) {
 
     // Toast elem áthelyezése a body-ba a helyes pozicionáláshoz
     // hogy zárt sheet esetén is mindig a képernyőn (látható) maradjon!
-    if (t.parentNode.id === 'bottom-sheet') {
+    if (t.parentNode && t.parentNode.id === 'bottom-sheet') {
         document.body.appendChild(t);
     }
     
@@ -11139,8 +11738,18 @@ function shareCurrentState() {
 
     if (selectedFeature) {
         const p = selectedFeature.properties || {};
+        const isCustomPin = Boolean(selectedFeature._isCustomPin || p._isCustomPin);
         const isBuilding = p._isBuilding || p._isCampusOverview || p.room === 'building' || p.building || selectedFeature._isBuilding;
-        if (isBuilding) {
+        if (isCustomPin) {
+            payload = {
+                b: currentBuildingKey,
+                mode: 'coord',
+                lvl: p.level || currentLevel,
+                lat: p._lat,
+                lon: p._lng,
+                near: p._nearRoom || undefined
+            };
+        } else if (isBuilding) {
             // --- ÉPÜLET MEGOSZTÁSI MÓD ---
             const bKey = (p._buildingKey || p.code || p.ref || p.key || (typeof selectedFeature.id === 'string' && selectedFeature.id.replace(/^campus_/, '')) || '').toUpperCase();
             payload = {
@@ -11185,7 +11794,7 @@ function shareCurrentState() {
     // Kísérlet a generált URL vágólapra helyezésére a Clipboard API használatával
     navigator.clipboard.writeText(url.toString()).then(() => {
         // Sikeres másolás esetén értesítés megjelenítése
-        showToast(typeof t === 'function' ? t('toasts.link_copied') : "Link másolva! 📋");
+        showToast(typeof t === 'function' ? t('toasts.link_copied') : "Link másolva!");
     }).catch(err => {
         // Hibakezelés: ha a böngésző biztonsági okokból blokkolja a vágólap hozzáférést,
         // egy manuális prompt ablakot biztosítunk a másoláshoz
@@ -11245,7 +11854,7 @@ function copyEmbedCode() {
     const iframeSnippet = `<iframe src="${finalUrl}" width="100%" height="420" style="border:0; border-radius:16px;" loading="lazy" allow="geolocation" title="BME Térkép"></iframe>`;
 
     navigator.clipboard.writeText(iframeSnippet).then(() => {
-        showToast(typeof t === 'function' ? (t('toasts.embed_copied') || "Iframe beágyazási kód másolva! 📋") : "Iframe beágyazási kód másolva! 📋");
+        showToast(typeof t === 'function' ? (t('toasts.embed_copied') || "Iframe beágyazási kód másolva!") : "Iframe beágyazási kód másolva!");
     }).catch(err => {
         console.error('Embed copy failed', err);
         prompt(typeof t === 'function' ? t('alerts.copy_embed_prompt', 'Másold ki az iframe kódot:') : "Másold ki az iframe kódot:", iframeSnippet);
@@ -11379,6 +11988,9 @@ async function processUrlParams() {
                         if (closestFeat && minDist < 0.05) { // 50 méteren belül
                             return closestFeat;
                         }
+                        return (typeof createCustomPinFeature === 'function') 
+                            ? createCustomPinFeature(lon, lat, currentBuildingKey, desc.lvl || currentLevel)
+                            : null;
                     } catch(err) {
                         console.warn("Coordinate lookup error in findFeat:", err);
                     }
@@ -11426,6 +12038,28 @@ async function processUrlParams() {
         };
 
         // --- ÁLLAPOT VISSZAÁLLÍTÁSA A MÓD ALAPJÁN ---
+
+        // 0.1. GOMBOSTŰ / KOORDINÁTA MEGOSZTÁSI MÓD ('coord')
+        if (data.mode === 'coord' && typeof data.lat === 'number' && typeof data.lon === 'number') {
+            const bKey = (data.b || '').toUpperCase();
+            const lvl = data.lvl !== undefined && data.lvl !== null ? String(data.lvl) : null;
+            const restorePin = () => {
+                if (lvl !== null && typeof switchLevel === 'function' && currentLevel !== lvl) {
+                    switchLevel(lvl);
+                }
+                handleCoordinateSelection(data.lon, data.lat, { fromDeepLink: true, nearRoom: data.near });
+            };
+            if (bKey && bKey !== currentBuildingKey && typeof changeBuilding === 'function' && typeof BUILDINGS !== 'undefined' && BUILDINGS[bKey]) {
+                pendingCustomPin = { lon: data.lon, lat: data.lat, lvl: lvl, near: data.near };
+                changeBuilding(bKey);
+            } else {
+                restorePin();
+            }
+            if (!IS_EMBED_MODE) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            return;
+        }
 
         // 0. ÉPÜLET MEGOSZTÁSI MÓD ('building')
         if (data.mode === 'building') {
@@ -12269,7 +12903,7 @@ if (installBtn) {
 // Ha a felhasználó már telepítette az appot, elrejtjük a gombot
 window.addEventListener('appinstalled', () => {
     if (installSection) installSection.style.display = 'none';
-    showToast(typeof t === 'function' ? t('toasts.installed', 'BMEmap sikeresen telepítve! 📱') : "BMEmap sikeresen telepítve! 📱");
+    showToast(typeof t === 'function' ? t('toasts.installed', 'BMEmap sikeresen telepítve!') : "BMEmap sikeresen telepítve!");
 });
 
 // Globális függvényexportok a HTML eseménykezelők számára

@@ -33,6 +33,7 @@ const EXPECTED_FILES = [
     'microwave.svg',
     'office.svg',
     'restroom.svg',
+    'selected_point.svg',
     'stairs.svg',
     'storage.svg',
     'vending_machine.svg'
@@ -295,6 +296,7 @@ const featureTests = [
     { p: { door: 'yes' }, expected: 'assets/illustrations/door.svg' },
     { p: { room: 'office' }, expected: 'assets/illustrations/office.svg' },
     { p: { amenity: 'microwave' }, expected: 'assets/illustrations/microwave.svg' },
+    { p: { _isCustomPin: true }, expected: 'assets/illustrations/selected_point.svg' },
     { p: {}, expected: 'assets/illustrations/default_room.svg' }
 ];
 

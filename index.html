@@ -438,9 +438,19 @@
             </button>
         </div>
     </div>
-    <div id="toast-notification">Link másolva! 📋</div>
+    <div id="toast-notification">Link másolva!</div>
     
     <div id="sheet-scroll-content">
+        <div id="custom-pin-coords-container" class="custom-pin-coords-container" style="display:none;">
+            <div class="coords-card">
+                <span class="material-symbols-outlined coords-icon">my_location</span>
+                <span id="custom-pin-coords-text" class="coords-text">47.481234, 19.056789</span>
+                <button id="btn-copy-coords" class="btn-copy-coords" onclick="copyCustomPinCoords()" data-i18n-title="sheet.copy_coords" data-i18n-aria="sheet.copy_coords" title="Koordináták másolása" aria-label="Koordináták másolása">
+                    <span class="material-symbols-outlined">content_copy</span>
+                </button>
+            </div>
+        </div>
+
         <div id="room-data-container" style="display:none;">
             <div class="room-meta" style="display:none;"></div>
             <!-- OSM specifikus adatok (Büfék, POI-k) -->
