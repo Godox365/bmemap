@@ -1812,6 +1812,13 @@
     fill: rgba(0, 0, 0, 0.55);
 }
 
+#bottom-sheet.suppress-touch-select,
+#bottom-sheet.suppress-touch-select * {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+}
+
 .custom-pin-coords-container {
     margin-bottom: 12px;
 }

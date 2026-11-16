@@ -26,18 +26,48 @@ global.localStorage = {
     removeItem: (k) => { delete storage[k]; }
 };
 
+const docListeners = {};
+const winListeners = {};
+
 global.window = {
     location: { search: '', pathname: '/', href: 'https://bmemap.hu/' },
     innerWidth: 1024,
     innerHeight: 768,
-    addEventListener: () => {},
-    dispatchEvent: () => {},
+    addEventListener: (ev, fn) => {
+        if (!winListeners[ev]) winListeners[ev] = [];
+        winListeners[ev].push(fn);
+    },
+    removeEventListener: (ev, fn) => {
+        if (winListeners[ev]) {
+            winListeners[ev] = winListeners[ev].filter(f => f !== fn);
+        }
+    },
+    dispatchEvent: (ev) => {
+        if (winListeners[ev.type]) {
+            winListeners[ev.type].forEach(f => f(ev));
+        }
+    },
+    getSelection: () => ({
+        removeAllRanges: () => { global._selectionCleared = true; }
+    }),
     history: { replaceState: () => {} }
 };
 
 global.document = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
+    addEventListener: (ev, fn, opts) => {
+        if (!docListeners[ev]) docListeners[ev] = [];
+        docListeners[ev].push({ fn, opts });
+    },
+    removeEventListener: (ev, fn) => {
+        if (docListeners[ev]) {
+            docListeners[ev] = docListeners[ev].filter(item => item.fn !== fn);
+        }
+    },
+    dispatchEvent: (ev) => {
+        if (docListeners[ev.type]) {
+            docListeners[ev.type].forEach(item => item.fn(ev));
+        }
+    },
     documentElement: {
         classList: { add: () => {}, remove: () => {} },
         style: {}
@@ -555,6 +585,49 @@ await it('focusOnRouteSegment uses safe route camera with minZoom 17.5', () => {
     context.window.focusOnRouteSegment('1');
     assert(segmentFlyTo !== null, 'focusOnRouteSegment must call flyTo');
     assert(segmentFlyTo.zoom >= 17.5, `focusOnRouteSegment zoom ${segmentFlyTo.zoom} must be >= 17.5`);
+});
+
+// ============================================================================
+console.log('\n[Suite 9] Mobile Touchdown Text Selection Suppression');
+// ============================================================================
+
+await it('lockTouchSelection applies suppress-touch-select class and resets text selection', () => {
+    const sheetEl = context.document.getElementById('bottom-sheet');
+    sheetEl.classList.remove('suppress-touch-select');
+    context.window.lockTouchSelection();
+    assert(sheetEl.classList.contains('suppress-touch-select'), 'bottom-sheet must contain suppress-touch-select class');
+    assert.strictEqual(context.window.isTouchSelectionActive(), true, 'touch selection lock must be active');
+});
+
+await it('lockTouchSelection suppresses selectstart events via capture', () => {
+    let prevented = false;
+    const fakeEvent = {
+        type: 'selectstart',
+        preventDefault: () => { prevented = true; }
+    };
+    context.document.dispatchEvent(fakeEvent);
+    assert.strictEqual(prevented, true, 'selectstart default must be prevented while locked');
+});
+
+await it('unlockTouchSelection removes suppress-touch-select and restores selection state', async () => {
+    const sheetEl = context.document.getElementById('bottom-sheet');
+    context.window.unlockTouchSelection();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert(!sheetEl.classList.contains('suppress-touch-select'), 'suppress-touch-select must be removed after grace period');
+    assert.strictEqual(context.window.isTouchSelectionActive(), false, 'touch selection lock must be inactive');
+});
+
+await it('handleCoordinateSelection with fromTouch triggers lockTouchSelection', () => {
+    const sheetEl = context.document.getElementById('bottom-sheet');
+    context.window.handleCoordinateSelection(19.056, 47.481, { fromTouch: true });
+    assert(sheetEl.classList.contains('suppress-touch-select'), 'fromTouch coordinate selection must engage touch lock');
+    context.window.unlockTouchSelection();
+});
+
+await it('style.css defines suppress-touch-select rules with !important', () => {
+    assert(styleCssContent.includes('#bottom-sheet.suppress-touch-select'), 'style.css must define #bottom-sheet.suppress-touch-select');
+    assert(styleCssContent.includes('user-select: none !important'), 'style.css must define user-select: none !important');
+    assert(styleCssContent.includes('-webkit-touch-callout: none !important'), 'style.css must define -webkit-touch-callout: none !important');
 });
 
 console.log('\n================================================================');

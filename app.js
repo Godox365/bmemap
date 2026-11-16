@@ -2044,17 +2044,17 @@ function getPoiName(key) {
  */
 function updateFavoriteUI() {
     const btn = document.getElementById('btn-favorite');
-    
-    if (!selectedFeature) return;
+    if (!btn || !selectedFeature) return;
+    const span = btn.querySelector('span');
     
     if (isFavorite(selectedFeature)) {
         // Aktív állapot beállítása: a gomb megkapja a kiemelést.
         btn.classList.add('active');
-        btn.querySelector('span').innerText = 'star'; // Teli csillag (ha a font támogatja a fill-t)
+        if (span) span.innerText = 'star';
     } else {
         // Inaktív állapot beállítása: a kiemelés eltávolítása.
         btn.classList.remove('active');
-        btn.querySelector('span').innerText = 'star'; // Üres csillag
+        if (span) span.innerText = 'star';
     }
 }
 
@@ -3592,6 +3592,9 @@ function _initMapEventListeners() {
             touchTimer = setTimeout(() => {
                 touchTimer = null;
                 _lastPinDropTime = Date.now();
+                if (typeof lockTouchSelection === 'function') {
+                    lockTouchSelection();
+                }
                 if (navigator.vibrate) {
                     try { navigator.vibrate(40); } catch (err) {}
                 }
@@ -3624,6 +3627,9 @@ function _initMapEventListeners() {
             if (touchTimer) {
                 clearTimeout(touchTimer);
                 touchTimer = null;
+            }
+            if (typeof unlockTouchSelection === 'function') {
+                unlockTouchSelection();
             }
             if (pendingSafePanCoords) {
                 const [pLng, pLat] = pendingSafePanCoords;
@@ -8182,15 +8188,16 @@ function handleSearchLeftClick() {
 function updateRightButtonState() {
     const input = document.getElementById('search-input');
     const btn = document.getElementById('btn-right-action');
+    if (!btn || !input) return;
     const icon = btn.querySelector('span');
 
-    if (input.value.length > 0) {
+    if (input.value && input.value.length > 0) {
         // Törlés mód aktiválása: a mezőben van tartalom
-        icon.innerText = 'close';
+        if (icon) icon.innerText = 'close';
         btn.classList.add('active-mode'); // A vizuális stílust a CSS kezeli
     } else {
         // Beállítások mód aktiválása: a mező üres
-        icon.innerText = 'tune';
+        if (icon) icon.innerText = 'tune';
         btn.classList.remove('active-mode');
     }
 }
@@ -8804,6 +8811,87 @@ function ensurePointInSafeView(lng, lat) {
     }
 }
 
+let _touchSelectionLockTimeout = null;
+let _touchSelectionActive = false;
+
+function _preventSelectStart(e) {
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+    }
+}
+
+/**
+ * Suppresses native text selection and touch-callout on the bottom sheet
+ * during the active touchdown phase of mobile pin dropping.
+ * @param {number} [timeoutMs=3000]
+ */
+function lockTouchSelection(timeoutMs = 3000) {
+    _touchSelectionActive = true;
+    const sheetEl = document.getElementById('bottom-sheet');
+    if (sheetEl && sheetEl.classList) {
+        sheetEl.classList.add('suppress-touch-select');
+    }
+    if (typeof window !== 'undefined' && window.getSelection) {
+        try {
+            const sel = window.getSelection();
+            if (sel && typeof sel.removeAllRanges === 'function') {
+                sel.removeAllRanges();
+            }
+        } catch (e) {}
+    }
+    if (typeof document !== 'undefined' && document.addEventListener) {
+        document.addEventListener('selectstart', _preventSelectStart, { capture: true });
+    }
+    if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('touchend', unlockTouchSelection, { once: true, passive: true });
+        window.addEventListener('touchcancel', unlockTouchSelection, { once: true, passive: true });
+    }
+
+    if (_touchSelectionLockTimeout) {
+        clearTimeout(_touchSelectionLockTimeout);
+    }
+    _touchSelectionLockTimeout = setTimeout(() => {
+        unlockTouchSelection();
+    }, timeoutMs);
+}
+
+/**
+ * Releases touch selection suppression once user lifts finger.
+ */
+function unlockTouchSelection() {
+    if (_touchSelectionLockTimeout) {
+        clearTimeout(_touchSelectionLockTimeout);
+        _touchSelectionLockTimeout = null;
+    }
+    if (typeof document !== 'undefined' && document.removeEventListener) {
+        document.removeEventListener('selectstart', _preventSelectStart, { capture: true });
+    }
+    if (typeof window !== 'undefined' && window.getSelection) {
+        try {
+            const sel = window.getSelection();
+            if (sel && typeof sel.removeAllRanges === 'function') {
+                sel.removeAllRanges();
+            }
+        } catch (e) {}
+    }
+
+    setTimeout(() => {
+        _touchSelectionActive = false;
+        const sheetEl = document.getElementById('bottom-sheet');
+        if (sheetEl && sheetEl.classList) {
+            sheetEl.classList.remove('suppress-touch-select');
+        }
+        if (typeof window !== 'undefined' && window.getSelection) {
+            try {
+                const sel = window.getSelection();
+                if (sel && typeof sel.removeAllRanges === 'function') {
+                    sel.removeAllRanges();
+                }
+            } catch (e) {}
+        }
+    }, 100);
+}
+
 /**
  * Handles coordinate selection from long-press, contextmenu, or deep-link.
  * @param {number} lng
@@ -8812,6 +8900,10 @@ function ensurePointInSafeView(lng, lat) {
  * @returns {Object}
  */
 function handleCoordinateSelection(lng, lat, options = {}) {
+    if (options.fromTouch && typeof lockTouchSelection === 'function') {
+        lockTouchSelection();
+    }
+
     const isIndoor = map && typeof map.getZoom === 'function' && map.getZoom() >= CAMPUS_OVERVIEW_ZOOM && Boolean(currentBuildingKey);
     let bKey = isIndoor ? currentBuildingKey : null;
     let lvl = isIndoor ? currentLevel : null;
@@ -8890,6 +8982,9 @@ if (typeof window !== 'undefined') {
     window.drawRoute = drawRoute;
     window.focusOnRouteSegment = focusOnRouteSegment;
     window.setCurrentRoutePath = (path) => { currentRoutePath = path; };
+    window.lockTouchSelection = lockTouchSelection;
+    window.unlockTouchSelection = unlockTouchSelection;
+    window.isTouchSelectionActive = () => _touchSelectionActive;
 }
 
 /**
