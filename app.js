@@ -7902,6 +7902,96 @@ function handleSearch(e) {
     }, 180);
 }
 
+/**
+ * Intelligently parses user input to detect geographic coordinates.
+ * Supports "lat, lon" and "lon, lat" orders, comma/semicolon/whitespace delimiters.
+ * @param {string} inputStr
+ * @returns {{lat: number, lon: number, formatted: string}|null}
+ */
+function parseCoordinateInput(inputStr) {
+    if (!inputStr || typeof inputStr !== 'string') return null;
+    const trimmed = inputStr.trim();
+    if (trimmed.length < 5) return null;
+
+    // Remove degree symbols, cardinal letters N/S/E/W, parentheses, quotes
+    const clean = trimmed.replace(/[°NSEWnsew()[\]'"]/g, ' ').trim();
+    const parts = clean.split(/[,;\/\s]+/).filter(Boolean);
+    if (parts.length !== 2) return null;
+
+    if (!/^-?\d+(?:\.\d+)?$/.test(parts[0]) || !/^-?\d+(?:\.\d+)?$/.test(parts[1])) {
+        return null;
+    }
+
+    const num1 = parseFloat(parts[0]);
+    const num2 = parseFloat(parts[1]);
+    if (isNaN(num1) || isNaN(num2)) return null;
+
+    let lat, lon;
+    // Budapest / Hungary bounding box heuristic:
+    // Lat ~ 45.0 .. 49.5 (Budapest ~47.48)
+    // Lon ~ 16.0 .. 23.5 (Budapest ~19.05)
+    if (num1 >= 45.0 && num1 <= 49.5 && num2 >= 16.0 && num2 <= 23.5) {
+        lat = num1;
+        lon = num2;
+    } else if (num2 >= 45.0 && num2 <= 49.5 && num1 >= 16.0 && num1 <= 23.5) {
+        lat = num2;
+        lon = num1;
+    } else {
+        // Fallback for general global coordinates: Lat [-90, 90], Lon [-180, 180]
+        if (Math.abs(num1) <= 90 && Math.abs(num2) <= 180) {
+            lat = num1;
+            lon = num2;
+        } else if (Math.abs(num2) <= 90 && Math.abs(num1) <= 180) {
+            lat = num2;
+            lon = num1;
+        } else {
+            return null;
+        }
+    }
+
+    return {
+        lat: Number(lat.toFixed(6)),
+        lon: Number(lon.toFixed(6)),
+        formatted: `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+    };
+}
+
+/**
+ * Selects a parsed coordinate result from search, updates UI, and navigates.
+ * @param {{lat: number, lon: number, formatted: string}} coordMatch
+ */
+function selectCoordinateResult(coordMatch) {
+    const resultsDiv = document.getElementById('search-results');
+    if (resultsDiv) resultsDiv.style.display = 'none';
+    _searchSelectedIndex = -1;
+    _searchUserNavigated = false;
+
+    const input = document.getElementById('search-input');
+    if (input) {
+        input.value = coordMatch.formatted;
+        if (typeof input.blur === 'function') input.blur();
+    }
+    updateRightButtonState();
+
+    const targetLon = coordMatch.lon;
+    const targetLat = coordMatch.lat;
+
+    let targetBKey = null;
+    if (typeof findCampusBuildingAt === 'function') {
+        const b = findCampusBuildingAt(targetLon, targetLat, false);
+        if (b && b.properties) {
+            targetBKey = (b.properties.key || b.properties.code || b.properties.ref || "").toUpperCase();
+        }
+    }
+
+    if (targetBKey && targetBKey !== currentBuildingKey && typeof changeBuilding === 'function' && typeof BUILDINGS !== 'undefined' && BUILDINGS[targetBKey]) {
+        pendingCustomPin = { lon: targetLon, lat: targetLat, lvl: null, near: null };
+        changeBuilding(targetBKey);
+    } else {
+        handleCoordinateSelection(targetLon, targetLat);
+    }
+}
+
 function _executeSearch(e) {
     // A keresett kifejezés kinyerése és a felesleges szóközök eltávolítása
     const term = (e && e.target && e.target.value !== undefined) ? e.target.value.trim() : (document.getElementById('search-input')?.value || '').trim();
@@ -7911,6 +8001,12 @@ function _executeSearch(e) {
     // 1. RÉSZ: ENTER BILLENTYŰ LEÜTÉSÉNEK KEZELÉSE
     // ==========================================
     if (e && e.key === 'Enter') {
+        // --- 0. Prioritás: Koordináta-alapú közvetlen ugrás ---
+        const coordMatch = typeof parseCoordinateInput === 'function' ? parseCoordinateInput(term) : null;
+        if (coordMatch) {
+            selectCoordinateResult(coordMatch);
+            return;
+        }
         
         // --- 1. Prioritás: Generikus kategóriák (POI) kiemelése ---
         const lowerTerm = term.toLowerCase();
@@ -8011,6 +8107,43 @@ function _executeSearch(e) {
         _searchUserNavigated = false;
         updateRightButtonState();
         return; 
+    }
+
+    // Koordináta-alapú kiemelt találat az autocomplete elején
+    const coordMatch = typeof parseCoordinateInput === 'function' ? parseCoordinateInput(term) : null;
+    if (coordMatch) {
+        const div = document.createElement('div');
+        div.className = 'result-item coord-result-item';
+
+        let buildingBadge = "";
+        const targetB = typeof findCampusBuildingAt === 'function' ? findCampusBuildingAt(coordMatch.lon, coordMatch.lat, false) : null;
+        if (targetB && targetB.properties) {
+            const bName = targetB.properties.name || (typeof getBuildingName === 'function' ? getBuildingName(targetB.properties.key) : `${targetB.properties.key} épület`);
+            buildingBadge = `(${escapeHTML(bName)})`;
+        } else {
+            const distCampus = typeof fastDistMeters === 'function' ? fastDistMeters(coordMatch.lat, coordMatch.lon, 47.478, 19.057) : 0;
+            if (distCampus > 2500) {
+                buildingBadge = `(${typeof t === 'function' ? (t('sheet.outside_campus') || 'BME területén kívül') : 'BME területén kívül'})`;
+            } else {
+                buildingBadge = `(${typeof t === 'function' ? (t('search.coord_badge') || 'Térképi pont') : 'Térképi pont'})`;
+            }
+        }
+
+        const titleText = typeof t === 'function' ? t('search.coord_result_title', { coords: coordMatch.formatted }) : `Koordináta: ${coordMatch.formatted}`;
+        div.innerHTML = `<span class="material-symbols-outlined coord-icon">my_location</span><span>${escapeHTML(titleText)}</span> <span style="opacity:0.6; font-size:12px; margin-left:6px;">${buildingBadge}</span>`;
+
+        div.onclick = () => {
+            selectCoordinateResult(coordMatch);
+        };
+        div.addEventListener('mouseenter', () => {
+            const currentItems = _getSelectableSearchResults();
+            _searchSelectedIndex = currentItems.indexOf(div);
+            _searchUserNavigated = true;
+            _updateSearchSelection(currentItems);
+        });
+
+        resultsDiv.appendChild(div);
+        hasResults = true;
     }
 
     // --- Autocomplete Találatok (Épületek, Helyi és Más Épületek) ---
@@ -8985,6 +9118,8 @@ if (typeof window !== 'undefined') {
     window.lockTouchSelection = lockTouchSelection;
     window.unlockTouchSelection = unlockTouchSelection;
     window.isTouchSelectionActive = () => _touchSelectionActive;
+    window.parseCoordinateInput = parseCoordinateInput;
+    window.selectCoordinateResult = selectCoordinateResult;
 }
 
 /**

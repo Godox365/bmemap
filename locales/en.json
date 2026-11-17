@@ -29,7 +29,9 @@
     "level_badge": "(Floor: {level})",
     "fav_sub": "(Building {building}, Floor {level})",
     "fav_sub_building": "(Building)",
-    "search_aria": "Search"
+    "search_aria": "Search",
+    "coord_result_title": "Coordinates: {coords}",
+    "coord_badge": "Map location"
   },
   "modal": {
     "switch_building_title": "Switch Building",

@@ -29,7 +29,9 @@
     "level_badge": "(Szint: {level})",
     "fav_sub": "({building} épület, {level}. szint)",
     "fav_sub_building": "(Épület)",
-    "search_aria": "Keresés"
+    "search_aria": "Keresés",
+    "coord_result_title": "Koordináta: {coords}",
+    "coord_badge": "Térképi pont"
   },
   "modal": {
     "switch_building_title": "Épület váltás",

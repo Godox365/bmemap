@@ -88,8 +88,22 @@ global.document = {
             addEventListener: () => {},
             removeEventListener: () => {},
             remove() {},
-            querySelector: () => null,
-            querySelectorAll: () => [],
+            focus: () => {},
+            blur: () => {},
+            querySelector(sel) {
+                if (sel.startsWith('.')) {
+                    const cls = sel.slice(1);
+                    return this.children.find(c => c.className && c.className.includes(cls)) || null;
+                }
+                return null;
+            },
+            querySelectorAll(sel) {
+                if (sel.startsWith('.')) {
+                    const cls = sel.slice(1);
+                    return this.children.filter(c => c.className && c.className.includes(cls));
+                }
+                return [];
+            },
             classList: {
                 _classes: new Set(),
                 add(c) { this._classes.add(c); },
@@ -628,6 +642,76 @@ await it('style.css defines suppress-touch-select rules with !important', () => 
     assert(styleCssContent.includes('#bottom-sheet.suppress-touch-select'), 'style.css must define #bottom-sheet.suppress-touch-select');
     assert(styleCssContent.includes('user-select: none !important'), 'style.css must define user-select: none !important');
     assert(styleCssContent.includes('-webkit-touch-callout: none !important'), 'style.css must define -webkit-touch-callout: none !important');
+});
+
+// ============================================================================
+console.log('\n[Suite 10] Coordinate Search & Input Parsing');
+// ============================================================================
+
+await it('parseCoordinateInput parses standard lat, lon format', () => {
+    const res = context.window.parseCoordinateInput('47.481234, 19.056789');
+    assert(res !== null, 'Should parse valid coordinate');
+    assert.strictEqual(res.lat, 47.481234);
+    assert.strictEqual(res.lon, 19.056789);
+    assert.strictEqual(res.formatted, '47.481234, 19.056789');
+});
+
+await it('parseCoordinateInput intelligently swaps reversed lon, lat format', () => {
+    const res = context.window.parseCoordinateInput('19.056789, 47.481234');
+    assert(res !== null, 'Should parse reversed coordinate');
+    assert.strictEqual(res.lat, 47.481234);
+    assert.strictEqual(res.lon, 19.056789);
+    assert.strictEqual(res.formatted, '47.481234, 19.056789');
+});
+
+await it('parseCoordinateInput supports semicolon, space, and cardinal symbols', () => {
+    const resSemicolon = context.window.parseCoordinateInput('47.481234; 19.056789');
+    assert(resSemicolon && resSemicolon.lat === 47.481234 && resSemicolon.lon === 19.056789);
+
+    const resSpace = context.window.parseCoordinateInput('47.481234 19.056789');
+    assert(resSpace && resSpace.lat === 47.481234 && resSpace.lon === 19.056789);
+
+    const resCardinal = context.window.parseCoordinateInput('N 47.481234, E 19.056789');
+    assert(resCardinal && resCardinal.lat === 47.481234 && resCardinal.lon === 19.056789);
+});
+
+await it('parseCoordinateInput rejects invalid inputs', () => {
+    assert.strictEqual(context.window.parseCoordinateInput('IB028'), null);
+    assert.strictEqual(context.window.parseCoordinateInput('K épület'), null);
+    assert.strictEqual(context.window.parseCoordinateInput('47.481234'), null);
+    assert.strictEqual(context.window.parseCoordinateInput(''), null);
+    assert.strictEqual(context.window.parseCoordinateInput(null), null);
+});
+
+await it('_executeSearch generates autocomplete coordinate result item on input', () => {
+    const input = context.document.getElementById('search-input');
+    input.value = '47.481234, 19.056789';
+    context._executeSearch({ target: { value: '47.481234, 19.056789' } });
+
+    const resultsDiv = context.document.getElementById('search-results');
+    assert.strictEqual(resultsDiv.style.display, 'block', 'resultsDiv must be visible');
+    const coordItem = resultsDiv.querySelector('.coord-result-item');
+    assert(coordItem !== null, 'coord-result-item must be present in search results');
+    assert(coordItem.innerHTML.includes('47.481234, 19.056789'));
+});
+
+await it('_executeSearch selects coordinate directly on Enter keypress', () => {
+    const input = context.document.getElementById('search-input');
+    input.value = '47.481234, 19.056789';
+    context._executeSearch({ key: 'Enter', target: { value: '47.481234, 19.056789' } });
+
+    const activeFeature = context.window.getActiveCustomPinFeature();
+    assert(activeFeature !== null, 'Custom pin feature must be created');
+    assert.strictEqual(activeFeature._isCustomPin, true);
+    assert.strictEqual(input.value, '47.481234, 19.056789');
+    const resultsDiv = context.document.getElementById('search-results');
+    assert.strictEqual(resultsDiv.style.display, 'none', 'resultsDiv must be hidden after Enter');
+});
+
+await it('style.css defines coord-result-item styling', () => {
+    const styleCss = fs.readFileSync(path.join(rootDir, 'style.css'), 'utf8');
+    assert(styleCss.includes('.result-item.coord-result-item'), 'style.css must define .result-item.coord-result-item');
+    assert(styleCss.includes('.coord-icon'), 'style.css must define .coord-icon');
 });
 
 console.log('\n================================================================');

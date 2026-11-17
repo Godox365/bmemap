@@ -334,6 +334,17 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Árnyék, hogy elváljon a térképtől */
         }
         .result-item { padding: 12px 20px; color: var(--text-main); border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.15s; }
+        .result-item.coord-result-item {
+            display: flex;
+            align-items: center;
+        }
+        .result-item.coord-result-item .coord-icon {
+            font-size: 18px;
+            color: var(--color-ui-active, #8A2432);
+            vertical-align: text-bottom;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
 
         .btn-settings {
             position: absolute; right: 5px; top: 5px; bottom: 5px; width: 40px;

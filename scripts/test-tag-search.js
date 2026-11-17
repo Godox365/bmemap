@@ -115,7 +115,7 @@ global._searchUserNavigated = false;
 global.openSheet = () => {};
 global.changeBuilding = () => {};
 
-eval(appJsContent.slice(appJsContent.indexOf('function _executeSearch(e) {'), appJsContent.indexOf('// === KERESŐSÁV UI LOGIKA ===')));
+eval(appJsContent.slice(appJsContent.indexOf('function parseCoordinateInput'), appJsContent.indexOf('// === KERESŐSÁV UI LOGIKA ===')));
 
 global.globalSearchIndex = JSON.parse(searchIndexContent);
 global.levelAliases = {};
