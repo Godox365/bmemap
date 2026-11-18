@@ -79,6 +79,7 @@ global.document = {
             style: {},
             innerHTML: '',
             innerText: '',
+            dataset: {},
             children: [],
             appendChild(child) { this.children.push(child); return child; },
             insertBefore(newNode, refNode) { this.children.push(newNode); return newNode; },
@@ -108,7 +109,17 @@ global.document = {
                 _classes: new Set(),
                 add(c) { this._classes.add(c); },
                 remove(c) { this._classes.delete(c); },
-                contains(c) { return this._classes.has(c); }
+                contains(c) { return this._classes.has(c); },
+                toggle(c, force) {
+                    if (force === undefined) {
+                        if (this.contains(c)) this.remove(c);
+                        else this.add(c);
+                    } else if (force) {
+                        this.add(c);
+                    } else {
+                        this.remove(c);
+                    }
+                }
             }
         };
     },
@@ -302,7 +313,7 @@ await it('createCustomPinFeature sets correct properties and Point coordinates',
     assert.strictEqual(feat.properties._lat, 47.481456);
     assert.strictEqual(feat.properties._lng, 19.056123);
     assert.strictEqual(feat.properties.name, 'Kijelölt pont');
-    assert(feat.properties._subTitle.includes('K épület'));
+    assert(feat.properties._subTitle.toLowerCase().includes('k épület'));
     assert(feat.properties._subTitle.includes('KF51'));
 });
 
@@ -487,7 +498,7 @@ console.log('\n[Suite 5] Deep Link Share Serialization');
 await it('shareCurrentState encodes coord payload into base64 URL param', async () => {
     const pin = context.window.createCustomPinFeature(19.056789, 47.481234, 'K', '1', { type: 'near', name: 'KF51' });
     context.window.setSelectedFeature(pin);
-    context.activeRouteData = null;
+    context.window.setActiveRouteData(null);
     context.currentBuildingKey = 'K';
 
     context.shareCurrentState();
@@ -712,6 +723,191 @@ await it('style.css defines coord-result-item styling', () => {
     const styleCss = fs.readFileSync(path.join(rootDir, 'style.css'), 'utf8');
     assert(styleCss.includes('.result-item.coord-result-item'), 'style.css must define .result-item.coord-result-item');
     assert(styleCss.includes('.coord-icon'), 'style.css must define .coord-icon');
+});
+
+// ============================================================================
+console.log('\n[Suite 11] Campus Switch, Route Share & Live i18n Sheet (Manual Testing Fixes)');
+// ============================================================================
+
+const campusBuildingsJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'data/campus_buildings.json'), 'utf8'));
+context.window.setCampusGeoJsonData(campusBuildingsJson);
+
+const rBuildingFeat = campusBuildingsJson.features.find(f => (f.properties.key || f.properties.code) === 'R');
+const aBuildingFeat = campusBuildingsJson.features.find(f => (f.properties.key || f.properties.code) === 'A');
+const rCenterCoords = rBuildingFeat.properties.center || [19.059185, 47.478953];
+const aCenterCoords = aBuildingFeat.properties.center || [19.0560, 47.4827];
+
+await it('handleCoordinateSelection triggers changeBuilding when dropping pin into another indoor building', () => {
+    context.window.setCurrentBuildingKey('K');
+    context.currentBuildingKey = 'K';
+    let changedToKey = null;
+    context.changeBuilding = (bKey) => { changedToKey = bKey; };
+
+    const result = context.window.handleCoordinateSelection(rCenterCoords[0], rCenterCoords[1]);
+    assert.strictEqual(result, null, 'Should return null when deferred to changeBuilding');
+    assert.strictEqual(changedToKey, 'R', 'Must call changeBuilding with target building key R');
+    const pending = context.window.getPendingCustomPin();
+    assert(pending !== null, 'pendingCustomPin must be set');
+    assert.strictEqual(pending.lon, rCenterCoords[0]);
+    assert.strictEqual(pending.lat, rCenterCoords[1]);
+    context.window.setPendingCustomPin(null);
+});
+
+await it('handleCoordinateSelection assigns correct building key and does not switch building for outline-only buildings', () => {
+    context.window.setCurrentBuildingKey('K');
+    context.currentBuildingKey = 'K';
+    let changedToKey = null;
+    context.changeBuilding = (bKey) => { changedToKey = bKey; };
+
+    const result = context.window.handleCoordinateSelection(aCenterCoords[0], aCenterCoords[1]);
+    assert(result !== null, 'Should return created custom pin feature');
+    assert.strictEqual(changedToKey, null, 'Must NOT switch building for outline-only building');
+    assert.strictEqual(result._buildingKey, 'A', 'Must assign target outline building key');
+    assert.strictEqual(result.properties.level, null, 'Must not assign indoor level for outline-only building');
+    assert(result.properties._subTitle.includes('A épület') || result.properties._subTitle.includes('A Épület'));
+    assert(!result.properties._subTitle.includes('K épület'));
+});
+
+await it('getFeatureId correctly serializes custom pin into coord payload', () => {
+    const pin = context.window.createCustomPinFeature(19.056789, 47.481234, 'K', '1', { type: 'near', name: 'KF51' });
+    const payload = context.window.getFeatureId(pin);
+    assert(payload !== null);
+    assert.strictEqual(payload.type, 'coord');
+    assert.strictEqual(payload.lat, 47.481234);
+    assert.strictEqual(payload.lon, 19.056789);
+    assert.strictEqual(payload.lvl, '1');
+    assert.strictEqual(payload.near, 'KF51');
+    assert.strictEqual(payload.isCustomPin, true);
+});
+
+await it('shareCurrentState prioritizes active route over single custom pin', async () => {
+    const pin = context.window.createCustomPinFeature(19.056789, 47.481234, 'K', '1');
+    const targetRoom = {
+        type: 'Feature',
+        id: 'way/999888',
+        properties: { ref: 'KF51', name: 'KF51', level: '1' },
+        geometry: { type: 'Point', coordinates: [19.0568, 47.4815] }
+    };
+
+    context.window.setSelectedFeature(pin);
+    context.window.setActiveRouteData({ start: pin, end: targetRoom });
+    context.window.setCurrentBuildingKey('K');
+
+    context.window.shareCurrentState();
+    await new Promise(r => setTimeout(r, 50));
+
+    assert(global._clipboardText);
+    const parsedUrl = new URL(global._clipboardText);
+    const shareParam = parsedUrl.searchParams.get('share');
+    assert(shareParam);
+
+    const decodedJson = JSON.parse(Buffer.from(shareParam, 'base64').toString('utf8'));
+    assert.strictEqual(decodedJson.mode, 'route', 'Payload mode must be route even when custom pin is selectedFeature');
+    assert.strictEqual(decodedJson.s.type, 'coord');
+    assert.strictEqual(decodedJson.s.lat, 47.481234);
+    assert.strictEqual(decodedJson.s.lon, 19.056789);
+    assert.strictEqual(decodedJson.e.type, 'id');
+    assert.strictEqual(decodedJson.e.val, 'way/999888');
+
+    context.window.setActiveRouteData(null);
+});
+
+await it('processUrlParams restores route with custom pin endpoint and drops marker', async () => {
+    const pinPayload = {
+        mode: 'route',
+        b: 'K',
+        s: { type: 'coord', lat: 47.481234, lon: 19.056789, lvl: '1', isCustomPin: true },
+        e: { type: 'ref', val: 'KF51', lvl: '1' }
+    };
+    const b64 = Buffer.from(JSON.stringify(pinPayload), 'utf8').toString('base64');
+    context.window.location.search = `?share=${b64}`;
+
+    let startedNavWith = null;
+    context.startNavigation = (end, start) => { startedNavWith = { end, start }; };
+
+    context.window.setGeoJsonData({
+        features: [
+            {
+                type: 'Feature',
+                id: 'way/999888',
+                properties: { ref: 'KF51', name: 'KF51', level: '1' },
+                geometry: { type: 'Point', coordinates: [19.0568, 47.4815] }
+            }
+        ]
+    });
+
+    await context.window.processUrlParams();
+
+    assert(startedNavWith !== null, 'startNavigation must be called');
+    assert(startedNavWith.start !== null, 'Start endpoint must be restored');
+    assert.strictEqual(startedNavWith.start._isCustomPin, true);
+    assert.strictEqual(startedNavWith.start.geometry.coordinates[0], 19.056789);
+    assert.strictEqual(startedNavWith.start.geometry.coordinates[1], 47.481234);
+    assert.strictEqual(startedNavWith.end.properties.ref, 'KF51');
+
+    const activePin = context.window.getActiveCustomPinFeature();
+    assert(activePin !== null, 'Custom pin marker feature must be active on map');
+    assert.strictEqual(activePin._isCustomPin, true);
+
+    context.window.location.search = '';
+});
+
+await it('setLanguageMode updates open bottom sheet content in-place', async () => {
+    const sheetEl = context.document.getElementById('bottom-sheet');
+    sheetEl.classList.add('open');
+
+    const pin = context.window.createCustomPinFeature(19.056789, 47.481234, 'K', '1');
+    context.window.setSelectedFeature(pin);
+    context.window.openSheet(pin, true);
+
+    const titleEl = context.document.getElementById('sheet-title');
+    const subEl = context.document.getElementById('sheet-sub');
+    assert.strictEqual(titleEl.innerText, 'Kijelölt pont');
+    assert(subEl.innerText.includes('Szint: 1'));
+
+    // Switch to English in-place
+    context.t = (k, params) => {
+        const keys = k.split('.');
+        let val = enLocale;
+        for (const part of keys) {
+            val = val ? val[part] : null;
+        }
+        if (typeof val === 'string' && params) {
+            for (const [pk, pv] of Object.entries(params)) {
+                val = val.replace(`{${pk}}`, pv);
+            }
+        }
+        return val || k;
+    };
+    context.i18n = {
+        setLanguage: async () => {}
+    };
+
+    await context.window.setLanguageMode('en');
+
+    assert.strictEqual(titleEl.innerText, 'Selected point', 'Sheet title must dynamically re-render in English');
+    assert(subEl.innerText.includes('Level: 1') || subEl.innerText.includes('Building K'), 'Sheet subtitle must re-render in English');
+
+    // Switch back to Hungarian
+    context.t = (k, params) => {
+        const keys = k.split('.');
+        let val = huLocale;
+        for (const part of keys) {
+            val = val ? val[part] : null;
+        }
+        if (typeof val === 'string' && params) {
+            for (const [pk, pv] of Object.entries(params)) {
+                val = val.replace(`{${pk}}`, pv);
+            }
+        }
+        return val || k;
+    };
+
+    await context.window.setLanguageMode('hu');
+    assert.strictEqual(titleEl.innerText, 'Kijelölt pont');
+    assert(subEl.innerText.includes('Szint: 1'));
+
+    sheetEl.classList.remove('open');
 });
 
 console.log('\n================================================================');
