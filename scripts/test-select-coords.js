@@ -86,8 +86,21 @@ global.document = {
             after(...nodes) { this.children.push(...nodes); },
             before(...nodes) { this.children.unshift(...nodes); },
             replaceChildren(...children) { this.children = [...children]; },
-            addEventListener: () => {},
-            removeEventListener: () => {},
+            addEventListener(ev, fn, opts) {
+                if (!this._listeners) this._listeners = {};
+                if (!this._listeners[ev]) this._listeners[ev] = [];
+                this._listeners[ev].push({ fn, opts });
+            },
+            removeEventListener(ev, fn) {
+                if (this._listeners && this._listeners[ev]) {
+                    this._listeners[ev] = this._listeners[ev].filter(item => item.fn !== fn);
+                }
+            },
+            dispatchEvent(ev) {
+                if (this._listeners && this._listeners[ev.type]) {
+                    this._listeners[ev.type].forEach(item => item.fn(ev));
+                }
+            },
             remove() {},
             focus: () => {},
             blur: () => {},
@@ -184,8 +197,31 @@ global.turf = {
 };
 
 // Mock MapLibre Map and Marker
+const mockCanvas = global.document.createElement('canvas');
+mockCanvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1024, height: 768 });
+mockCanvas.clientWidth = 1024;
+mockCanvas.clientHeight = 768;
+
+const mockDragRotate = {
+    _mouseRotate: { _moveStateManager: { _correctEvent: null } },
+    _mousePitch: { _moveStateManager: { _correctEvent: null } },
+    enable: () => {},
+    disable: () => {},
+    isEnabled: () => true,
+    isActive: () => false
+};
+
+const mapListeners = {};
+
 const mockMapInstance = {
     getZoom: () => 19,
+    getBearing: () => 0,
+    getPitch: () => 0,
+    stop: () => {},
+    easeTo: () => {},
+    fitBounds: () => {},
+    dragRotate: mockDragRotate,
+    _initOptions: null,
     _padding: { top: 0, bottom: 0, left: 0, right: 0 },
     getPadding: function() { return this._padding; },
     setPadding: function(p) { this._padding = { ...p }; return this; },
@@ -207,8 +243,17 @@ const mockMapInstance = {
         };
     },
     flyTo: (opts) => { global._lastFlyTo = opts; },
-    getCanvas: () => global.document.createElement('canvas'),
-    on: () => {},
+    getCanvas: () => mockCanvas,
+    unproject: (pt) => ({ lng: 19.056 + (pt[0] / 10000), lat: 47.481 + (pt[1] / 10000) }),
+    project: (coords) => ({ x: 500, y: 300 }),
+    on: (ev, ...args) => {
+        const fn = args.length >= 2 ? args[args.length - 1] : args[0];
+        if (!mapListeners[ev]) mapListeners[ev] = [];
+        mapListeners[ev].push(fn);
+    },
+    fire: (ev, data) => {
+        if (mapListeners[ev]) mapListeners[ev].forEach(f => f(data));
+    },
     addControl: () => {},
     getSource: () => ({ setData: () => {} }),
     getLayer: () => true,
@@ -216,7 +261,8 @@ const mockMapInstance = {
 };
 
 global.maplibregl = {
-    Map: function() {
+    Map: function(opts) {
+        mockMapInstance._initOptions = opts;
         return mockMapInstance;
     },
     AttributionControl: function() {},
@@ -279,6 +325,10 @@ const context = vm.createContext({
 
 vm.runInContext(roomDataContent, context);
 vm.runInContext(appJsContent, context);
+
+if (typeof context.window._initMapEventListeners === 'function') {
+    context.window._initMapEventListeners();
+}
 
 // Tests execution
 let passed = 0;
@@ -916,6 +966,97 @@ await it('setLanguageMode updates open bottom sheet content in-place', async () 
     assert(subEl.innerText.includes('Szint: 1'));
 
     sheetEl.classList.remove('open');
+});
+
+// ============================================================================
+console.log('\n[Suite 12] Desktop Rotate/Tilt (Ctrl+Left) & Long-Press Pin Drop');
+// ============================================================================
+
+await it('map initialization enables pitchWithRotate and sets maxPitch >= 60', () => {
+    assert(context.map._initOptions !== null, 'Map init options must be captured');
+    assert.strictEqual(context.map._initOptions.pitchWithRotate, true, 'pitchWithRotate must be true for 3D tilt');
+    assert(context.map._initOptions.maxPitch >= 60, 'maxPitch must be at least 60');
+    assert.strictEqual(context.map._initOptions.dragRotate, true, 'dragRotate must be enabled');
+});
+
+await it('configureDesktopDragRotate accepts Ctrl+Left click and rejects Right click (button 2)', () => {
+    assert(context.map.dragRotate._mouseRotate._moveStateManager._correctEvent, 'correctEvent must be defined');
+    const isCorrect = context.map.dragRotate._mouseRotate._moveStateManager._correctEvent;
+
+    // Right click without Ctrl -> REJECT (should not rotate)
+    assert.strictEqual(isCorrect({ button: 2, ctrlKey: false }), false);
+    // Right click with Ctrl -> REJECT (should not rotate)
+    assert.strictEqual(isCorrect({ button: 2, ctrlKey: true }), false);
+    // Left click without Ctrl -> REJECT (normal pan, not rotate)
+    assert.strictEqual(isCorrect({ button: 0, ctrlKey: false }), false);
+    // Left click with Ctrl -> ACCEPT (rotate/tilt)
+    assert.strictEqual(isCorrect({ button: 0, ctrlKey: true }), true);
+    // Left click with Meta -> ACCEPT (Mac Cmd+click)
+    assert.strictEqual(isCorrect({ button: 0, metaKey: true }), true);
+});
+
+await it('desktop mouse down for 500ms triggers custom pin drop', async () => {
+    context.window.clearCustomPin(true);
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null);
+
+    const canvas = context.map.getCanvas();
+    canvas.dispatchEvent({ type: 'mousedown', button: 0, clientX: 300, clientY: 250, ctrlKey: false, metaKey: false });
+
+    await new Promise(r => setTimeout(r, 550));
+
+    const pin = context.window.getActiveCustomPinFeature();
+    assert(pin !== null, 'Custom pin must be created after 500ms long-press');
+    assert.strictEqual(pin._isCustomPin, true);
+
+    global.window.dispatchEvent({ type: 'mouseup' });
+});
+
+await it('desktop mouse move > 6px cancels long-press and allows dragPan', async () => {
+    context.window.clearCustomPin(true);
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null);
+
+    const canvas = context.map.getCanvas();
+    canvas.dispatchEvent({ type: 'mousedown', button: 0, clientX: 300, clientY: 250, ctrlKey: false, metaKey: false });
+
+    // Move mouse 15px (> 6px tolerance)
+    global.window.dispatchEvent({ type: 'mousemove', clientX: 315, clientY: 250 });
+
+    await new Promise(r => setTimeout(r, 550));
+
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null, 'Custom pin must not be created after drag movement');
+
+    global.window.dispatchEvent({ type: 'mouseup' });
+});
+
+await it('desktop Ctrl+mouse down does not trigger long-press pin drop', async () => {
+    context.window.clearCustomPin(true);
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null);
+
+    const canvas = context.map.getCanvas();
+    // Left click with Ctrl -> Rotation gesture, NOT long-press pin
+    canvas.dispatchEvent({ type: 'mousedown', button: 0, clientX: 300, clientY: 250, ctrlKey: true, metaKey: false });
+
+    await new Promise(r => setTimeout(r, 550));
+
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null, 'Custom pin must not be created when Ctrl is pressed');
+
+    global.window.dispatchEvent({ type: 'mouseup' });
+});
+
+await it('desktop contextmenu (right click) continues to drop pin cleanly', () => {
+    context.window.clearCustomPin(true);
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null);
+
+    context.map.fire('contextmenu', {
+        lngLat: { lng: 19.056789, lat: 47.481234 },
+        originalEvent: { preventDefault: () => {} }
+    });
+
+    const pin = context.window.getActiveCustomPinFeature();
+    assert(pin !== null, 'Custom pin must be created on contextmenu event');
+    assert.strictEqual(pin._isCustomPin, true);
+    assert.strictEqual(pin.geometry.coordinates[0], 19.056789);
+    assert.strictEqual(pin.geometry.coordinates[1], 47.481234);
 });
 
 console.log('\n================================================================');

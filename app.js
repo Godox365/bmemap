@@ -2516,10 +2516,28 @@ const map = new maplibregl.Map({
     zoom: currentBuilding.zoom,
     attributionControl: false,
     dragRotate: true,
-    pitchWithRotate: false,
+    pitchWithRotate: true,
+    maxPitch: 65,
     bearingSnap: 20,
     maxZoom: 22
 });
+
+/**
+ * Konfigurálja az asztali forgatást és 3D dőlést:
+ * Jobb egérgomb helyett KIZÁRÓLAG Ctrl + bal egérgombbal engedélyezi a forgatást és a 3D döntést.
+ */
+function configureDesktopDragRotate() {
+    if (!map || !map.dragRotate) return;
+    const isCtrlLeftClick = (e) => Boolean(e && e.button === 0 && (e.ctrlKey || e.metaKey));
+
+    if (map.dragRotate._mouseRotate && map.dragRotate._mouseRotate._moveStateManager) {
+        map.dragRotate._mouseRotate._moveStateManager._correctEvent = isCtrlLeftClick;
+    }
+    if (map.dragRotate._mousePitch && map.dragRotate._mousePitch._moveStateManager) {
+        map.dragRotate._mousePitch._moveStateManager._correctEvent = isCtrlLeftClick;
+    }
+}
+configureDesktopDragRotate();
 
 // Attribution hozzáadása manuálisan (jobb alsó sarok)
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
@@ -3220,7 +3238,9 @@ function zoomToCampusOverview() {
     map.fitBounds(CAMPUS_BBOX, {
         padding: 50,
         maxZoom: 15.8,
-        duration: 1200
+        duration: 1200,
+        pitch: 0,
+        bearing: 0
     });
     setTimeout(() => {
         _isCampusTransitionActive = false;
@@ -3570,12 +3590,66 @@ function _initMapEventListeners() {
         handleCoordinateSelection(e.lngLat.lng, e.lngLat.lat);
     });
 
+    let _mouseLongPressFired = false;
+
     const mapCanvasEl = map.getCanvas();
     if (mapCanvasEl) {
         let touchTimer = null;
         let touchStartX = 0;
         let touchStartY = 0;
         let pendingSafePanCoords = null;
+
+        let mouseTimer = null;
+        let mouseStartX = 0;
+        let mouseStartY = 0;
+
+        mapCanvasEl.addEventListener('mousedown', (e) => {
+            if (window.isMapInteractionLocked) return;
+            // Csak sima bal egérgomb (button === 0), Ctrl/Meta (forgatás/dőlés) nélkül
+            if (e.button !== 0 || e.ctrlKey || e.metaKey) {
+                if (mouseTimer) { clearTimeout(mouseTimer); mouseTimer = null; }
+                return;
+            }
+
+            mouseStartX = e.clientX;
+            mouseStartY = e.clientY;
+            _mouseLongPressFired = false;
+
+            if (mouseTimer) clearTimeout(mouseTimer);
+            mouseTimer = setTimeout(() => {
+                mouseTimer = null;
+                _mouseLongPressFired = true;
+                _lastPinDropTime = Date.now();
+
+                const rect = mapCanvasEl.getBoundingClientRect();
+                const pt = [mouseStartX - rect.left, mouseStartY - rect.top];
+                const lngLat = map.unproject(pt);
+
+                handleCoordinateSelection(lngLat.lng, lngLat.lat);
+            }, 500);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!mouseTimer) return;
+            const dist = Math.hypot(e.clientX - mouseStartX, e.clientY - mouseStartY);
+            if (dist > 6) {
+                clearTimeout(mouseTimer);
+                mouseTimer = null;
+            }
+        });
+
+        const cancelMouseTimer = () => {
+            if (mouseTimer) {
+                clearTimeout(mouseTimer);
+                mouseTimer = null;
+            }
+            if (_mouseLongPressFired) {
+                setTimeout(() => { _mouseLongPressFired = false; }, 100);
+            }
+        };
+
+        window.addEventListener('mouseup', cancelMouseTimer);
+        window.addEventListener('blur', cancelMouseTimer);
 
         mapCanvasEl.addEventListener('touchstart', (e) => {
             if (window.isMapInteractionLocked) return;
@@ -3652,6 +3726,10 @@ function _initMapEventListeners() {
 
     map.on('click', (e) => {
         if (window.isMapInteractionLocked) return;
+        if (_mouseLongPressFired) {
+            _mouseLongPressFired = false;
+            return;
+        }
         if (Date.now() - _lastPinDropTime < 450) return;
 
         // 1. Kampusz átnézetben az épületkontúrok kattintása elsőbbséget kap
@@ -9196,6 +9274,8 @@ if (typeof window !== 'undefined') {
     window.getCurrentBuildingKey = () => currentBuildingKey;
     window.getPendingCustomPin = () => pendingCustomPin;
     window.setPendingCustomPin = (p) => { pendingCustomPin = p; };
+    window.configureDesktopDragRotate = configureDesktopDragRotate;
+    window._initMapEventListeners = _initMapEventListeners;
 }
 
 /**
