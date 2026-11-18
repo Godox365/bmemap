@@ -5823,7 +5823,7 @@ async function loadOsmData() {
                 if (pData.lvl !== null && typeof switchLevel === 'function' && currentLevel !== pData.lvl) {
                     switchLevel(pData.lvl);
                 }
-                handleCoordinateSelection(pData.lon, pData.lat, { fromDeepLink: true, nearRoom: pData.near });
+                handleCoordinateSelection(pData.lon, pData.lat, { fromDeepLink: true, nearRoom: pData.near, skipFly: Boolean(pData.skipFly) });
             }, 150);
         }
 
@@ -7999,8 +7999,15 @@ function selectCoordinateResult(coordMatch) {
     }
 
     if (targetBKey && targetBKey !== currentBuildingKey && typeof changeBuilding === 'function' && typeof BUILDINGS !== 'undefined' && BUILDINGS[targetBKey]) {
-        pendingCustomPin = { lon: targetLon, lat: targetLat, lvl: null, near: null };
-        changeBuilding(targetBKey);
+        const targetZoom = (typeof BUILDINGS !== 'undefined' && BUILDINGS[targetBKey] && BUILDINGS[targetBKey].zoom) 
+            ? BUILDINGS[targetBKey].zoom 
+            : 19.0;
+        const tempFeat = createCustomPinFeature(targetLon, targetLat, targetBKey, null, null);
+        dropCustomPinMarker(tempFeat);
+        moveCameraToSafeView(targetLon, targetLat, targetZoom, 750);
+
+        pendingCustomPin = { lon: targetLon, lat: targetLat, lvl: null, near: null, skipFly: true };
+        changeBuilding(targetBKey, null, null, true);
     } else {
         handleCoordinateSelection(targetLon, targetLat);
     }
@@ -8940,8 +8947,9 @@ function isPointInSafeView(lng, lat) {
  * @param {number} lng
  * @param {number} lat
  * @param {number} [targetZoom]
+ * @param {number} [duration=500]
  */
-function moveCameraToSafeView(lng, lat, targetZoom) {
+function moveCameraToSafeView(lng, lat, targetZoom, duration = 500) {
     if (!map) return;
     const isDesktop = typeof isDesktopSidePanel === 'function' && isDesktopSidePanel();
     const sheetH = typeof getSheetTargetHeight === 'function' ? getSheetTargetHeight() : 180;
@@ -8960,7 +8968,7 @@ function moveCameraToSafeView(lng, lat, targetZoom) {
             center: [lng, lat],
             zoom: finalZoom,
             padding: padding,
-            duration: 500,
+            duration: duration,
             essential: true
         });
     }
@@ -9087,8 +9095,16 @@ function handleCoordinateSelection(lng, lat, options = {}) {
     ));
 
     if (buildingHasIndoor && detectedKey !== currentBuildingKey && !options.fromDeepLink && typeof changeBuilding === 'function') {
-        pendingCustomPin = { lon: lng, lat: lat, lvl: null, near: options.nearRoom || null };
-        changeBuilding(detectedKey);
+        const targetZoom = (typeof BUILDINGS !== 'undefined' && BUILDINGS[detectedKey] && BUILDINGS[detectedKey].zoom) 
+            ? BUILDINGS[detectedKey].zoom 
+            : 19.0;
+
+        const tempFeat = createCustomPinFeature(lng, lat, detectedKey, null, options.nearRoom ? { type: 'near', name: options.nearRoom } : null);
+        dropCustomPinMarker(tempFeat);
+        moveCameraToSafeView(lng, lat, targetZoom, 750);
+
+        pendingCustomPin = { lon: lng, lat: lat, lvl: null, near: options.nearRoom || null, skipFly: true };
+        changeBuilding(detectedKey, null, null, true);
         return null;
     }
 
@@ -9108,7 +9124,7 @@ function handleCoordinateSelection(lng, lat, options = {}) {
 
     openSheet(feature, true);
 
-    if (options.fromDeepLink && map && typeof map.flyTo === 'function') {
+    if (options.fromDeepLink && !options.skipFly && map && typeof map.flyTo === 'function') {
         map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 19) });
     } else if (!options.skipFly && !options.fromTouch) {
         const currentZoom = (map && typeof map.getZoom === 'function') ? map.getZoom() : 19;

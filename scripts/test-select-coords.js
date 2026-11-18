@@ -741,15 +741,23 @@ await it('handleCoordinateSelection triggers changeBuilding when dropping pin in
     context.window.setCurrentBuildingKey('K');
     context.currentBuildingKey = 'K';
     let changedToKey = null;
-    context.changeBuilding = (bKey) => { changedToKey = bKey; };
+    let changePreserveCamera = null;
+    context.changeBuilding = (bKey, autoSearch, targetId, preserveCamera) => {
+        changedToKey = bKey;
+        changePreserveCamera = preserveCamera;
+    };
 
     const result = context.window.handleCoordinateSelection(rCenterCoords[0], rCenterCoords[1]);
     assert.strictEqual(result, null, 'Should return null when deferred to changeBuilding');
     assert.strictEqual(changedToKey, 'R', 'Must call changeBuilding with target building key R');
+    assert.strictEqual(changePreserveCamera, true, 'changeBuilding must be called with preserveCamera=true for smooth flyTo');
     const pending = context.window.getPendingCustomPin();
     assert(pending !== null, 'pendingCustomPin must be set');
     assert.strictEqual(pending.lon, rCenterCoords[0]);
     assert.strictEqual(pending.lat, rCenterCoords[1]);
+    assert.strictEqual(pending.skipFly, true, 'skipFly must be set to true on pending pin');
+    const activeMarker = context.window.getActiveCustomPinMarker();
+    assert(activeMarker !== null, 'Temporary pin marker must be dropped immediately');
     context.window.setPendingCustomPin(null);
 });
 
