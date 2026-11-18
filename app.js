@@ -2523,18 +2523,93 @@ const map = new maplibregl.Map({
 });
 
 /**
- * Konfigurálja az asztali forgatást és 3D dőlést:
- * Jobb egérgomb helyett KIZÁRÓLAG Ctrl + bal egérgombbal engedélyezi a forgatást és a 3D döntést.
+ * Konfigurálja az asztali forgatást, 3D dőlést és pásztázást:
+ * 1. Bal egérgomb húzás (drag):
+ *    - Alapértelmezésben pásztázza (pan) a térképet.
+ *    - Húzás közben lenyomott Ctrl / Meta billentyű esetén azonnal átvált 3D forgatásra és döntésre.
+ *    - Ctrl / Meta felengedésekor húzás közben azonnal visszavált a pásztázásra (pan).
+ * 2. Jobb egérgomb húzás (right-drag):
+ *    - Pásztázza (pan) a térképet, pontot nem tesz le elengedéskor.
  */
-function configureDesktopDragRotate() {
-    if (!map || !map.dragRotate) return;
-    const isCtrlLeftClick = (e) => Boolean(e && e.button === 0 && (e.ctrlKey || e.metaKey));
+let _desktopDragState = {
+    isCtrlActive: false,
+    currentDragButton: 0
+};
 
-    if (map.dragRotate._mouseRotate && map.dragRotate._mouseRotate._moveStateManager) {
-        map.dragRotate._mouseRotate._moveStateManager._correctEvent = isCtrlLeftClick;
+function configureDesktopDragRotate() {
+    if (!map) return;
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Control' || e.key === 'Meta') {
+                _desktopDragState.isCtrlActive = true;
+            }
+        }, true);
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Control' || e.key === 'Meta') {
+                _desktopDragState.isCtrlActive = false;
+            }
+        }, true);
+
+        window.addEventListener('mousemove', (e) => {
+            _desktopDragState.isCtrlActive = Boolean(e.ctrlKey || e.metaKey);
+        }, true);
     }
-    if (map.dragRotate._mousePitch && map.dragRotate._mousePitch._moveStateManager) {
-        map.dragRotate._mousePitch._moveStateManager._correctEvent = isCtrlLeftClick;
+
+    // A különálló mouseRotate és mousePitch letiltása, hogy ne blokkolják a mousePan-t
+    if (map.dragRotate) {
+        if (map.dragRotate._mouseRotate && map.dragRotate._mouseRotate._moveStateManager) {
+            map.dragRotate._mouseRotate._moveStateManager._correctEvent = () => false;
+        }
+        if (map.dragRotate._mousePitch && map.dragRotate._mousePitch._moveStateManager) {
+            map.dragRotate._mousePitch._moveStateManager._correctEvent = () => false;
+        }
+    }
+
+    // A mousePan felkonfigurálása: bal gomb (0) és jobb gomb (2) kezelése dinamikus forgatással
+    if (map.dragPan && map.dragPan._mousePan) {
+        const mousePan = map.dragPan._mousePan;
+        if (mousePan._moveStateManager) {
+            mousePan._moveStateManager._correctEvent = (e) => {
+                if (!e) return false;
+                if (e.button === 0 || e.button === 2) {
+                    _desktopDragState.currentDragButton = e.button;
+                    _desktopDragState.isCtrlActive = Boolean(e.ctrlKey || e.metaKey);
+                    return true;
+                }
+                return false;
+            };
+        }
+
+        const originalMove = typeof mousePan._moveFunction === 'function' ? mousePan._moveFunction : null;
+
+        mousePan._moveFunction = (prevPoint, currPoint) => {
+            // Jobb egérgomb (button 2): Mindig pásztázás
+            if (_desktopDragState.currentDragButton === 2) {
+                if (currPoint && typeof currPoint.sub === 'function') {
+                    return { around: currPoint, panDelta: currPoint.sub(prevPoint) };
+                }
+                return originalMove ? originalMove(prevPoint, currPoint) : { around: currPoint, panDelta: { x: currPoint.x - prevPoint.x, y: currPoint.y - prevPoint.y } };
+            }
+
+            // Bal egérgomb (button 0):
+            // Ha Ctrl / Meta le van nyomva: 3D forgatás és döntés
+            if (_desktopDragState.isCtrlActive) {
+                const dx = (currPoint && prevPoint && currPoint.x !== undefined && prevPoint.x !== undefined) ? (currPoint.x - prevPoint.x) : 0;
+                const dy = (currPoint && prevPoint && currPoint.y !== undefined && prevPoint.y !== undefined) ? (currPoint.y - prevPoint.y) : 0;
+                return {
+                    bearingDelta: dx * 0.8,
+                    pitchDelta: dy * -0.5
+                };
+            }
+
+            // Normál bal gombos húzás: pásztázás
+            if (currPoint && typeof currPoint.sub === 'function') {
+                return { around: currPoint, panDelta: currPoint.sub(prevPoint) };
+            }
+            return originalMove ? originalMove(prevPoint, currPoint) : { around: currPoint, panDelta: { x: currPoint.x - prevPoint.x, y: currPoint.y - prevPoint.y } };
+        };
     }
 }
 configureDesktopDragRotate();
@@ -3581,10 +3656,18 @@ function _initMapEventListeners() {
         });
     });
 
+    let _rightMouseDownPos = null;
+    let _isRightDrag = false;
+
     map.on('contextmenu', (e) => {
         if (window.isMapInteractionLocked) return;
         if (e.originalEvent && typeof e.originalEvent.preventDefault === 'function') {
             e.originalEvent.preventDefault();
+        }
+        if (_isRightDrag) {
+            _isRightDrag = false;
+            _rightMouseDownPos = null;
+            return;
         }
         _lastPinDropTime = Date.now();
         handleCoordinateSelection(e.lngLat.lng, e.lngLat.lat);
@@ -3605,6 +3688,14 @@ function _initMapEventListeners() {
 
         mapCanvasEl.addEventListener('mousedown', (e) => {
             if (window.isMapInteractionLocked) return;
+
+            // Jobb egérgomb (button 2) pozíció rögzítése a drag kiszűréséhez
+            if (e.button === 2) {
+                _rightMouseDownPos = { x: e.clientX, y: e.clientY };
+                _isRightDrag = false;
+                return;
+            }
+
             // Csak sima bal egérgomb (button === 0), Ctrl/Meta (forgatás/dőlés) nélkül
             if (e.button !== 0 || e.ctrlKey || e.metaKey) {
                 if (mouseTimer) { clearTimeout(mouseTimer); mouseTimer = null; }
@@ -3630,11 +3721,28 @@ function _initMapEventListeners() {
         });
 
         window.addEventListener('mousemove', (e) => {
+            // Jobb gombos húzás ellenőrzése (> 6px -> drag, nem sima kattintás)
+            if (_rightMouseDownPos) {
+                const distRight = Math.hypot(e.clientX - _rightMouseDownPos.x, e.clientY - _rightMouseDownPos.y);
+                if (distRight > 6) {
+                    _isRightDrag = true;
+                }
+            }
+
             if (!mouseTimer) return;
             const dist = Math.hypot(e.clientX - mouseStartX, e.clientY - mouseStartY);
             if (dist > 6) {
                 clearTimeout(mouseTimer);
                 mouseTimer = null;
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Control' || e.key === 'Meta') {
+                if (mouseTimer) {
+                    clearTimeout(mouseTimer);
+                    mouseTimer = null;
+                }
             }
         });
 
@@ -3646,6 +3754,10 @@ function _initMapEventListeners() {
             if (_mouseLongPressFired) {
                 setTimeout(() => { _mouseLongPressFired = false; }, 100);
             }
+            setTimeout(() => {
+                _rightMouseDownPos = null;
+                _isRightDrag = false;
+            }, 50);
         };
 
         window.addEventListener('mouseup', cancelMouseTimer);
@@ -9276,6 +9388,7 @@ if (typeof window !== 'undefined') {
     window.setPendingCustomPin = (p) => { pendingCustomPin = p; };
     window.configureDesktopDragRotate = configureDesktopDragRotate;
     window._initMapEventListeners = _initMapEventListeners;
+    window._desktopDragState = _desktopDragState;
 }
 
 /**

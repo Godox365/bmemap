@@ -211,6 +211,17 @@ const mockDragRotate = {
     isActive: () => false
 };
 
+const mockDragPan = {
+    _mousePan: {
+        _moveStateManager: { _correctEvent: null },
+        _moveFunction: null
+    },
+    enable: () => {},
+    disable: () => {},
+    isEnabled: () => true,
+    isActive: () => false
+};
+
 const mapListeners = {};
 
 const mockMapInstance = {
@@ -221,6 +232,7 @@ const mockMapInstance = {
     easeTo: () => {},
     fitBounds: () => {},
     dragRotate: mockDragRotate,
+    dragPan: mockDragPan,
     _initOptions: null,
     _padding: { top: 0, bottom: 0, left: 0, right: 0 },
     getPadding: function() { return this._padding; },
@@ -979,20 +991,76 @@ await it('map initialization enables pitchWithRotate and sets maxPitch >= 60', (
     assert.strictEqual(context.map._initOptions.dragRotate, true, 'dragRotate must be enabled');
 });
 
-await it('configureDesktopDragRotate accepts Ctrl+Left click and rejects Right click (button 2)', () => {
-    assert(context.map.dragRotate._mouseRotate._moveStateManager._correctEvent, 'correctEvent must be defined');
-    const isCorrect = context.map.dragRotate._mouseRotate._moveStateManager._correctEvent;
+await it('configureDesktopDragRotate configures mousePan for button 0 and button 2, and disables separate mouseRotate/mousePitch', () => {
+    assert(context.map.dragPan._mousePan._moveStateManager._correctEvent, 'mousePan correctEvent must be defined');
+    const isPanCorrect = context.map.dragPan._mousePan._moveStateManager._correctEvent;
 
-    // Right click without Ctrl -> REJECT (should not rotate)
-    assert.strictEqual(isCorrect({ button: 2, ctrlKey: false }), false);
-    // Right click with Ctrl -> REJECT (should not rotate)
-    assert.strictEqual(isCorrect({ button: 2, ctrlKey: true }), false);
-    // Left click without Ctrl -> REJECT (normal pan, not rotate)
-    assert.strictEqual(isCorrect({ button: 0, ctrlKey: false }), false);
-    // Left click with Ctrl -> ACCEPT (rotate/tilt)
-    assert.strictEqual(isCorrect({ button: 0, ctrlKey: true }), true);
-    // Left click with Meta -> ACCEPT (Mac Cmd+click)
-    assert.strictEqual(isCorrect({ button: 0, metaKey: true }), true);
+    // Accepts Left click (button 0)
+    assert.strictEqual(isPanCorrect({ button: 0, ctrlKey: false }), true);
+    assert.strictEqual(isPanCorrect({ button: 0, ctrlKey: true }), true);
+    // Accepts Right click (button 2)
+    assert.strictEqual(isPanCorrect({ button: 2, ctrlKey: false }), true);
+    // Rejects middle click or other buttons
+    assert.strictEqual(isPanCorrect({ button: 1 }), false);
+
+    // Separate mouseRotate and mousePitch are disabled (returning false) so they do not block mousePan
+    const isRotateCorrect = context.map.dragRotate._mouseRotate._moveStateManager._correctEvent;
+    assert.strictEqual(isRotateCorrect({ button: 0, ctrlKey: true }), false);
+    assert.strictEqual(isRotateCorrect({ button: 2 }), false);
+});
+
+await it('_mousePan._moveFunction pans on left-drag without Ctrl, rotates/tilts on mid-drag Ctrl, and returns to pan on Ctrl release', () => {
+    const mousePan = context.map.dragPan._mousePan;
+    assert(typeof mousePan._moveFunction === 'function', 'moveFunction must be defined');
+
+    // Simulate starting left drag without Ctrl
+    mousePan._moveStateManager._correctEvent({ button: 0, ctrlKey: false });
+
+    const p1 = { x: 100, y: 100, sub: (other) => ({ x: 100 - other.x, y: 100 - other.y }) };
+    const p2 = { x: 110, y: 100, sub: (other) => ({ x: 110 - other.x, y: 100 - other.y }) };
+
+    // 1. Pan without Ctrl
+    const res1 = mousePan._moveFunction(p1, p2);
+    assert(res1.panDelta !== undefined, 'res1 must have panDelta');
+    assert.strictEqual(res1.panDelta.x, 10);
+    assert.strictEqual(res1.bearingDelta, undefined);
+
+    // 2. Mid-drag Ctrl keydown
+    global.window.dispatchEvent({ type: 'keydown', key: 'Control' });
+
+    const p3 = { x: 120, y: 90, sub: (other) => ({ x: 120 - other.x, y: 90 - other.y }) };
+    const res2 = mousePan._moveFunction(p2, p3);
+    assert(res2.bearingDelta !== undefined, 'res2 must have bearingDelta');
+    assert(res2.pitchDelta !== undefined, 'res2 must have pitchDelta');
+    assert.strictEqual(res2.panDelta, undefined);
+    // dx = 10 -> bearingDelta = 10 * 0.8 = 8
+    assert.strictEqual(res2.bearingDelta, 8);
+    // dy = -10 -> pitchDelta = -10 * -0.5 = 5
+    assert.strictEqual(res2.pitchDelta, 5);
+
+    // 3. Mid-drag Ctrl keyup -> switches back to pan seamlessly
+    global.window.dispatchEvent({ type: 'keyup', key: 'Control' });
+
+    const p4 = { x: 130, y: 90, sub: (other) => ({ x: 130 - other.x, y: 90 - other.y }) };
+    const res3 = mousePan._moveFunction(p3, p4);
+    assert(res3.panDelta !== undefined, 'res3 must switch back to panDelta');
+    assert.strictEqual(res3.bearingDelta, undefined);
+    assert.strictEqual(res3.panDelta.x, 10);
+});
+
+await it('_mousePan._moveFunction always pans on right-button drag (button 2)', () => {
+    const mousePan = context.map.dragPan._mousePan;
+    // Simulate starting right drag
+    mousePan._moveStateManager._correctEvent({ button: 2, ctrlKey: false });
+
+    const p1 = { x: 50, y: 50, sub: (other) => ({ x: 50 - other.x, y: 50 - other.y }) };
+    const p2 = { x: 70, y: 60, sub: (other) => ({ x: 70 - other.x, y: 60 - other.y }) };
+
+    const res = mousePan._moveFunction(p1, p2);
+    assert(res.panDelta !== undefined, 'Right-drag must always produce panDelta');
+    assert.strictEqual(res.bearingDelta, undefined);
+    assert.strictEqual(res.panDelta.x, 20);
+    assert.strictEqual(res.panDelta.y, 10);
 });
 
 await it('desktop mouse down for 500ms triggers custom pin drop', async () => {
@@ -1043,20 +1111,53 @@ await it('desktop Ctrl+mouse down does not trigger long-press pin drop', async (
     global.window.dispatchEvent({ type: 'mouseup' });
 });
 
-await it('desktop contextmenu (right click) continues to drop pin cleanly', () => {
+await it('desktop stationary right click (< 6px) drops pin cleanly', () => {
     context.window.clearCustomPin(true);
     assert.strictEqual(context.window.getActiveCustomPinFeature(), null);
 
+    const canvas = context.map.getCanvas();
+    // Right mousedown at (400, 300)
+    canvas.dispatchEvent({ type: 'mousedown', button: 2, clientX: 400, clientY: 300 });
+
+    // Negligible movement (2px, <= 6px)
+    global.window.dispatchEvent({ type: 'mousemove', clientX: 402, clientY: 300 });
+
+    // contextmenu event
     context.map.fire('contextmenu', {
         lngLat: { lng: 19.056789, lat: 47.481234 },
         originalEvent: { preventDefault: () => {} }
     });
 
     const pin = context.window.getActiveCustomPinFeature();
-    assert(pin !== null, 'Custom pin must be created on contextmenu event');
+    assert(pin !== null, 'Custom pin must be created on stationary right click');
     assert.strictEqual(pin._isCustomPin, true);
     assert.strictEqual(pin.geometry.coordinates[0], 19.056789);
     assert.strictEqual(pin.geometry.coordinates[1], 47.481234);
+
+    global.window.dispatchEvent({ type: 'mouseup', button: 2 });
+});
+
+await it('desktop right drag (> 6px) suppresses pin drop on contextmenu', () => {
+    context.window.clearCustomPin(true);
+    assert.strictEqual(context.window.getActiveCustomPinFeature(), null);
+
+    const canvas = context.map.getCanvas();
+    // Right mousedown at (400, 300)
+    canvas.dispatchEvent({ type: 'mousedown', button: 2, clientX: 400, clientY: 300 });
+
+    // Significant drag movement (50px > 6px)
+    global.window.dispatchEvent({ type: 'mousemove', clientX: 450, clientY: 300 });
+
+    // contextmenu event following drag
+    context.map.fire('contextmenu', {
+        lngLat: { lng: 19.056789, lat: 47.481234 },
+        originalEvent: { preventDefault: () => {} }
+    });
+
+    const pin = context.window.getActiveCustomPinFeature();
+    assert.strictEqual(pin, null, 'Custom pin must NOT be created when right-dragging');
+
+    global.window.dispatchEvent({ type: 'mouseup', button: 2 });
 });
 
 console.log('\n================================================================');
