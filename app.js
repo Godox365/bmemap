@@ -2528,12 +2528,12 @@ const map = new maplibregl.Map({
  *    - Alapértelmezésben pásztázza (pan) a térképet.
  *    - Húzás közben lenyomott Ctrl / Meta billentyű esetén azonnal átvált 3D forgatásra és döntésre.
  *    - Ctrl / Meta felengedésekor húzás közben azonnal visszavált a pásztázásra (pan).
- * 2. Jobb egérgomb húzás (right-drag):
- *    - Pásztázza (pan) a térképet, pontot nem tesz le elengedéskor.
+ * 2. Jobb egérgomb:
+ *    - Álló kattintás esetén egyéni pontot tesz le.
+ *    - Húzás esetén inaktív marad (nem mozgat, nem forgat és nem tesz le pontot).
  */
 let _desktopDragState = {
-    isCtrlActive: false,
-    currentDragButton: 0
+    isCtrlActive: false
 };
 
 function configureDesktopDragRotate() {
@@ -2567,32 +2567,16 @@ function configureDesktopDragRotate() {
         }
     }
 
-    // A mousePan felkonfigurálása: bal gomb (0) és jobb gomb (2) kezelése dinamikus forgatással
+    // A mousePan felkonfigurálása: kizárólag a bal egérgombot (0) kezeli dinamikus forgatással
     if (map.dragPan && map.dragPan._mousePan) {
         const mousePan = map.dragPan._mousePan;
         if (mousePan._moveStateManager) {
-            mousePan._moveStateManager._correctEvent = (e) => {
-                if (!e) return false;
-                if (e.button === 0 || e.button === 2) {
-                    _desktopDragState.currentDragButton = e.button;
-                    _desktopDragState.isCtrlActive = Boolean(e.ctrlKey || e.metaKey);
-                    return true;
-                }
-                return false;
-            };
+            mousePan._moveStateManager._correctEvent = (e) => Boolean(e && e.button === 0);
         }
 
         const originalMove = typeof mousePan._moveFunction === 'function' ? mousePan._moveFunction : null;
 
         mousePan._moveFunction = (prevPoint, currPoint) => {
-            // Jobb egérgomb (button 2): Mindig pásztázás
-            if (_desktopDragState.currentDragButton === 2) {
-                if (currPoint && typeof currPoint.sub === 'function') {
-                    return { around: currPoint, panDelta: currPoint.sub(prevPoint) };
-                }
-                return originalMove ? originalMove(prevPoint, currPoint) : { around: currPoint, panDelta: { x: currPoint.x - prevPoint.x, y: currPoint.y - prevPoint.y } };
-            }
-
             // Bal egérgomb (button 0):
             // Ha Ctrl / Meta le van nyomva: 3D forgatás és döntés
             if (_desktopDragState.isCtrlActive) {
@@ -3656,51 +3640,32 @@ function _initMapEventListeners() {
         });
     });
 
+    let _rightMouseDownTime = 0;
     let _rightMouseDownPos = null;
     let _isRightDrag = false;
 
-    const onContextMenuDropPin = (e) => {
+    map.on('contextmenu', (e) => {
         if (window.isMapInteractionLocked) return;
         if (e.originalEvent && typeof e.originalEvent.preventDefault === 'function') {
             e.originalEvent.preventDefault();
-        } else if (typeof e.preventDefault === 'function') {
-            e.preventDefault();
         }
-        if (_isRightDrag) {
+        const duration = _rightMouseDownTime ? (Date.now() - _rightMouseDownTime) : 0;
+        if (_isRightDrag || duration > 400) {
             _isRightDrag = false;
             _rightMouseDownPos = null;
+            _rightMouseDownTime = 0;
             return;
         }
-        _isRightDrag = false;
         _rightMouseDownPos = null;
-
-        if (Date.now() - _lastPinDropTime < 250) return;
-
-        let lngLat = e.lngLat;
-        const canvasEl = (typeof map !== 'undefined' && map.getCanvas) ? map.getCanvas() : null;
-        if (!lngLat && e.clientX !== undefined && canvasEl) {
-            const rect = canvasEl.getBoundingClientRect();
-            const pt = [e.clientX - rect.left, e.clientY - rect.top];
-            lngLat = map.unproject(pt);
-        }
-        if (lngLat && lngLat.lng !== undefined && lngLat.lat !== undefined) {
-            _lastPinDropTime = Date.now();
-            handleCoordinateSelection(lngLat.lng, lngLat.lat);
-        }
-    };
-
-    map.on('contextmenu', onContextMenuDropPin);
+        _rightMouseDownTime = 0;
+        _lastPinDropTime = Date.now();
+        handleCoordinateSelection(e.lngLat.lng, e.lngLat.lat);
+    });
 
     let _mouseLongPressFired = false;
 
     const mapCanvasEl = map.getCanvas();
     if (mapCanvasEl) {
-        mapCanvasEl.addEventListener('contextmenu', onContextMenuDropPin);
-        const containerEl = (typeof map.getCanvasContainer === 'function') ? map.getCanvasContainer() : null;
-        if (containerEl && containerEl !== mapCanvasEl) {
-            containerEl.addEventListener('contextmenu', onContextMenuDropPin);
-        }
-
         let touchTimer = null;
         let touchStartX = 0;
         let touchStartY = 0;
@@ -3713,8 +3678,9 @@ function _initMapEventListeners() {
         mapCanvasEl.addEventListener('mousedown', (e) => {
             if (window.isMapInteractionLocked) return;
 
-            // Jobb egérgomb (button 2) pozíció rögzítése a drag kiszűréséhez
+            // Jobb egérgomb (button 2) pozíció és időpont rögzítése a drag kiszűréséhez
             if (e.button === 2) {
+                _rightMouseDownTime = Date.now();
                 _rightMouseDownPos = { x: e.clientX, y: e.clientY };
                 _isRightDrag = false;
                 return;
