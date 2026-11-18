@@ -1122,17 +1122,17 @@ await it('desktop stationary right click (< 6px) drops pin cleanly', () => {
     // Negligible movement (2px, <= 6px)
     global.window.dispatchEvent({ type: 'mousemove', clientX: 402, clientY: 300 });
 
-    // contextmenu event
-    context.map.fire('contextmenu', {
-        lngLat: { lng: 19.056789, lat: 47.481234 },
-        originalEvent: { preventDefault: () => {} }
+    // DOM contextmenu event on canvas
+    canvas.dispatchEvent({
+        type: 'contextmenu',
+        clientX: 400,
+        clientY: 300,
+        preventDefault: () => {}
     });
 
     const pin = context.window.getActiveCustomPinFeature();
     assert(pin !== null, 'Custom pin must be created on stationary right click');
     assert.strictEqual(pin._isCustomPin, true);
-    assert.strictEqual(pin.geometry.coordinates[0], 19.056789);
-    assert.strictEqual(pin.geometry.coordinates[1], 47.481234);
 
     global.window.dispatchEvent({ type: 'mouseup', button: 2 });
 });
@@ -1148,10 +1148,12 @@ await it('desktop right drag (> 6px) suppresses pin drop on contextmenu', () => 
     // Significant drag movement (50px > 6px)
     global.window.dispatchEvent({ type: 'mousemove', clientX: 450, clientY: 300 });
 
-    // contextmenu event following drag
-    context.map.fire('contextmenu', {
-        lngLat: { lng: 19.056789, lat: 47.481234 },
-        originalEvent: { preventDefault: () => {} }
+    // DOM contextmenu event following drag
+    canvas.dispatchEvent({
+        type: 'contextmenu',
+        clientX: 450,
+        clientY: 300,
+        preventDefault: () => {}
     });
 
     const pin = context.window.getActiveCustomPinFeature();

@@ -3659,24 +3659,48 @@ function _initMapEventListeners() {
     let _rightMouseDownPos = null;
     let _isRightDrag = false;
 
-    map.on('contextmenu', (e) => {
+    const onContextMenuDropPin = (e) => {
         if (window.isMapInteractionLocked) return;
         if (e.originalEvent && typeof e.originalEvent.preventDefault === 'function') {
             e.originalEvent.preventDefault();
+        } else if (typeof e.preventDefault === 'function') {
+            e.preventDefault();
         }
         if (_isRightDrag) {
             _isRightDrag = false;
             _rightMouseDownPos = null;
             return;
         }
-        _lastPinDropTime = Date.now();
-        handleCoordinateSelection(e.lngLat.lng, e.lngLat.lat);
-    });
+        _isRightDrag = false;
+        _rightMouseDownPos = null;
+
+        if (Date.now() - _lastPinDropTime < 250) return;
+
+        let lngLat = e.lngLat;
+        const canvasEl = (typeof map !== 'undefined' && map.getCanvas) ? map.getCanvas() : null;
+        if (!lngLat && e.clientX !== undefined && canvasEl) {
+            const rect = canvasEl.getBoundingClientRect();
+            const pt = [e.clientX - rect.left, e.clientY - rect.top];
+            lngLat = map.unproject(pt);
+        }
+        if (lngLat && lngLat.lng !== undefined && lngLat.lat !== undefined) {
+            _lastPinDropTime = Date.now();
+            handleCoordinateSelection(lngLat.lng, lngLat.lat);
+        }
+    };
+
+    map.on('contextmenu', onContextMenuDropPin);
 
     let _mouseLongPressFired = false;
 
     const mapCanvasEl = map.getCanvas();
     if (mapCanvasEl) {
+        mapCanvasEl.addEventListener('contextmenu', onContextMenuDropPin);
+        const containerEl = (typeof map.getCanvasContainer === 'function') ? map.getCanvasContainer() : null;
+        if (containerEl && containerEl !== mapCanvasEl) {
+            containerEl.addEventListener('contextmenu', onContextMenuDropPin);
+        }
+
         let touchTimer = null;
         let touchStartX = 0;
         let touchStartY = 0;
@@ -3757,7 +3781,7 @@ function _initMapEventListeners() {
             setTimeout(() => {
                 _rightMouseDownPos = null;
                 _isRightDrag = false;
-            }, 50);
+            }, 300);
         };
 
         window.addEventListener('mouseup', cancelMouseTimer);
